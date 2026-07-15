@@ -79,7 +79,10 @@
       "value": null,
       "confidence": 0.0,
       "version": "potential-1",
-      "evidence_ids": []
+      "evidence_ids": [],
+      "forecast_horizon": "P1Y",
+      "assumptions": [],
+      "major_counter_signals": []
     },
     "person_performance": {
       "status": "complete",

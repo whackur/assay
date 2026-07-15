@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.assay.dev/project-evidence/v1.json",
   "title": "Assay Project Evidence v1",
-  "description": "A citable, content-bounded project fact. It contains no raw diff, credential, absolute host path, private source text, or person-level score.",
+  "description": "A citable, content-bounded project fact or explicit availability envelope. It contains no raw diff, credential, absolute host path, private source text, or person-level score.",
   "$ref": "#/$defs/projectEvidence",
   "$defs": {
     "schemaVersion": {
@@ -21,7 +21,7 @@
     },
     "revision": {
       "type": "string",
-      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+      "pattern": "^(?!(?:0{40}|0{64})$)(?:[0-9a-f]{40}|[0-9a-f]{64})$"
     },
     "timestamp": {
       "type": "string",
@@ -148,7 +148,7 @@
         "remote_record_id": {
           "type": ["string", "null"],
           "maxLength": 200,
-          "pattern": "^[A-Za-z0-9._:/-]+$"
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9._:/-]+$"
         }
       }
     },
@@ -384,6 +384,18 @@
         { "$ref": "#/$defs/claimCorrespondencePayload" }
       ]
     },
+    "requestedKind": {
+      "type": "string",
+      "enum": [
+        "repository_snapshot",
+        "file",
+        "repository_feature",
+        "history_scope",
+        "reported_ci",
+        "deterministic_finding",
+        "claim_correspondence"
+      ]
+    },
     "projectEvidence": {
       "type": "object",
       "additionalProperties": false,
@@ -393,9 +405,7 @@
         "id",
         "status",
         "grade",
-        "privacy",
-        "provenance",
-        "payload"
+        "privacy"
       ],
       "properties": {
         "schema_version": { "$ref": "#/$defs/schemaVersion" },
@@ -408,7 +418,9 @@
         },
         "privacy": { "$ref": "#/$defs/privacy" },
         "provenance": { "$ref": "#/$defs/provenance" },
-        "payload": { "$ref": "#/$defs/payload" }
+        "payload": { "$ref": "#/$defs/payload" },
+        "requested_kind": { "$ref": "#/$defs/requestedKind" },
+        "reason": { "$ref": "#/$defs/machineCode" }
       },
       "allOf": [
         {
@@ -419,23 +431,9 @@
             "required": ["status"]
           },
           "then": {
+            "required": ["provenance", "payload"],
             "properties": {
-              "grade": { "enum": ["a", "b", "c", "d"] }
-            }
-          },
-          "else": {
-            "properties": { "grade": { "type": "null" } }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "status": { "enum": ["complete", "partial"] }
-            },
-            "required": ["status"]
-          },
-          "then": {
-            "properties": {
+              "grade": { "enum": ["a", "b", "c", "d"] },
               "provenance": {
                 "anyOf": [
                   {
@@ -456,6 +454,24 @@
                   }
                 ]
               }
+            },
+            "not": {
+              "anyOf": [
+                { "required": ["requested_kind"] },
+                { "required": ["reason"] }
+              ]
+            }
+          },
+          "else": {
+            "required": ["requested_kind", "reason"],
+            "properties": {
+              "grade": { "type": "null" }
+            },
+            "not": {
+              "anyOf": [
+                { "required": ["provenance"] },
+                { "required": ["payload"] }
+              ]
             }
           }
         }

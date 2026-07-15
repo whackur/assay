@@ -11,6 +11,9 @@
     "tool",
     "source_snapshot",
     "rule_set_hash",
+    "config_hash",
+    "analyzers",
+    "parsers",
     "status",
     "generated_at",
     "scope",
@@ -25,6 +28,20 @@
     "tool": { "$ref": "#/$defs/tool" },
     "source_snapshot": { "$ref": "#/$defs/sourceSnapshot" },
     "rule_set_hash": { "$ref": "#/$defs/sha256" },
+    "config_hash": { "$ref": "#/$defs/sha256" },
+    "analyzers": {
+      "type": "array",
+      "description": "Analyzer components sorted lexicographically by name and version.",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/component" }
+    },
+    "parsers": {
+      "type": "array",
+      "description": "Parser components sorted lexicographically by name and version; empty when no parser was used.",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/component" }
+    },
     "status": { "$ref": "#/$defs/status" },
     "generated_at": { "$ref": "#/$defs/timestamp" },
     "scope": { "$ref": "#/$defs/scope" },
@@ -101,7 +118,7 @@
     },
     "revision": {
       "type": "string",
-      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+      "pattern": "^(?!(?:0{40}|0{64})$)(?:[0-9a-f]{40}|[0-9a-f]{64})$"
     },
     "timestamp": {
       "type": "string",
@@ -129,6 +146,15 @@
           "type": "string",
           "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
         }
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "$ref": "#/$defs/versionIdentifier" },
+        "version": { "$ref": "#/$defs/versionIdentifier" }
       }
     },
     "repositorySource": {
@@ -263,7 +289,7 @@
         "remote_record_id": {
           "type": ["string", "null"],
           "maxLength": 200,
-          "pattern": "^[A-Za-z0-9._:/-]+$"
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9._:/-]+$"
         },
         "collected_at": { "$ref": "#/$defs/timestamp" },
         "visibility": {

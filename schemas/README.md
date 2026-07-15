@@ -9,8 +9,8 @@ remain independent and do not generate a second public schema.
 
 | Contract | v1 status | Purpose |
 | --- | --- | --- |
-| `analysis-manifest` | Complete | Immutable source, run status, provenance, scope, and artifact manifest |
-| `project-evidence` | Complete | Citable, privacy-bounded project facts without raw source or person scores |
+| `analysis-manifest` | Complete | Immutable source, effective-config hash, component versions, status, scope, and artifacts |
+| `project-evidence` | Complete | Citable facts or explicit availability envelopes without raw source or person scores |
 | `ai-judgment` | Reviewable skeleton | Bounded rubric ratings with required evidence citations |
 | `project-evaluation` | Reviewable skeleton | Dimensioned project-score envelope compiled from cited evidence |
 
@@ -33,6 +33,27 @@ version. Older validators are not promised forward compatibility with newly
 documented optional fields; clients must negotiate `schema_version` and use a
 matching bundled schema.
 
+The required provenance corrections recorded in ADR 0001 were made during
+pre-release review, before any v1 contract was published. Once v1 is released,
+the compatibility rules above apply without that exception.
+
+## Status and provenance boundaries
+
+An analysis manifest records the effective configuration hash and every
+analyzer and parser component used. Component arrays are unique and producers
+sort them lexicographically by `(name, version)` for deterministic output. The
+parser array is present and empty when no parser was used.
+
+`complete` and `partial` project evidence carries a factual payload, evidence
+grade, and immutable provenance. `unavailable`, `unsupported`, `insufficient`,
+and `pending` evidence carries no factual payload or provenance: it names only
+the requested payload kind and a machine-readable reason within the common
+repository, identity, status, and privacy envelope.
+
+Potential uses a contract distinct from Assay Score. It declares an ISO-8601
+forecast duration plus cited assumptions and major counter-signals. Potential
+is never folded into the current project score.
+
 ## Validation and references
 
 Schemas use only internal `#/$defs/...` references. Their HTTPS `$id` values
@@ -40,7 +61,14 @@ are stable identifiers, not network dependencies. Contract tests compile each
 schema after validating it against the Draft 2020-12 meta-schema, validate
 every reviewed golden, and reject missing fields, unknown fields, unsupported
 major versions, unknown statuses, uncited AI judgments, absolute source paths,
-and person-level scores.
+and person-level scores. Format assertions are mandatory: validators enable
+Draft 2020-12 format validation so a string that merely resembles RFC 3339 or
+ISO-8601 syntax cannot bypass semantic validation.
+
+Tests discover all `schemas/*/v1.json`, matching goldens, and invalid fixtures;
+reject duplicate JSON object keys; resolve every internal JSON Pointer
+directly; and fail on an orphan fixture, dangling reference, or external
+reference. Git null object IDs and path-like remote record IDs are invalid.
 
 Run the validator with:
 

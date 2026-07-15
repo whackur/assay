@@ -81,7 +81,20 @@
       "value": null,
       "confidence": 0.0,
       "version": "potential-1",
-      "evidence_ids": []
+      "evidence_ids": [],
+      "forecast_horizon": "P1Y",
+      "assumptions": [
+        {
+          "text": "Future potential depends on evidence of continued project iteration.",
+          "evidence_ids": ["evidence:repository:snapshot"]
+        }
+      ],
+      "major_counter_signals": [
+        {
+          "text": "The current evidence is insufficient for a numeric forecast.",
+          "evidence_ids": ["evidence:repository:snapshot"]
+        }
+      ]
     }
   },
   "evidence_ids": ["evidence:repository:snapshot"],

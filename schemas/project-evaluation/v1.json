@@ -73,7 +73,7 @@
     },
     "revision": {
       "type": "string",
-      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+      "pattern": "^(?!(?:0{40}|0{64})$)(?:[0-9a-f]{40}|[0-9a-f]{64})$"
     },
     "evidenceId": {
       "type": "string",
@@ -300,6 +300,72 @@
         }
       ]
     },
+    "potential": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A separate future-potential forecast that is never included in assay_score.",
+      "required": [
+        "status",
+        "value",
+        "confidence",
+        "version",
+        "evidence_ids",
+        "forecast_horizon",
+        "assumptions",
+        "major_counter_signals"
+      ],
+      "properties": {
+        "status": { "$ref": "#/$defs/status" },
+        "value": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "version": { "$ref": "#/$defs/versionIdentifier" },
+        "evidence_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/evidenceId" }
+        },
+        "forecast_horizon": {
+          "type": "string",
+          "format": "duration",
+          "description": "A portable ISO-8601 duration selected by the evaluation policy."
+        },
+        "assumptions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/citedStatement" }
+        },
+        "major_counter_signals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/citedStatement" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": { "enum": ["complete", "partial"] }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "value": { "type": "number", "minimum": 0, "maximum": 100 },
+              "evidence_ids": { "minItems": 1 }
+            }
+          },
+          "else": {
+            "properties": { "value": { "type": "null" } }
+          }
+        }
+      ]
+    },
     "scores": {
       "type": "object",
       "additionalProperties": false,
@@ -319,12 +385,7 @@
         "engineering_rigor": { "$ref": "#/$defs/score" },
         "open_source_readiness": { "$ref": "#/$defs/score" },
         "maintenance_health": { "$ref": "#/$defs/score" },
-        "potential": {
-          "allOf": [
-            { "$ref": "#/$defs/score" }
-          ],
-          "description": "A separate future-potential indicator that is never included in assay_score."
-        }
+        "potential": { "$ref": "#/$defs/potential" }
       }
     },
     "citedStatement": {

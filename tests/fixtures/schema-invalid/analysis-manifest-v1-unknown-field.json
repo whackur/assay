@@ -12,6 +12,14 @@
     "commit_time": "2026-01-02T03:04:05Z"
   },
   "rule_set_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "config_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+  "analyzers": [
+    {
+      "name": "assay-project-intelligence",
+      "version": "0.1.0"
+    }
+  ],
+  "parsers": [],
   "status": "complete",
   "generated_at": "2026-01-02T03:04:06Z",
   "scope": {

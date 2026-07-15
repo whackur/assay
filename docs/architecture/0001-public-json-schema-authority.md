@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-07-16
+- Pre-release review amendment: 2026-07-16
 
 ## Context
 
@@ -31,6 +32,17 @@ foundation evidence slice. `ai-judgment/v1.json` and
 `project-evaluation/v1.json` are reviewable contract skeletons: they establish
 citations, statuses, confidence, deterministic compilation, and the separation
 of project dimensions and Potential without freezing unsettled scoring policy.
+
+Before the first public release, contract review added required effective
+configuration and analyzer/parser provenance to analysis manifests. It also
+separated unavailable evidence from factual evidence and gave Potential its
+own forecast contract with cited assumptions and counter-signals. These are
+recorded pre-release corrections, not a silent change to a released v1
+meaning.
+
+Contract validation enables Draft 2020-12 format assertions, rejects duplicate
+JSON keys, and resolves every internal reference directly. Remote identifiers
+are portable non-path values, and revision fields reject Git null object IDs.
 
 ## Alternatives considered
 
@@ -63,3 +75,7 @@ objects and explicit version negotiation.
 - Breaking meaning, required-field, unit, or enum changes require a new major
   schema and migration note.
 - The schemas cannot depend on runtime services or network resolution.
+- Complete and partial evidence cannot be confused with availability-only
+  states or fabricated zero values.
+- Deterministic manifests expose the effective config and exact analysis
+  component versions without coupling the public schema to Rust type versions.

@@ -10,4 +10,5 @@ assay-project-intelligence = { path = "../assay-project-intelligence" }
 
 [dev-dependencies]
 jsonschema = { version = "0.33", default-features = false }
+serde = "1.0"
 serde_json = "1.0"
