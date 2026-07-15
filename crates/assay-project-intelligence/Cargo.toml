@@ -9,3 +9,8 @@ publish.workspace = true
 assay-classifier = { path = "../assay-classifier" }
 assay-domain = { path = "../assay-domain" }
 assay-git = { path = "../assay-git" }
+sha2 = "0.10"
+
+[dev-dependencies]
+assay-test-fixtures = { path = "../../tests/support/assay-fixtures" }
+tempfile = "3.20"
