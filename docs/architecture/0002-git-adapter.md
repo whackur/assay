@@ -11,6 +11,12 @@ and detect renames without executing repository code. The adapter must retain
 path bytes that are not valid UTF-8, avoid source text in diagnostics, and
 remain replaceable as distribution requirements evolve.
 
+A local path is not sufficient to make Git object access offline. In a
+partial clone, a missing promised object can cause Git to launch a fetch from
+a promisor remote, consult credential or transport configuration, and add the
+fetched object to the local object store. Assay's read-only, no-network policy
+therefore requires an explicit lazy-fetch prohibition on every Git child.
+
 The foundation milestone considered three implementations:
 
 - the installed Git CLI;
@@ -88,6 +94,10 @@ synthetic bytes `export const rawPath = true;` followed by LF.
 The invalid path was compared as bytes; its complete hex encoding was
 `7261772f696e76616c69642dff2e7473`.
 
+The spike did not construct a partial clone, a promisor remote, or a missing
+promised object. Those cases are outside the measured correctness and latency
+results and are a required security regression for GIT-001.
+
 ### Comparable operation bundle
 
 Each adapter performed one complete scan per sample:
@@ -159,7 +169,9 @@ raw path 7261772f696e76616c69642dff2e7473:
 
 The result demonstrates the tested cases only. It does not establish complete
 behavioral equivalence across every revision expression, object format,
-partial clone, replace reference, merge, or corrupted repository.
+partial clone, replace reference, merge, or corrupted repository. In
+particular, it did not verify missing-promisor-object behavior or prove that a
+candidate suppressed Git's documented automatic lazy fetch.
 
 ### Warm adapter latency
 
@@ -184,7 +196,7 @@ acceptable for the first deterministic slice and can later be reduced with
 
 | Candidate | Initial cost | Relevant consequence |
 | --- | --- | --- |
-| Git CLI | No new Cargo dependency | Requires a compatible, patched Git executable on the host and records its version in provenance. Git is GPL-2.0; bundling it would require a separate distribution review. |
+| Git CLI | No new Cargo dependency | Requires Git 2.47 or an independently capability-probed equivalent on the host and records its version in provenance. Git is GPL-2.0; bundling it would require a separate distribution review. |
 | `gix` | 114 unique normal packages in the tested reduced feature graph | Pure Rust and no external Git process, but the current feature and API surface is large for the foundation slice. The documented isolated-open and trust model are valuable for a future embedded adapter. |
 | `git2` | 6 unique normal packages in the tested local-only graph | Builds or links `libgit2` and zlib through native FFI. Cross-compilation and native vulnerability updates become Assay release concerns. Network features would add further native TLS and SSH choices. |
 
@@ -209,6 +221,9 @@ and therefore require input size, time, recursion, and output limits.
 - A CLI child process provides a failure boundary around Git parsing, but Git
   configuration, environment variables, external diff or text conversion,
   pathspecs, revision options, and executable selection must be constrained.
+  Partial-clone object lookup must also disable lazy fetch before Git reads any
+  object; otherwise a nominally local scan can invoke a remote, a credential
+  helper, and object-store writes.
 - `gix` avoids the shell and uses Rust for its parser. Its documented trust
   model and isolated open options reduce configuration exposure, but parsing
   still occurs inside the Assay process.
@@ -251,34 +266,50 @@ The implementation of GIT-001 must enforce all of the following:
    to `^{commit}`. Use full commit and tree IDs after resolution.
 4. Use byte-oriented, NUL-delimited plumbing output such as `ls-tree -rz` and
    `diff-tree --raw -z`. Never require repository paths to be UTF-8.
-5. Disable external diff and text conversion. Do not check out submodules,
+5. Set `GIT_NO_LAZY_FETCH=1` on every child before it can read an object. For
+   the supported Git 2.47 baseline, also require the documented global
+   `--no-lazy-fetch` capability or a capability-probed equivalent with the
+   same fail-closed behavior. Never silently omit this control for an older or
+   vendor-modified Git. A missing promised object must terminate within the
+   normal bounds as an explicit partial or unavailable fact; it must never
+   contact a promisor remote, invoke a credential helper, or mutate the object
+   store.
+6. Disable external diff and text conversion. Do not check out submodules,
    run hooks, apply working-tree filters, invoke credential helpers, or make
    network requests.
-6. Disable replacement objects and optional locks for immutable analysis.
+7. Disable replacement objects and optional locks for immutable analysis.
    Make rename thresholds and limits explicit instead of inheriting them from
    repository configuration.
-7. Start from a minimal environment. Remove Git repository redirection,
+8. Start from a minimal environment. Remove Git repository redirection,
    object-directory, index, work-tree, config-injection, pager, prompt, and
    tracing variables. Disable system and global configuration and override
    every repository-local setting that can affect the selected read-only
    operations.
-8. Bound child lifetime, stdout, stderr, object size, record count, history
+9. Bound child lifetime, stdout, stderr, object size, record count, history
    depth, and rename candidate work. A limit produces an explicit partial or
    unavailable fact rather than a fabricated empty result.
-9. Parse only documented machine formats and exit status. Do not expose raw
+10. Parse only documented machine formats and exit status. Do not expose raw
    stderr, source bytes, raw diffs, credential values, or machine-specific
    absolute paths in errors.
-10. Probe required Git capabilities, record the exact Git version in analyzer
-    provenance, and return a stable unavailable error if Git is absent or
-    incompatible.
-11. Keep source-content access read-only and object-based, preferably through
+11. Probe the global `--no-lazy-fetch` control and every other required Git
+    capability before accepting an executable, record the exact Git version
+    in analyzer provenance, and return a stable unavailable error if Git is
+    absent or incompatible. The supported baseline is Git 2.47; lowering it
+    requires an explicit, tested equivalent for suppressing lazy fetch.
+12. Keep source-content access read-only and object-based, preferably through
     a bounded `cat-file --batch` process. Never read a tracked executable in a
     way that launches it.
 
 The production adapter must test hostile environment variables, a revision
 beginning with `-`, spaces, Unicode, invalid UTF-8 path bytes on Unix, symlinks,
 submodules, binary blobs, malformed output, timeouts, oversized output, missing
-Git, and a non-zero child exit.
+Git, and a non-zero child exit. It must also create a local synthetic partial
+clone or promisor repository with a missing promised object and prove that:
+
+- no network transport, promisor remote, or credential helper is invoked;
+- the object store is unchanged before and after the attempted read; and
+- the adapter terminates within its bounds with an explicit partial or
+  unavailable fact.
 
 ## Alternatives considered
 
@@ -313,8 +344,8 @@ create an unacceptable correctness and security burden. It is rejected.
 
 ## Consequences
 
-- Local analysis requires a compatible Git executable and must report its
-  absence explicitly.
+- Local analysis requires Git 2.47 or a capability-probed equivalent and must
+  report an absent or incompatible executable explicitly.
 - Analyzer provenance includes the Git version and adapter identifier.
 - Assay owns a small, security-sensitive byte protocol parser and process
   runner in `assay-git`.
@@ -341,6 +372,12 @@ where the publisher provides them.
 
 - Git 2.47.3 revision verification and `--end-of-options`:
   <https://git-scm.com/docs/git-rev-parse/2.47.3/>
+- Git 2.47.3 global `--no-lazy-fetch` option and `GIT_NO_LAZY_FETCH`
+  environment variable:
+  <https://git-scm.com/docs/git/2.47.3/>
+- Git partial-clone missing-object handling, dynamic promisor fetch, and
+  object-store backfill behavior as documented for 2.47.3:
+  <https://git-scm.com/docs/partial-clone/2.47.3/>
 - Git 2.47.3 tree enumeration and verbatim NUL-delimited paths:
   <https://git-scm.com/docs/git-ls-tree/2.47.3/>
 - Git 2.47.3 raw diff, rename detection, and `-z` behavior:
