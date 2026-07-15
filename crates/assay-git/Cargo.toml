@@ -7,6 +7,8 @@ publish.workspace = true
 
 [dependencies]
 assay-domain = { path = "../assay-domain" }
+sha2 = "0.10"
 
 [dev-dependencies]
 assay-test-fixtures = { path = "../../tests/support/assay-fixtures" }
+tempfile = "3.20"
