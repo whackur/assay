@@ -404,6 +404,16 @@ impl PolicyVersion {
                 "expected a canonical lowercase identity",
             ));
         }
+        let mut previous_was_separator = false;
+        for byte in bytes {
+            let is_separator = matches!(byte, b'.' | b'_' | b'-');
+            if is_separator && previous_was_separator {
+                return Err(ClassificationError::policy_version(
+                    "adjacent separators are not allowed",
+                ));
+            }
+            previous_was_separator = is_separator;
+        }
         let version = value.rsplit('-').next().unwrap_or_default();
         let digits = version.strip_prefix('v').unwrap_or(version);
         if digits.is_empty()
@@ -472,15 +482,6 @@ pub struct ClassificationEvidence {
 }
 
 impl ClassificationEvidence {
-    fn built_in(rule_id: RuleId) -> Self {
-        Self {
-            kind: ClassificationEvidenceKind::PolicyRule,
-            rule_id,
-            attribute_name: None,
-            attribute_value: None,
-        }
-    }
-
     /// Creates non-sensitive evidence for an external versioned policy rule.
     pub fn policy_rule(rule_id: RuleId) -> Self {
         Self {
@@ -703,16 +704,78 @@ pub trait ClassificationPolicy {
 ///
 /// This is the enforced entry point for external policies: implementations
 /// return only a [`ClassificationDecision`], while this function preserves the
-/// policy identity and input availability in [`FileClassification`].
+/// policy identity, canonical Linguist facts, and input availability in
+/// [`FileClassification`]. Canonical evidence and tags are deduplicated in a
+/// stable order.
 pub fn classify_with_policy(
     policy: &(impl ClassificationPolicy + ?Sized),
     input: &FileClassificationInput,
 ) -> FileClassification {
+    let decision = attach_input_provenance(policy.evaluate(input), input.attributes());
     FileClassification::from_decision(
         policy.policy_version(),
-        policy.evaluate(input),
+        decision,
         input.attributes().availability(),
     )
+}
+
+fn attach_input_provenance(
+    mut decision: ClassificationDecision,
+    attributes: LinguistAttributeFacts,
+) -> ClassificationDecision {
+    let mut tags = decision.tags.into_iter().collect::<BTreeSet<_>>();
+    let mut evidence = decision.evidence;
+    match attributes.availability() {
+        AttributeAvailability::Available => {
+            if let Some(value) = attributes.generated() {
+                push_unique_evidence(
+                    &mut evidence,
+                    ClassificationEvidence::attribute(
+                        RuleId::built_in("classifier.v1.attribute.generated"),
+                        "linguist-generated",
+                        value,
+                    ),
+                );
+                if value {
+                    tags.insert(ClassificationTag::LinguistGenerated);
+                }
+            }
+            if let Some(value) = attributes.vendored() {
+                push_unique_evidence(
+                    &mut evidence,
+                    ClassificationEvidence::attribute(
+                        RuleId::built_in("classifier.v1.attribute.vendored"),
+                        "linguist-vendored",
+                        value,
+                    ),
+                );
+                if value {
+                    tags.insert(ClassificationTag::LinguistVendored);
+                }
+            }
+        }
+        AttributeAvailability::Unavailable => {
+            tags.insert(ClassificationTag::AttributesUnavailable);
+            push_unique_evidence(&mut evidence, ClassificationEvidence::unavailable());
+        }
+    }
+    if !evidence
+        .iter()
+        .any(|item| item.rule_id() == &decision.rule_id)
+    {
+        evidence.push(ClassificationEvidence::policy_rule(
+            decision.rule_id.clone(),
+        ));
+    }
+    decision.tags = tags.into_iter().collect();
+    decision.evidence = evidence;
+    decision
+}
+
+fn push_unique_evidence(evidence: &mut Vec<ClassificationEvidence>, item: ClassificationEvidence) {
+    if !evidence.contains(&item) {
+        evidence.push(item);
+    }
 }
 
 /// Built-in Assay file classification policy.
@@ -752,36 +815,14 @@ impl ClassificationPolicy for BuiltInPolicy {
 fn evaluate_v1(input: &FileClassificationInput) -> ClassificationDecision {
     let attributes = input.attributes();
     let mut tags = BTreeSet::new();
-    let mut evidence = Vec::new();
 
-    match attributes.availability() {
-        AttributeAvailability::Available => {
-            if let Some(value) = attributes.generated() {
-                evidence.push(ClassificationEvidence::attribute(
-                    RuleId::built_in("classifier.v1.attribute.generated"),
-                    "linguist-generated",
-                    value,
-                ));
-                if value {
-                    tags.insert(ClassificationTag::LinguistGenerated);
-                }
-            }
-            if let Some(value) = attributes.vendored() {
-                evidence.push(ClassificationEvidence::attribute(
-                    RuleId::built_in("classifier.v1.attribute.vendored"),
-                    "linguist-vendored",
-                    value,
-                ));
-                if value {
-                    tags.insert(ClassificationTag::LinguistVendored);
-                }
-            }
-        }
-        AttributeAvailability::Unavailable => {
-            tags.insert(ClassificationTag::AttributesUnavailable);
-            evidence.push(ClassificationEvidence::unavailable());
-        }
-    }
+    let generated_rules_enabled = attributes.generated() != Some(false);
+    let vendored_rules_enabled = attributes.vendored() != Some(false);
+    let path_decision = classify_path_v1(
+        input.path(),
+        generated_rules_enabled,
+        vendored_rules_enabled,
+    );
 
     // When both attributes are true, generated is the deterministic primary
     // category and vendored remains visible as a secondary tag and evidence.
@@ -798,37 +839,25 @@ fn evaluate_v1(input: &FileClassificationInput) -> ClassificationDecision {
             Confidence::CERTAIN,
         )
     } else {
-        let generated_rules_enabled = attributes.generated() != Some(false);
-        let vendored_rules_enabled = attributes.vendored() != Some(false);
-        let decision = classify_path_v1(
-            input.path(),
-            generated_rules_enabled,
-            vendored_rules_enabled,
-        );
-        if attributes.generated() == Some(false)
-            && classify_path_v1(input.path(), true, vendored_rules_enabled).category
-                == ClassificationCategory::Generated
-            && decision.category != ClassificationCategory::Generated
-        {
-            tags.insert(ClassificationTag::GeneratedSuppressed);
-        }
-        if attributes.vendored() == Some(false)
-            && classify_path_v1(input.path(), generated_rules_enabled, true).category
-                == ClassificationCategory::Vendored
-            && decision.category != ClassificationCategory::Vendored
-        {
-            tags.insert(ClassificationTag::VendoredSuppressed);
-        }
-        decision
+        path_decision.clone()
     };
 
-    tags.extend(decision.tags);
-    if !evidence
-        .iter()
-        .any(|item| item.rule_id() == &decision.rule_id)
+    if attributes.generated() == Some(false)
+        && classify_path_v1(input.path(), true, vendored_rules_enabled).category
+            == ClassificationCategory::Generated
+        && path_decision.category != ClassificationCategory::Generated
     {
-        evidence.push(ClassificationEvidence::built_in(decision.rule_id.clone()));
+        tags.insert(ClassificationTag::GeneratedSuppressed);
     }
+    if attributes.vendored() == Some(false)
+        && classify_path_v1(input.path(), generated_rules_enabled, true).category
+            == ClassificationCategory::Vendored
+        && path_decision.category != ClassificationCategory::Vendored
+    {
+        tags.insert(ClassificationTag::VendoredSuppressed);
+    }
+
+    tags.extend(decision.tags);
     let confidence = if matches!(
         attributes.availability(),
         AttributeAvailability::Unavailable
@@ -843,7 +872,7 @@ fn evaluate_v1(input: &FileClassificationInput) -> ClassificationDecision {
         tags: tags.into_iter().collect(),
         rule_id: decision.rule_id,
         confidence,
-        evidence,
+        evidence: Vec::new(),
     }
 }
 
