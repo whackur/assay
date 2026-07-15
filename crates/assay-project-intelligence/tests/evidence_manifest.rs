@@ -15,9 +15,9 @@ use assay_git::{
     CollectionLimits, GitCliAdapter, RepositorySnapshot, RepositorySnapshotPort, SnapshotRequest,
 };
 use assay_project_intelligence::{
-    ClassificationAvailabilityReason, ClassifiedSnapshotFile, EvidenceAssemblyErrorKind,
-    PortablePathEncoding, RawEvidenceIssue, RawEvidenceKind, RawEvidencePayload,
-    assemble_project_evidence,
+    ClassificationAvailabilityReason, ClassificationEvidenceRecord, ClassifiedSnapshotFile,
+    EvidenceAssemblyErrorKind, HistoryScopeEvidence, ParentDeltaEvidence, PortablePathEncoding,
+    RawEvidenceIssue, RawEvidenceKind, TrackedFileEvidence, assemble_project_evidence,
 };
 use assay_test_fixtures::{RepositoryFixture, RepositoryScenario};
 
@@ -296,6 +296,151 @@ fn mixed_present_policy_versions_fail_closed_but_missing_records_do_not_invent_a
     }));
 }
 
+#[cfg(unix)]
+#[test]
+fn unsupported_classifications_participate_in_single_policy_enforcement_and_identity() {
+    let snapshot = edge_snapshot();
+    let normal = snapshot
+        .entries()
+        .iter()
+        .find(|entry| std::str::from_utf8(entry.path().as_bytes()).is_ok())
+        .unwrap();
+    let unsupported = snapshot
+        .entries()
+        .iter()
+        .filter(|entry| std::str::from_utf8(entry.path().as_bytes()).is_err())
+        .collect::<Vec<_>>();
+    assert_eq!(unsupported.len(), 2);
+
+    let classify = |entry, version| {
+        ClassifiedSnapshotFile::classify(
+            &snapshot,
+            entry,
+            LinguistAttributeFacts::available(None, None),
+            &NamedPolicy(version),
+        )
+        .unwrap()
+    };
+
+    for facts in [
+        vec![
+            classify(normal, "test-policy-1"),
+            classify(unsupported[0], "test-policy-2"),
+        ],
+        vec![
+            classify(unsupported[0], "test-policy-2"),
+            classify(normal, "test-policy-1"),
+        ],
+        vec![
+            classify(unsupported[0], "test-policy-1"),
+            classify(unsupported[1], "test-policy-2"),
+        ],
+        vec![
+            classify(unsupported[1], "test-policy-2"),
+            classify(unsupported[0], "test-policy-1"),
+        ],
+    ] {
+        assert_eq!(
+            assemble_project_evidence(&snapshot, facts)
+                .unwrap_err()
+                .kind(),
+            EvidenceAssemblyErrorKind::MixedClassificationPolicy
+        );
+    }
+
+    let same_policy = assemble_project_evidence(
+        &snapshot,
+        unsupported
+            .iter()
+            .map(|entry| classify(entry, "test-policy-1")),
+    )
+    .unwrap();
+    let unsupported_records = same_policy
+        .classification_facts()
+        .iter()
+        .filter(|fact| fact.reason() == Some(ClassificationAvailabilityReason::NonPortablePath))
+        .collect::<Vec<_>>();
+    assert_eq!(unsupported_records.len(), 2);
+    assert!(unsupported_records.iter().all(|fact| {
+        fact.status() == EvidenceStatus::Unsupported
+            && fact.policy_version() == Some("test-policy-1")
+    }));
+    assert_eq!(
+        same_policy.classification_policy_version(),
+        Some("test-policy-1")
+    );
+
+    let one_policy = |version| {
+        assemble_project_evidence(&snapshot, [classify(unsupported[0], version)]).unwrap()
+    };
+    let first = one_policy("test-policy-1");
+    let second = one_policy("test-policy-2");
+    let unsupported_id = |manifest: &assay_project_intelligence::ProjectEvidenceManifest| {
+        manifest
+            .classification_facts()
+            .iter()
+            .find(|fact| {
+                fact.reason() == Some(ClassificationAvailabilityReason::NonPortablePath)
+                    && fact.policy_version().is_some()
+            })
+            .unwrap()
+            .id()
+            .clone()
+    };
+    assert_ne!(unsupported_id(&first), unsupported_id(&second));
+}
+
+#[test]
+fn downstream_can_name_public_records_and_read_safe_payload_views() {
+    fn classification(record: &ClassificationEvidenceRecord) -> Option<&str> {
+        record.policy_version()
+    }
+    fn tracked(view: TrackedFileEvidence<'_>) -> Option<RawEvidenceIssue> {
+        let _ = (
+            view.mode(),
+            view.object_kind(),
+            view.size_bytes(),
+            view.content_hash(),
+        );
+        view.issue()
+    }
+    fn history(view: HistoryScopeEvidence<'_>) -> Option<RawEvidenceIssue> {
+        let _ = (view.reachable_commits(), view.truncated());
+        view.issue()
+    }
+    fn delta(view: ParentDeltaEvidence<'_>) -> Option<RawEvidenceIssue> {
+        let _ = (view.changed_entries(), view.renames());
+        view.issue()
+    }
+
+    let snapshot = snapshot(
+        RepositoryScenario::TypeScriptProject,
+        CollectionLimits::default(),
+    );
+    let manifest = assemble_project_evidence(
+        &snapshot,
+        classifications(&snapshot, LinguistAttributeFacts::available(None, None)),
+    )
+    .unwrap();
+    assert!(
+        manifest
+            .classification_facts()
+            .iter()
+            .all(|record| classification(record) == Some("file-classifier-1"))
+    );
+    for fact in manifest.raw_facts() {
+        if let Some(view) = fact.payload().as_tracked_file() {
+            let _ = tracked(view);
+        }
+        if let Some(view) = fact.payload().as_history_scope() {
+            let _ = history(view);
+        }
+        if let Some(view) = fact.payload().as_parent_delta() {
+            let _ = delta(view);
+        }
+    }
+}
+
 #[test]
 fn classification_facts_retain_rule_confidence_and_attribute_provenance() {
     let snapshot = snapshot(
@@ -325,59 +470,7 @@ fn classification_facts_retain_rule_confidence_and_attribute_provenance() {
 #[cfg(unix)]
 #[test]
 fn non_utf8_path_and_gitlink_remain_citable_unsupported_facts() {
-    use std::os::unix::ffi::OsStringExt;
-
-    let directory = tempfile::tempdir().unwrap();
-    let repository = directory.path().join("edge-repository");
-    git(
-        directory.path(),
-        [
-            "init",
-            "--quiet",
-            "--initial-branch=main",
-            repository.to_str().unwrap(),
-        ],
-    );
-    git(&repository, ["config", "user.name", "Assay Fixture"]);
-    git(
-        &repository,
-        ["config", "user.email", "fixture@example.invalid"],
-    );
-    fs::write(repository.join("README.md"), b"# Edge fixture\n").unwrap();
-    let invalid_name = std::ffi::OsString::from_vec(b"src/non-utf8-\xff.ts".to_vec());
-    let invalid_path = repository.join(invalid_name);
-    fs::create_dir_all(invalid_path.parent().unwrap()).unwrap();
-    fs::write(&invalid_path, b"export const edge = true;\n").unwrap();
-    fs::write(
-        repository.join("src/copy-a.ts"),
-        b"export const duplicated = true;\n",
-    )
-    .unwrap();
-    fs::write(
-        repository.join("src/copy-b.ts"),
-        b"export const duplicated = true;\n",
-    )
-    .unwrap();
-    git(&repository, ["add", "--all", "--", "."]);
-    git(&repository, ["commit", "--quiet", "-m", "Add edge paths"]);
-    let target = git_output(&repository, ["rev-parse", "HEAD"]);
-    git(
-        &repository,
-        [
-            "update-index",
-            "--add",
-            "--cacheinfo",
-            &format!("160000,{target},deps/module"),
-        ],
-    );
-    git(&repository, ["commit", "--quiet", "-m", "Add gitlink"]);
-
-    let snapshot = collect_snapshot(
-        &repository,
-        OsStr::new("HEAD"),
-        source(),
-        CollectionLimits::default(),
-    );
+    let snapshot = edge_snapshot();
     let manifest = assemble_project_evidence(
         &snapshot,
         classifications(&snapshot, LinguistAttributeFacts::available(None, None)),
@@ -385,13 +478,9 @@ fn non_utf8_path_and_gitlink_remain_citable_unsupported_facts() {
     .unwrap();
 
     let gitlink = manifest.raw_facts().iter().find(|fact| {
-        matches!(
-            fact.payload(),
-            RawEvidencePayload::TrackedFile {
-                issue: Some(RawEvidenceIssue::GitlinkContent),
-                ..
-            }
-        )
+        fact.payload()
+            .as_tracked_file()
+            .is_some_and(|payload| payload.issue() == Some(RawEvidenceIssue::GitlinkContent))
     });
     assert_eq!(gitlink.unwrap().status(), EvidenceStatus::Unsupported);
     let unsupported_path = manifest
@@ -422,6 +511,66 @@ fn non_utf8_path_and_gitlink_remain_citable_unsupported_facts() {
     );
     assert_ne!(duplicate_blob_facts[0].id(), duplicate_blob_facts[1].id());
     assert_eq!(manifest.status(), AnalysisStatus::Partial);
+}
+
+#[cfg(unix)]
+fn edge_snapshot() -> RepositorySnapshot {
+    use std::os::unix::ffi::OsStringExt;
+
+    let directory = tempfile::tempdir().unwrap();
+    let repository = directory.path().join("edge-repository");
+    git(
+        directory.path(),
+        [
+            "init",
+            "--quiet",
+            "--initial-branch=main",
+            repository.to_str().unwrap(),
+        ],
+    );
+    git(&repository, ["config", "user.name", "Assay Fixture"]);
+    git(
+        &repository,
+        ["config", "user.email", "fixture@example.invalid"],
+    );
+    fs::write(repository.join("README.md"), b"# Edge fixture\n").unwrap();
+    for (name, contents) in [
+        (b"src/non-utf8-\xfe.ts".as_slice(), b"first\n".as_slice()),
+        (b"src/non-utf8-\xff.ts".as_slice(), b"second\n".as_slice()),
+    ] {
+        let invalid_path = repository.join(std::ffi::OsString::from_vec(name.to_vec()));
+        fs::create_dir_all(invalid_path.parent().unwrap()).unwrap();
+        fs::write(invalid_path, contents).unwrap();
+    }
+    fs::write(
+        repository.join("src/copy-a.ts"),
+        b"export const duplicated = true;\n",
+    )
+    .unwrap();
+    fs::write(
+        repository.join("src/copy-b.ts"),
+        b"export const duplicated = true;\n",
+    )
+    .unwrap();
+    git(&repository, ["add", "--all", "--", "."]);
+    git(&repository, ["commit", "--quiet", "-m", "Add edge paths"]);
+    let target = git_output(&repository, ["rev-parse", "HEAD"]);
+    git(
+        &repository,
+        [
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            &format!("160000,{target},deps/module"),
+        ],
+    );
+    git(&repository, ["commit", "--quiet", "-m", "Add gitlink"]);
+    collect_snapshot(
+        &repository,
+        OsStr::new("HEAD"),
+        source(),
+        CollectionLimits::default(),
+    )
 }
 
 fn git<const N: usize>(directory: &Path, arguments: [&str; N]) {

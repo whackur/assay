@@ -19,6 +19,9 @@ The initial contract records:
 Raw and classified facts remain in separate canonical collections. Missing,
 partial, unavailable, and unsupported facts remain explicit. A missing file
 classification is a citable unavailable record, not an absent file or a zero.
+Every supplied classification records the versioned policy that was attempted,
+including when a non-portable path makes classification unsupported. Only an
+automatically generated missing-classification envelope has no policy version.
 
 ## What it cannot measure
 
@@ -53,6 +56,10 @@ UTF-8 repository-relative paths use their validated portable spelling. Other
 Git path bytes use lowercase hexadecimal encoding and their classification is
 `unsupported`; the raw tracked-file fact remains citable. Local absolute paths,
 source bytes, raw diffs, credentials, and person identities are not retained.
+
+Raw payload construction is internal. Downstream mappers receive read-only,
+kind-specific views, so they can inspect tracked-file, history, and parent-delta
+facts without constructing contradictory payload combinations.
 
 `ProjectEvidenceManifest` is currently a typed Rust boundary. It intentionally
 does not implement a JSON serializer. The authoritative public machine

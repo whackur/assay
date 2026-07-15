@@ -19,10 +19,11 @@ mod evidence;
 
 pub use evidence::{
     ClassificationAvailabilityReason, ClassificationCategoryRecord, ClassificationEvidenceFact,
-    ClassificationEvidenceKindRecord, ClassificationTagRecord, ClassifiedSnapshotFile,
-    EvidenceAssemblyError, EvidenceAssemblyErrorKind, EvidenceSourceRecord, GitEvidenceProvenance,
-    GitObjectFormatRecord, PortablePathEncoding, PortableRepositoryPath, ProjectEvidenceManifest,
-    RawEvidenceFact, RawEvidenceIssue, RawEvidenceKind, RawEvidencePayload,
+    ClassificationEvidenceKindRecord, ClassificationEvidenceRecord, ClassificationTagRecord,
+    ClassifiedSnapshotFile, EvidenceAssemblyError, EvidenceAssemblyErrorKind, EvidenceSourceRecord,
+    GitEvidenceProvenance, GitObjectFormatRecord, HistoryScopeEvidence, ParentDeltaEvidence,
+    PortablePathEncoding, PortableRepositoryPath, ProjectEvidenceManifest, RawEvidenceFact,
+    RawEvidenceIssue, RawEvidenceKind, RawEvidencePayload, TrackedFileEvidence,
     assemble_project_evidence,
 };
 

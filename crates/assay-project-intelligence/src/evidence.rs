@@ -1,9 +1,10 @@
 use std::{collections::BTreeMap, error::Error, fmt, str::FromStr};
 
 use assay_classifier::{
-    AttributeAvailability, ClassificationCategory, ClassificationEvidenceKind,
-    ClassificationPolicy, ClassificationTag, FileClassification, FileClassificationInput,
-    LinguistAttributeFacts, PortablePath, classify_with_policy,
+    AttributeAvailability, ClassificationCategory, ClassificationDecision,
+    ClassificationEvidenceKind, ClassificationPolicy, ClassificationTag, FileClassification,
+    FileClassificationInput, LinguistAttributeFacts, PolicyVersion, PortablePath,
+    classify_with_policy,
 };
 use assay_domain::{
     AnalysisStatus, ContentHash, EvidenceId, EvidenceStatus, RepositorySource, RevisionId,
@@ -243,64 +244,221 @@ pub enum RawEvidenceIssue {
 /// Typed raw payload. Fields are exposed through the evidence fact getters;
 /// callers cannot construct an inconsistent payload directly.
 #[derive(Clone, Eq, PartialEq)]
-pub enum RawEvidencePayload {
+pub struct RawEvidencePayload(RawEvidencePayloadData);
+
+#[derive(Clone, Eq, PartialEq)]
+enum RawEvidencePayloadData {
     RepositorySnapshot,
-    TrackedFile {
+    TrackedFile(TrackedFilePayload),
+    HistoryScope(HistoryScopePayload),
+    ParentDelta(ParentDeltaPayload),
+}
+
+#[derive(Clone, Eq, PartialEq)]
+struct TrackedFilePayload {
+    mode: EntryMode,
+    object_kind: ObjectKind,
+    size_bytes: Option<u64>,
+    content_hash: Option<ContentHash>,
+    issue: Option<RawEvidenceIssue>,
+}
+
+#[derive(Clone, Eq, PartialEq)]
+struct HistoryScopePayload {
+    reachable_commits: Option<usize>,
+    truncated: Option<bool>,
+    issue: Option<RawEvidenceIssue>,
+}
+
+#[derive(Clone, Eq, PartialEq)]
+struct ParentDeltaPayload {
+    changed_entries: Option<usize>,
+    renames: Option<usize>,
+    issue: Option<RawEvidenceIssue>,
+}
+
+/// Read-only tracked-file payload view.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct TrackedFileEvidence<'a> {
+    payload: &'a TrackedFilePayload,
+}
+
+impl TrackedFileEvidence<'_> {
+    /// Returns the tracked Git mode.
+    pub const fn mode(self) -> EntryMode {
+        self.payload.mode
+    }
+
+    /// Returns the referenced Git object kind.
+    pub const fn object_kind(self) -> ObjectKind {
+        self.payload.object_kind
+    }
+
+    /// Returns object size only when safely observed.
+    pub const fn size_bytes(self) -> Option<u64> {
+        self.payload.size_bytes
+    }
+
+    /// Returns the explicit incomplete-content reason.
+    pub const fn issue(self) -> Option<RawEvidenceIssue> {
+        self.payload.issue
+    }
+}
+
+impl<'a> TrackedFileEvidence<'a> {
+    /// Returns the complete bounded content digest when available.
+    pub const fn content_hash(self) -> Option<&'a ContentHash> {
+        self.payload.content_hash.as_ref()
+    }
+}
+
+/// Read-only history-scope payload view.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct HistoryScopeEvidence<'a> {
+    payload: &'a HistoryScopePayload,
+}
+
+impl HistoryScopeEvidence<'_> {
+    /// Returns the bounded reachable count only when it was observed.
+    pub const fn reachable_commits(self) -> Option<usize> {
+        self.payload.reachable_commits
+    }
+
+    /// Returns truncation only when history evidence was usable.
+    pub const fn truncated(self) -> Option<bool> {
+        self.payload.truncated
+    }
+
+    /// Returns the explicit incomplete-history reason.
+    pub const fn issue(self) -> Option<RawEvidenceIssue> {
+        self.payload.issue
+    }
+}
+
+/// Read-only first-parent delta payload view.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct ParentDeltaEvidence<'a> {
+    payload: &'a ParentDeltaPayload,
+}
+
+impl ParentDeltaEvidence<'_> {
+    /// Returns raw changed entries only when they were observed.
+    pub const fn changed_entries(self) -> Option<usize> {
+        self.payload.changed_entries
+    }
+
+    /// Returns exact rename count only when rename analysis completed.
+    pub const fn renames(self) -> Option<usize> {
+        self.payload.renames
+    }
+
+    /// Returns the explicit incomplete-delta reason.
+    pub const fn issue(self) -> Option<RawEvidenceIssue> {
+        self.payload.issue
+    }
+}
+
+impl RawEvidencePayload {
+    fn repository_snapshot() -> Self {
+        Self(RawEvidencePayloadData::RepositorySnapshot)
+    }
+
+    fn tracked_file(
         mode: EntryMode,
         object_kind: ObjectKind,
         size_bytes: Option<u64>,
         content_hash: Option<ContentHash>,
         issue: Option<RawEvidenceIssue>,
-    },
-    HistoryScope {
+    ) -> Self {
+        Self(RawEvidencePayloadData::TrackedFile(TrackedFilePayload {
+            mode,
+            object_kind,
+            size_bytes,
+            content_hash,
+            issue,
+        }))
+    }
+
+    fn history_scope(
         reachable_commits: Option<usize>,
         truncated: Option<bool>,
         issue: Option<RawEvidenceIssue>,
-    },
-    ParentDelta {
+    ) -> Self {
+        Self(RawEvidencePayloadData::HistoryScope(HistoryScopePayload {
+            reachable_commits,
+            truncated,
+            issue,
+        }))
+    }
+
+    fn parent_delta(
         changed_entries: Option<usize>,
         renames: Option<usize>,
         issue: Option<RawEvidenceIssue>,
-    },
+    ) -> Self {
+        Self(RawEvidencePayloadData::ParentDelta(ParentDeltaPayload {
+            changed_entries,
+            renames,
+            issue,
+        }))
+    }
+
+    /// Returns true only for the repository-snapshot payload.
+    pub const fn is_repository_snapshot(&self) -> bool {
+        matches!(self.0, RawEvidencePayloadData::RepositorySnapshot)
+    }
+
+    /// Returns a read-only tracked-file view for that payload kind.
+    pub const fn as_tracked_file(&self) -> Option<TrackedFileEvidence<'_>> {
+        match &self.0 {
+            RawEvidencePayloadData::TrackedFile(payload) => Some(TrackedFileEvidence { payload }),
+            _ => None,
+        }
+    }
+
+    /// Returns a read-only history-scope view for that payload kind.
+    pub const fn as_history_scope(&self) -> Option<HistoryScopeEvidence<'_>> {
+        match &self.0 {
+            RawEvidencePayloadData::HistoryScope(payload) => Some(HistoryScopeEvidence { payload }),
+            _ => None,
+        }
+    }
+
+    /// Returns a read-only first-parent delta view for that payload kind.
+    pub const fn as_parent_delta(&self) -> Option<ParentDeltaEvidence<'_>> {
+        match &self.0 {
+            RawEvidencePayloadData::ParentDelta(payload) => Some(ParentDeltaEvidence { payload }),
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Debug for RawEvidencePayload {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::RepositorySnapshot => formatter.write_str("RepositorySnapshot"),
-            Self::TrackedFile {
-                mode,
-                object_kind,
-                size_bytes,
-                content_hash,
-                issue,
-            } => formatter
+        match &self.0 {
+            RawEvidencePayloadData::RepositorySnapshot => formatter.write_str("RepositorySnapshot"),
+            RawEvidencePayloadData::TrackedFile(payload) => formatter
                 .debug_struct("TrackedFile")
-                .field("mode", mode)
-                .field("object_kind", object_kind)
-                .field("size_bytes", size_bytes)
-                .field("content_hash", &content_hash.as_ref().map(|_| "<digest>"))
-                .field("issue", issue)
+                .field("mode", &payload.mode)
+                .field("object_kind", &payload.object_kind)
+                .field("size_bytes", &payload.size_bytes)
+                .field(
+                    "content_hash",
+                    &payload.content_hash.as_ref().map(|_| "<digest>"),
+                )
+                .field("issue", &payload.issue)
                 .finish(),
-            Self::HistoryScope {
-                reachable_commits,
-                truncated,
-                issue,
-            } => formatter
+            RawEvidencePayloadData::HistoryScope(payload) => formatter
                 .debug_struct("HistoryScope")
-                .field("reachable_commits", reachable_commits)
-                .field("truncated", truncated)
-                .field("issue", issue)
+                .field("reachable_commits", &payload.reachable_commits)
+                .field("truncated", &payload.truncated)
+                .field("issue", &payload.issue)
                 .finish(),
-            Self::ParentDelta {
-                changed_entries,
-                renames,
-                issue,
-            } => formatter
+            RawEvidencePayloadData::ParentDelta(payload) => formatter
                 .debug_struct("ParentDelta")
-                .field("changed_entries", changed_entries)
-                .field("renames", renames)
-                .field("issue", issue)
+                .field("changed_entries", &payload.changed_entries)
+                .field("renames", &payload.renames)
+                .field("issue", &payload.issue)
                 .finish(),
         }
     }
@@ -344,8 +502,8 @@ impl RawEvidenceFact {
 
     /// Returns a complete content digest only when one was collected.
     pub const fn content_hash(&self) -> Option<&ContentHash> {
-        match &self.payload {
-            RawEvidencePayload::TrackedFile { content_hash, .. } => content_hash.as_ref(),
+        match &self.payload.0 {
+            RawEvidencePayloadData::TrackedFile(payload) => payload.content_hash.as_ref(),
             _ => None,
         }
     }
@@ -437,7 +595,6 @@ impl ClassificationEvidenceFact {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct ClassificationPayload {
-    policy_version: String,
     category: ClassificationCategoryRecord,
     tags: Vec<ClassificationTagRecord>,
     rule_id: String,
@@ -461,9 +618,25 @@ pub struct ClassifiedSnapshotFile {
     path_bytes: Vec<u8>,
     object_id: String,
     portable_path: PortableRepositoryPath,
+    attempted_policy_version: String,
     status: EvidenceStatus,
     reason: Option<ClassificationAvailabilityReason>,
     payload: Option<ClassificationPayload>,
+}
+
+struct PinnedClassificationPolicy<'a, P: ClassificationPolicy + ?Sized> {
+    policy: &'a P,
+    version: PolicyVersion,
+}
+
+impl<P: ClassificationPolicy + ?Sized> ClassificationPolicy for PinnedClassificationPolicy<'_, P> {
+    fn policy_version(&self) -> PolicyVersion {
+        self.version.clone()
+    }
+
+    fn evaluate(&self, input: &FileClassificationInput) -> ClassificationDecision {
+        self.policy.evaluate(input)
+    }
 }
 
 #[derive(Clone, Eq, PartialEq)]
@@ -507,10 +680,15 @@ impl ClassifiedSnapshotFile {
         }
         let path_bytes = entry.path().as_bytes().to_vec();
         let portable_path = PortableRepositoryPath::from_git_bytes(&path_bytes);
+        let attempted_policy = policy.policy_version();
+        let pinned_policy = PinnedClassificationPolicy {
+            policy,
+            version: attempted_policy.clone(),
+        };
         let classification = std::str::from_utf8(&path_bytes)
             .ok()
             .and_then(|path| FileClassificationInput::try_new(path, attributes).ok())
-            .map(|input| classify_with_policy(policy, &input));
+            .map(|input| classify_with_policy(&pinned_policy, &input));
 
         let (status, reason, payload) = match classification {
             Some(classification) => {
@@ -538,6 +716,7 @@ impl ClassifiedSnapshotFile {
             path_bytes,
             object_id: entry.object_id().as_str().to_owned(),
             portable_path,
+            attempted_policy_version: attempted_policy.as_str().to_owned(),
             status,
             reason,
             payload,
@@ -558,13 +737,7 @@ impl fmt::Debug for ClassifiedSnapshotFile {
             .field("object_id", &"<immutable-object>")
             .field("status", &self.status)
             .field("reason", &self.reason)
-            .field(
-                "policy_version",
-                &self
-                    .payload
-                    .as_ref()
-                    .map(|value| value.policy_version.as_str()),
-            )
+            .field("policy_version", &self.attempted_policy_version)
             .finish()
     }
 }
@@ -576,6 +749,7 @@ pub struct ClassificationEvidenceRecord {
     status: EvidenceStatus,
     source_evidence_id: EvidenceId,
     source: EvidenceSourceRecord,
+    attempted_policy_version: Option<String>,
     reason: Option<ClassificationAvailabilityReason>,
     payload: Option<ClassificationPayload>,
 }
@@ -606,11 +780,10 @@ impl ClassificationEvidenceRecord {
         self.reason
     }
 
-    /// Returns the policy version only when classification was produced.
+    /// Returns the attempted policy for every supplied classification.
+    /// Only an automatically generated missing-classification record has none.
     pub fn policy_version(&self) -> Option<&str> {
-        self.payload
-            .as_ref()
-            .map(|payload| payload.policy_version.as_str())
+        self.attempted_policy_version.as_deref()
     }
 
     /// Returns the primary category only when classification was produced.
@@ -771,7 +944,8 @@ impl Error for EvidenceAssemblyError {}
 /// Combines one immutable snapshot with zero or more bound classification facts.
 ///
 /// A missing classification becomes an explicit unavailable, citable record.
-/// Duplicate and foreign bindings fail closed. All present classifications
+/// Duplicate and foreign bindings fail closed. All supplied classifications,
+/// including unsupported attempts,
 /// must use one policy version.
 pub fn assemble_project_evidence(
     snapshot: &RepositorySnapshot,
@@ -799,16 +973,14 @@ pub fn assemble_project_evidence(
                 EvidenceAssemblyErrorKind::ClassificationSnapshotMismatch,
             ));
         }
-        if let Some(payload) = &classification.payload {
-            if let Some(expected) = &policy_version {
-                if expected != &payload.policy_version {
-                    return Err(EvidenceAssemblyError::new(
-                        EvidenceAssemblyErrorKind::MixedClassificationPolicy,
-                    ));
-                }
-            } else {
-                policy_version = Some(payload.policy_version.clone());
+        if let Some(expected) = &policy_version {
+            if expected != &classification.attempted_policy_version {
+                return Err(EvidenceAssemblyError::new(
+                    EvidenceAssemblyErrorKind::MixedClassificationPolicy,
+                ));
             }
+        } else {
+            policy_version = Some(classification.attempted_policy_version.clone());
         }
         if supplied.insert(key, classification).is_some() {
             return Err(EvidenceAssemblyError::new(
@@ -865,7 +1037,7 @@ fn raw_facts(snapshot: &RepositorySnapshot) -> Result<Vec<RawEvidenceFact>, Evid
     let repository_source = EvidenceSourceRecord::for_repository(snapshot);
     let mut facts = Vec::with_capacity(snapshot.entries().len() + 3);
 
-    let snapshot_payload = RawEvidencePayload::RepositorySnapshot;
+    let snapshot_payload = RawEvidencePayload::repository_snapshot();
     facts.push(raw_fact(
         snapshot,
         RawEvidenceKind::RepositorySnapshot,
@@ -875,13 +1047,13 @@ fn raw_facts(snapshot: &RepositorySnapshot) -> Result<Vec<RawEvidenceFact>, Evid
     )?);
 
     for entry in snapshot.entries() {
-        let payload = RawEvidencePayload::TrackedFile {
-            mode: entry.mode(),
-            object_kind: entry.kind(),
-            size_bytes: entry.content().size(),
-            content_hash: entry.content().content_hash().cloned(),
-            issue: entry.content().issue().map(map_object_issue),
-        };
+        let payload = RawEvidencePayload::tracked_file(
+            entry.mode(),
+            entry.kind(),
+            entry.content().size(),
+            entry.content().content_hash().cloned(),
+            entry.content().issue().map(map_object_issue),
+        );
         facts.push(raw_fact(
             snapshot,
             RawEvidenceKind::TrackedFile,
@@ -895,11 +1067,11 @@ fn raw_facts(snapshot: &RepositorySnapshot) -> Result<Vec<RawEvidenceFact>, Evid
         snapshot.history().status(),
         EvidenceStatus::Complete | EvidenceStatus::Partial
     );
-    let history = RawEvidencePayload::HistoryScope {
-        reachable_commits: history_usable.then_some(snapshot.history().reachable_commits()),
-        truncated: history_usable.then_some(snapshot.history().truncated()),
-        issue: snapshot.history().issue().map(map_history_issue),
-    };
+    let history = RawEvidencePayload::history_scope(
+        history_usable.then_some(snapshot.history().reachable_commits()),
+        history_usable.then_some(snapshot.history().truncated()),
+        snapshot.history().issue().map(map_history_issue),
+    );
     facts.push(raw_fact(
         snapshot,
         RawEvidenceKind::HistoryScope,
@@ -914,11 +1086,11 @@ fn raw_facts(snapshot: &RepositorySnapshot) -> Result<Vec<RawEvidenceFact>, Evid
         snapshot.parent_delta().changed_entries(),
         snapshot.parent_delta().renames(),
     );
-    let delta = RawEvidencePayload::ParentDelta {
+    let delta = RawEvidencePayload::parent_delta(
         changed_entries,
         renames,
-        issue: snapshot.parent_delta().issue().map(map_parent_delta_issue),
-    };
+        snapshot.parent_delta().issue().map(map_parent_delta_issue),
+    );
     facts.push(raw_fact(
         snapshot,
         RawEvidenceKind::ParentDelta,
@@ -963,17 +1135,29 @@ fn classification_fact(
     source: EvidenceSourceRecord,
     classification: Option<ClassifiedSnapshotFile>,
 ) -> Result<ClassificationEvidenceRecord, EvidenceAssemblyError> {
-    let (status, reason, payload) = classification.map_or(
+    let (status, attempted_policy_version, reason, payload) = classification.map_or(
         (
             EvidenceStatus::Unavailable,
+            None,
             Some(ClassificationAvailabilityReason::MissingClassification),
             None,
         ),
-        |value| (value.status, value.reason, value.payload),
+        |value| {
+            (
+                value.status,
+                Some(value.attempted_policy_version),
+                value.reason,
+                value.payload,
+            )
+        },
     );
     let mut id = EvidenceIdBuilder::new("file-classification");
     id.field(b"raw_evidence_id", raw_id.as_str().as_bytes());
     id.field(b"status", evidence_status_code(status).as_bytes());
+    id.optional_field(
+        b"attempted_policy_version",
+        attempted_policy_version.as_deref().map(str::as_bytes),
+    );
     id.optional_field(
         b"reason",
         reason.map(classification_reason_code).map(str::as_bytes),
@@ -986,6 +1170,7 @@ fn classification_fact(
         status,
         source_evidence_id: raw_id.clone(),
         source,
+        attempted_policy_version,
         reason,
         payload,
     })
@@ -1064,7 +1249,6 @@ fn map_classification(classification: &FileClassification) -> ClassificationPayl
     evidence.sort();
     evidence.dedup();
     ClassificationPayload {
-        policy_version: classification.policy_version().as_str().to_owned(),
         category: map_classification_category(classification.category()),
         tags,
         rule_id: classification.rule_id().as_str().to_owned(),
@@ -1220,21 +1404,21 @@ fn add_repository_source(id: &mut EvidenceIdBuilder, source: &RepositorySource) 
 }
 
 fn add_raw_payload(id: &mut EvidenceIdBuilder, payload: &RawEvidencePayload) {
-    match payload {
-        RawEvidencePayload::RepositorySnapshot => id.field(b"payload", b"repository_snapshot"),
-        RawEvidencePayload::TrackedFile {
-            mode,
-            object_kind,
-            size_bytes,
-            content_hash,
-            issue,
-        } => {
+    match &payload.0 {
+        RawEvidencePayloadData::RepositorySnapshot => {
+            id.field(b"payload", b"repository_snapshot");
+        }
+        RawEvidencePayloadData::TrackedFile(payload) => {
             id.field(b"payload", b"tracked_file");
-            id.field(b"mode", entry_mode_code(*mode).as_bytes());
-            id.field(b"object_kind", object_kind_code(*object_kind).as_bytes());
+            id.field(b"mode", entry_mode_code(payload.mode).as_bytes());
+            id.field(
+                b"object_kind",
+                object_kind_code(payload.object_kind).as_bytes(),
+            );
             id.optional_field(
                 b"size_bytes",
-                size_bytes
+                payload
+                    .size_bytes
                     .as_ref()
                     .map(|value| value.to_string())
                     .as_deref()
@@ -1242,22 +1426,23 @@ fn add_raw_payload(id: &mut EvidenceIdBuilder, payload: &RawEvidencePayload) {
             );
             id.optional_field(
                 b"content_hash",
-                content_hash
+                payload
+                    .content_hash
                     .as_ref()
                     .map(ContentHash::as_str)
                     .map(str::as_bytes),
             );
-            id.optional_field(b"issue", issue.map(raw_issue_code).map(str::as_bytes));
+            id.optional_field(
+                b"issue",
+                payload.issue.map(raw_issue_code).map(str::as_bytes),
+            );
         }
-        RawEvidencePayload::HistoryScope {
-            reachable_commits,
-            truncated,
-            issue,
-        } => {
+        RawEvidencePayloadData::HistoryScope(payload) => {
             id.field(b"payload", b"history_scope");
             id.optional_field(
                 b"reachable_commits",
-                reachable_commits
+                payload
+                    .reachable_commits
                     .as_ref()
                     .map(|value| value.to_string())
                     .as_deref()
@@ -1265,7 +1450,7 @@ fn add_raw_payload(id: &mut EvidenceIdBuilder, payload: &RawEvidencePayload) {
             );
             id.optional_field(
                 b"truncated",
-                truncated.map(|value| {
+                payload.truncated.map(|value| {
                     if value {
                         b"true".as_slice()
                     } else {
@@ -1273,17 +1458,17 @@ fn add_raw_payload(id: &mut EvidenceIdBuilder, payload: &RawEvidencePayload) {
                     }
                 }),
             );
-            id.optional_field(b"issue", issue.map(raw_issue_code).map(str::as_bytes));
+            id.optional_field(
+                b"issue",
+                payload.issue.map(raw_issue_code).map(str::as_bytes),
+            );
         }
-        RawEvidencePayload::ParentDelta {
-            changed_entries,
-            renames,
-            issue,
-        } => {
+        RawEvidencePayloadData::ParentDelta(payload) => {
             id.field(b"payload", b"parent_delta");
             id.optional_field(
                 b"changed_entries",
-                changed_entries
+                payload
+                    .changed_entries
                     .as_ref()
                     .map(|value| value.to_string())
                     .as_deref()
@@ -1291,19 +1476,22 @@ fn add_raw_payload(id: &mut EvidenceIdBuilder, payload: &RawEvidencePayload) {
             );
             id.optional_field(
                 b"renames",
-                renames
+                payload
+                    .renames
                     .as_ref()
                     .map(|value| value.to_string())
                     .as_deref()
                     .map(str::as_bytes),
             );
-            id.optional_field(b"issue", issue.map(raw_issue_code).map(str::as_bytes));
+            id.optional_field(
+                b"issue",
+                payload.issue.map(raw_issue_code).map(str::as_bytes),
+            );
         }
     }
 }
 
 fn add_classification_payload(id: &mut EvidenceIdBuilder, payload: &ClassificationPayload) {
-    id.field(b"policy_version", payload.policy_version.as_bytes());
     id.field(
         b"category",
         classification_category_code(payload.category).as_bytes(),
