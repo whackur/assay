@@ -9,8 +9,9 @@ use std::{
 
 use assay_domain::{ContentHash, EvidenceStatus, RepositorySource};
 use assay_git::{
-    CollectionErrorKind, CollectionLimits, CollectionStage, EntryMode, GitCliAdapter, ObjectIssue,
-    ParentDeltaIssue, RepositorySnapshotPort, SnapshotRequest,
+    CollectionErrorKind, CollectionLimits, CollectionStage, EntryMode, GitCliAdapter,
+    GitObjectFormat, HistoryIssue, ObjectIssue, ParentDeltaIssue, RepositorySnapshotPort,
+    SnapshotRequest,
 };
 use assay_test_fixtures::{RepositoryFixture, RepositoryScenario};
 
@@ -149,6 +150,220 @@ fn collects_the_same_immutable_revision_from_a_bare_repository() {
         .expect("a bare object database must collect without a working tree");
     assert_eq!(snapshot.source_snapshot().revision().as_str(), expected);
     assert_eq!(snapshot.status(), EvidenceStatus::Complete);
+}
+
+#[test]
+fn accepts_a_genuine_linked_worktree_with_matching_backlinks() {
+    let fixture = RepositoryFixture::build(RepositoryScenario::TypeScriptProject)
+        .expect("the deterministic fixture must build");
+    let linked = fixture
+        .path()
+        .parent()
+        .expect("the fixture has a temporary parent")
+        .join("linked-worktree");
+    let status = Command::new(trusted_git())
+        .current_dir(fixture.path())
+        .args(["worktree", "add", "--quiet", "--detach"])
+        .arg(&linked)
+        .arg("HEAD")
+        .status()
+        .expect("the synthetic linked-worktree command must start");
+    assert!(status.success());
+
+    let snapshot = adapter(CollectionLimits::default())
+        .collect(SnapshotRequest::new(&linked, source(), OsStr::new("HEAD")))
+        .expect("a genuine linked worktree must satisfy pointer and backlink validation");
+    assert_eq!(snapshot.status(), EvidenceStatus::Complete);
+    assert_eq!(
+        snapshot.source_snapshot().revision().as_str(),
+        fixture
+            .commit_ids()
+            .last()
+            .expect("the fixture has a commit")
+    );
+}
+
+#[test]
+fn shallow_history_and_parent_delta_are_explicitly_partial() {
+    let fixture = RepositoryFixture::build(RepositoryScenario::RenameAndMove)
+        .expect("the deterministic two-commit fixture must build");
+    let temporary = tempfile::tempdir().expect("the shallow clone parent must be creatable");
+    let shallow = temporary.path().join("shallow");
+    let status = Command::new(trusted_git())
+        .args(["clone", "--quiet", "--depth=1", "--no-local"])
+        .arg(fixture.path())
+        .arg(&shallow)
+        .status()
+        .expect("the synthetic shallow clone command must start");
+    assert!(status.success());
+
+    let snapshot = adapter(CollectionLimits::default())
+        .collect(SnapshotRequest::new(&shallow, source(), OsStr::new("HEAD")))
+        .expect("a shallow repository must retain usable partial snapshot facts");
+    assert_eq!(snapshot.status(), EvidenceStatus::Partial);
+    assert_eq!(snapshot.history().status(), EvidenceStatus::Partial);
+    assert_eq!(
+        snapshot.history().issue(),
+        Some(HistoryIssue::ShallowRepository)
+    );
+    assert!(snapshot.history().truncated());
+    assert_eq!(snapshot.parent_delta().status(), EvidenceStatus::Partial);
+    assert_eq!(
+        snapshot.parent_delta().issue(),
+        Some(ParentDeltaIssue::ShallowRepository)
+    );
+}
+
+#[test]
+fn supports_sha256_repositories_with_executable_and_empty_blobs() {
+    let temporary = tempfile::tempdir().expect("the SHA-256 repository parent must be creatable");
+    let repository = temporary.path().join("sha256-repository");
+    let status = Command::new(trusted_git())
+        .args([
+            "init",
+            "--quiet",
+            "--initial-branch=main",
+            "--object-format=sha256",
+        ])
+        .arg(&repository)
+        .status()
+        .expect("the SHA-256 capability probe must start");
+    if !status.success() {
+        return;
+    }
+    fs::write(repository.join("empty.bin"), []).expect("the empty blob must be writable");
+    fs::write(repository.join("script.sh"), b"#!/bin/sh\nexit 0\n")
+        .expect("the non-executed script fixture must be writable");
+    run_git(&repository, &[OsStr::new("add"), OsStr::new("--all")]);
+    run_git(
+        &repository,
+        &[
+            OsStr::new("update-index"),
+            OsStr::new("--chmod=+x"),
+            OsStr::new("--"),
+            OsStr::new("script.sh"),
+        ],
+    );
+    run_git(
+        &repository,
+        &[
+            OsStr::new("commit"),
+            OsStr::new("--quiet"),
+            OsStr::new("-m"),
+            OsStr::new("Add SHA-256 object fixtures"),
+        ],
+    );
+
+    let snapshot = adapter(CollectionLimits::default())
+        .collect(SnapshotRequest::new(
+            &repository,
+            source(),
+            OsStr::new("HEAD"),
+        ))
+        .expect("a supported SHA-256 object database must collect consistently");
+    assert_eq!(
+        snapshot.provenance().object_format(),
+        GitObjectFormat::Sha256
+    );
+    assert_eq!(snapshot.source_snapshot().revision().as_str().len(), 64);
+    assert_eq!(
+        snapshot
+            .source_snapshot()
+            .root_tree()
+            .unwrap()
+            .as_str()
+            .len(),
+        64
+    );
+    assert!(
+        snapshot
+            .entries()
+            .iter()
+            .all(|entry| entry.object_id().as_str().len() == 64)
+    );
+    assert_eq!(entry(&snapshot, b"script.sh").mode(), EntryMode::Executable);
+    let empty = entry(&snapshot, b"empty.bin");
+    assert_eq!(empty.content().size(), Some(0));
+    assert_eq!(
+        empty.content().content_hash().unwrap().as_str(),
+        "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    );
+}
+
+#[test]
+fn collects_a_merge_commit_against_its_first_parent() {
+    let fixture = RepositoryFixture::build(RepositoryScenario::TypeScriptProject)
+        .expect("the deterministic fixture must build");
+    run_git(
+        fixture.path(),
+        &[
+            OsStr::new("switch"),
+            OsStr::new("--quiet"),
+            OsStr::new("-c"),
+            OsStr::new("feature"),
+        ],
+    );
+    fs::write(
+        fixture.path().join("feature.ts"),
+        b"export const feature = true;\n",
+    )
+    .expect("the feature fixture must be writable");
+    run_git(fixture.path(), &[OsStr::new("add"), OsStr::new("--all")]);
+    run_git(
+        fixture.path(),
+        &[
+            OsStr::new("commit"),
+            OsStr::new("--quiet"),
+            OsStr::new("-m"),
+            OsStr::new("Add feature branch"),
+        ],
+    );
+    run_git(
+        fixture.path(),
+        &[
+            OsStr::new("switch"),
+            OsStr::new("--quiet"),
+            OsStr::new("main"),
+        ],
+    );
+    fs::write(
+        fixture.path().join("main.ts"),
+        b"export const main = true;\n",
+    )
+    .expect("the main fixture must be writable");
+    run_git(fixture.path(), &[OsStr::new("add"), OsStr::new("--all")]);
+    run_git(
+        fixture.path(),
+        &[
+            OsStr::new("commit"),
+            OsStr::new("--quiet"),
+            OsStr::new("-m"),
+            OsStr::new("Add main branch"),
+        ],
+    );
+    run_git(
+        fixture.path(),
+        &[
+            OsStr::new("merge"),
+            OsStr::new("--quiet"),
+            OsStr::new("--no-ff"),
+            OsStr::new("-m"),
+            OsStr::new("Merge feature"),
+            OsStr::new("feature"),
+        ],
+    );
+
+    let snapshot = adapter(CollectionLimits::default())
+        .collect(SnapshotRequest::new(
+            fixture.path(),
+            source(),
+            OsStr::new("HEAD"),
+        ))
+        .expect("a merge commit must collect with bounded first-parent facts");
+    assert_eq!(snapshot.status(), EvidenceStatus::Complete);
+    assert_eq!(snapshot.history().reachable_commits(), 4);
+    assert_eq!(snapshot.parent_delta().status(), EvidenceStatus::Complete);
+    assert_eq!(snapshot.parent_delta().changed_entries(), 1);
 }
 
 #[test]

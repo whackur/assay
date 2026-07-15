@@ -15,12 +15,13 @@
 mod cli;
 mod model;
 mod process;
+mod topology;
 
 pub use cli::GitCliAdapter;
 pub use model::{
     CollectionError, CollectionErrorKind, CollectionLimits, CollectionStage, EntryMode,
-    GitObjectId, GitProvenance, HistoryAvailability, HistoryIssue, ObjectIssue, ObjectKind,
-    ObjectMetadata, ParentDelta, ParentDeltaIssue, RepositoryPath, RepositorySnapshot,
+    GitObjectFormat, GitObjectId, GitProvenance, HistoryAvailability, HistoryIssue, ObjectIssue,
+    ObjectKind, ObjectMetadata, ParentDelta, ParentDeltaIssue, RepositoryPath, RepositorySnapshot,
     RepositorySnapshotPort, SnapshotRequest, TrackedEntry,
 };
 

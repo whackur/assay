@@ -75,6 +75,7 @@ pub enum CollectionErrorKind {
     PermissionDenied,
     IncompatibleGit,
     ExternalObjectStore,
+    RepositoryRedirect,
     NonZeroExit,
     Timeout,
     OutputLimit,
@@ -169,8 +170,12 @@ impl fmt::Debug for RepositoryPath {
 pub struct GitObjectId(String);
 
 impl GitObjectId {
-    pub(crate) fn parse(bytes: &[u8], stage: CollectionStage) -> Result<Self, CollectionError> {
-        if !matches!(bytes.len(), 40 | 64)
+    pub(crate) fn parse(
+        bytes: &[u8],
+        stage: CollectionStage,
+        format: GitObjectFormat,
+    ) -> Result<Self, CollectionError> {
+        if bytes.len() != format.identifier_length()
             || bytes
                 .iter()
                 .any(|byte| !byte.is_ascii_digit() && !matches!(byte, b'a'..=b'f'))
@@ -205,6 +210,22 @@ pub enum EntryMode {
     Executable,
     SymbolicLink,
     Gitlink,
+}
+
+/// Object identifier algorithm declared by the repository.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum GitObjectFormat {
+    Sha1,
+    Sha256,
+}
+
+impl GitObjectFormat {
+    pub(crate) const fn identifier_length(self) -> usize {
+        match self {
+            Self::Sha1 => 40,
+            Self::Sha256 => 64,
+        }
+    }
 }
 
 /// Immutable Git object kind referenced by a tracked entry.
@@ -340,6 +361,7 @@ impl TrackedEntry {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HistoryIssue {
     DepthLimit,
+    ShallowRepository,
     ProcessFailure,
     MalformedOutput,
 }
@@ -393,6 +415,7 @@ impl HistoryAvailability {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ParentDeltaIssue {
     RenameCandidateLimit,
+    ShallowRepository,
     ProcessFailure,
     MalformedOutput,
 }
@@ -447,13 +470,15 @@ impl ParentDelta {
 pub struct GitProvenance {
     adapter_id: &'static str,
     git_version: String,
+    object_format: GitObjectFormat,
 }
 
 impl GitProvenance {
-    pub(crate) fn new(git_version: String) -> Self {
+    pub(crate) fn new(git_version: String, object_format: GitObjectFormat) -> Self {
         Self {
             adapter_id: "installed-git-cli-v1",
             git_version,
+            object_format,
         }
     }
 
@@ -465,6 +490,11 @@ impl GitProvenance {
     /// Returns the normalized version reported by the probed executable.
     pub fn git_version(&self) -> &str {
         &self.git_version
+    }
+
+    /// Returns the repository object identifier algorithm used by every fact.
+    pub const fn object_format(&self) -> GitObjectFormat {
+        self.object_format
     }
 }
 

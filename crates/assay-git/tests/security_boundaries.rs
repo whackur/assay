@@ -14,7 +14,7 @@ use std::{
 use assay_domain::{ContentHash, EvidenceStatus, RepositorySource};
 use assay_git::{
     CollectionErrorKind, CollectionLimits, CollectionStage, GitCliAdapter, ObjectIssue,
-    RepositorySnapshotPort, SnapshotRequest,
+    ParentDeltaIssue, RepositorySnapshotPort, SnapshotRequest,
 };
 use assay_test_fixtures::{RepositoryFixture, RepositoryScenario};
 use tempfile::TempDir;
@@ -61,6 +61,182 @@ exec /usr/bin/git "$@"
         .expect_err("unterminated NUL protocol must fail closed");
     assert_eq!(error.stage(), CollectionStage::EnumerateTree);
     assert_eq!(error.kind(), CollectionErrorKind::MalformedOutput);
+}
+
+#[test]
+fn accepts_a_bounded_vendor_git_version_suffix() {
+    let (_directory, apple_git) = wrapper("printf 'git version 2.47.3 (Apple Git-145)\\n'");
+    GitCliAdapter::from_trusted_executable(apple_git, CollectionLimits::default())
+        .expect("a bounded visible vendor suffix must be accepted");
+
+    let (_directory, windows_git) = wrapper("printf 'git version 2.47.3.windows.1\\n'");
+    GitCliAdapter::from_trusted_executable(windows_git, CollectionLimits::default())
+        .expect("a bounded Git for Windows suffix must be accepted");
+
+    let (_directory, control_git) = wrapper("printf 'git version 2.47.3 (bad\\tvendor)\\n'");
+    let error = GitCliAdapter::from_trusted_executable(control_git, CollectionLimits::default())
+        .expect_err("control characters in a version must fail closed");
+    assert_eq!(error.kind(), CollectionErrorKind::IncompatibleGit);
+}
+
+#[test]
+fn rejects_symlinked_dot_git_and_unrelated_gitdir_redirects() {
+    let target = fixture();
+    let parent = tempfile::tempdir().expect("the submitted parent must be creatable");
+    let symlinked = parent.path().join("symlinked");
+    fs::create_dir(&symlinked).expect("the submitted directory must be creatable");
+    std::os::unix::fs::symlink(target.path().join(".git"), symlinked.join(".git"))
+        .expect("the malicious .git symlink must be creatable");
+    let error = adapter(CollectionLimits::default())
+        .collect(request(&symlinked))
+        .expect_err("a .git symlink must fail before Git execution");
+    assert_eq!(error.stage(), CollectionStage::ValidateObjectStore);
+    assert_eq!(error.kind(), CollectionErrorKind::RepositoryRedirect);
+
+    let redirected = parent.path().join("redirected");
+    fs::create_dir(&redirected).expect("the redirected directory must be creatable");
+    fs::write(
+        redirected.join(".git"),
+        format!("gitdir: {}\n", target.path().join(".git").display()),
+    )
+    .expect("the malicious gitdir pointer must be writable");
+    let error = adapter(CollectionLimits::default())
+        .collect(request(&redirected))
+        .expect_err("an unrelated gitdir pointer must fail backlink validation");
+    assert_eq!(error.stage(), CollectionStage::ValidateObjectStore);
+    assert_eq!(error.kind(), CollectionErrorKind::RepositoryRedirect);
+    assert!(!format!("{error:?}").contains(target.path().to_string_lossy().as_ref()));
+
+    let linked = target
+        .path()
+        .parent()
+        .expect("the fixture has a temporary parent")
+        .join("linked-for-redirect");
+    let status = synthetic_git(target.path())
+        .args(["worktree", "add", "--quiet", "--detach"])
+        .arg(&linked)
+        .arg("HEAD")
+        .status()
+        .expect("the synthetic linked-worktree command must start");
+    assert!(status.success());
+    let dot_git = fs::read_to_string(linked.join(".git"))
+        .expect("the linked-worktree pointer must be readable");
+    let admin = dot_git
+        .trim()
+        .strip_prefix("gitdir: ")
+        .expect("Git must write a gitdir pointer");
+    let admin_link = parent.path().join("admin-link");
+    std::os::unix::fs::symlink(admin, &admin_link)
+        .expect("the synthetic admin-directory link must be creatable");
+    fs::write(
+        linked.join(".git"),
+        format!("gitdir: {}\n", admin_link.display()),
+    )
+    .expect("the linked-worktree pointer must be replaceable");
+    let error = adapter(CollectionLimits::default())
+        .collect(request(&linked))
+        .expect_err("a final gitdir symlink must fail before canonicalization");
+    assert_eq!(error.stage(), CollectionStage::ValidateObjectStore);
+    assert_eq!(error.kind(), CollectionErrorKind::RepositoryRedirect);
+}
+
+#[test]
+fn one_deadline_kills_an_exited_parents_pipe_holding_grandchild() {
+    let wrapper_parent = tempfile::tempdir().expect("the wrapper parent must be creatable");
+    let pid_file = wrapper_parent.path().join("grandchild.pid");
+    let body = format!(
+        r#"
+for argument in "$@"; do
+  if [ "$argument" = "rev-parse" ]; then
+    /bin/sleep 5 &
+    printf '%s\n' "$!" > '{}'
+    exit 0
+  fi
+done
+exec /usr/bin/git "$@"
+"#,
+        pid_file.display()
+    );
+    let executable = wrapper_parent.path().join("git-wrapper");
+    write_wrapper(&executable, &body);
+    let limits = CollectionLimits {
+        command_timeout: Duration::from_millis(100),
+        ..CollectionLimits::default()
+    };
+    let adapter = GitCliAdapter::from_trusted_executable(executable, limits)
+        .expect("the orphan wrapper must pass the capability probe");
+    let fixture = fixture();
+    let started = Instant::now();
+    let error = adapter
+        .collect(request(fixture.path()))
+        .expect_err("a pipe-holding grandchild must hit the complete command deadline");
+    assert_eq!(error.kind(), CollectionErrorKind::Timeout);
+    assert!(started.elapsed() < Duration::from_secs(2));
+
+    let pid = fs::read_to_string(pid_file)
+        .expect("the synthetic grandchild PID must be recorded")
+        .trim()
+        .to_owned();
+    let process = PathBuf::from("/proc").join(pid);
+    for _ in 0..50 {
+        if !process.exists() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(
+        !process.exists(),
+        "the killed process group must leave no child"
+    );
+}
+
+#[test]
+fn rejects_mixed_object_ids_and_impossible_raw_statuses() {
+    let mixed_tree = r#"
+for argument in "$@"; do
+  if [ "$argument" = "ls-tree" ]; then
+    printf '100644 blob 1111111111111111111111111111111111111111111111111111111111111111\tfile\000'
+    exit 0
+  fi
+done
+exec /usr/bin/git "$@"
+"#;
+    let (_directory, mixed_git) = wrapper(mixed_tree);
+    let fixture = fixture();
+    let adapter = GitCliAdapter::from_trusted_executable(mixed_git, CollectionLimits::default())
+        .expect("the mixed-ID wrapper must pass the capability probe");
+    let error = adapter
+        .collect(request(fixture.path()))
+        .expect_err("a SHA-256 tree ID inside a SHA-1 repository must fail closed");
+    assert_eq!(error.stage(), CollectionStage::EnumerateTree);
+    assert_eq!(error.kind(), CollectionErrorKind::MalformedOutput);
+
+    let impossible_add = r#"
+for argument in "$@"; do
+  if [ "$argument" = "diff-tree" ]; then
+    printf ':100644 100644 1111111111111111111111111111111111111111 2222222222222222222222222222222222222222 A\000path\000'
+    exit 0
+  fi
+done
+exec /usr/bin/git "$@"
+"#;
+    let (_directory, impossible_git) = wrapper(impossible_add);
+    let fixture = RepositoryFixture::build(RepositoryScenario::RenameAndMove)
+        .expect("the rename fixture must build");
+    let adapter =
+        GitCliAdapter::from_trusted_executable(impossible_git, CollectionLimits::default())
+            .expect("the impossible-status wrapper must pass the capability probe");
+    let snapshot = adapter
+        .collect(request(fixture.path()))
+        .expect("invalid optional delta evidence must leave a partial snapshot");
+    assert_eq!(
+        snapshot.parent_delta().status(),
+        EvidenceStatus::Unavailable
+    );
+    assert_eq!(
+        snapshot.parent_delta().issue(),
+        Some(ParentDeltaIssue::MalformedOutput)
+    );
 }
 
 #[test]
@@ -402,11 +578,15 @@ fn adapter(limits: CollectionLimits) -> GitCliAdapter {
 fn wrapper(body: &str) -> (TempDir, PathBuf) {
     let directory = tempfile::tempdir().expect("the wrapper directory must be creatable");
     let executable = directory.path().join("git-wrapper");
-    fs::write(&executable, format!("#!/bin/sh\nset -eu\n{body}\n"))
-        .expect("the wrapper must be writable");
-    fs::set_permissions(&executable, fs::Permissions::from_mode(0o755))
-        .expect("the wrapper must be executable");
+    write_wrapper(&executable, body);
     (directory, executable)
+}
+
+fn write_wrapper(executable: &Path, body: &str) {
+    fs::write(executable, format!("#!/bin/sh\nset -eu\n{body}\n"))
+        .expect("the wrapper must be writable");
+    fs::set_permissions(executable, fs::Permissions::from_mode(0o755))
+        .expect("the wrapper must be executable");
 }
 
 fn git_config(repository: &Path, key: &str, value: &OsStr) {

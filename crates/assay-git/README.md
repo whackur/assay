@@ -5,7 +5,9 @@ installed Git CLI selected in ADR 0002. The adapter resolves a requested
 revision to a full commit and root tree ID, enumerates tracked entries without
 requiring UTF-8 paths, records modes and object kinds, hashes complete bounded
 blobs with SHA-256, and reports bounded history and first-parent rename
-availability.
+availability. Repository SHA-1 or SHA-256 object format is detected once and
+enforced across every parsed object ID. Shallow history remains explicitly
+partial.
 
 The adapter does not inspect uncommitted working-tree state and does not
 install, import, build, test, or execute repository code. It does not verify
@@ -17,7 +19,19 @@ Repository-local alternate object stores and symlinked object-store entries
 are rejected before object access. This prevents a repository from redirecting
 the collector to unrelated machine files. A linked Git worktree may use its
 declared common directory, but that directory must have a direct, bounded
-object store without alternate paths.
+object store without alternate paths. Normal repositories, bare repositories,
+and linked worktrees have distinct topology checks. A linked worktree is
+accepted only when its administrative directory, common-directory relation,
+and backlink all match the submitted worktree.
+
+The threat model requires the deployment-selected Git executable and submitted
+Git administrative metadata to remain unchanged during one collection. The
+adapter never selects an executable from repository content. It validates the
+repository topology and object store before object access and validates them
+again before returning, reducing but not eliminating a concurrent filesystem
+replacement race. Each Git invocation runs in a process group or Windows job;
+the command deadline covers process exit and both output drains, and timeout
+terminates the group.
 
 Do not interpret an unavailable object as an empty or absent file. Do not
 interpret a content hash as a quality, originality, or security signal. Limit

@@ -3,9 +3,12 @@ use std::{
     io::{self, Read},
     path::{Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
+    sync::mpsc::{Receiver, TryRecvError, sync_channel},
     thread,
     time::Instant,
 };
+
+use command_group::{CommandGroup, GroupChild};
 
 use crate::{CollectionError, CollectionErrorKind, CollectionLimits, CollectionStage};
 
@@ -56,55 +59,67 @@ impl GitProcessRunner {
         }
 
         let mut child = command
-            .spawn()
+            .group_spawn()
             .map_err(|error| CollectionError::new(stage, spawn_error_kind(error.kind())))?;
         let stdout = child
+            .inner()
             .stdout
             .take()
             .ok_or_else(|| CollectionError::new(stage, CollectionErrorKind::Io))?;
         let stderr = child
+            .inner()
             .stderr
             .take()
             .ok_or_else(|| CollectionError::new(stage, CollectionErrorKind::Io))?;
-        let stdout_thread = thread::spawn(move || drain_bounded(stdout, stdout_limit));
+        let (stdout_sender, stdout_receiver) = sync_channel(1);
+        let stdout_thread = thread::spawn(move || {
+            let _ = stdout_sender.send(drain_bounded(stdout, stdout_limit));
+        });
         let stderr_limit = self.limits.max_stderr_bytes;
-        let stderr_thread = thread::spawn(move || drain_bounded(stderr, stderr_limit));
+        let (stderr_sender, stderr_receiver) = sync_channel(1);
+        let stderr_thread = thread::spawn(move || {
+            let _ = stderr_sender.send(drain_bounded(stderr, stderr_limit));
+        });
 
         let started = Instant::now();
-        let status = loop {
-            match child.try_wait() {
-                Ok(Some(status)) => break status,
-                Ok(None) if started.elapsed() < self.limits.command_timeout => {
-                    thread::sleep(std::time::Duration::from_millis(5));
-                }
-                Ok(None) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    // A hostile replacement for the trusted executable could
-                    // leave a grandchild holding inherited pipes. Git helpers
-                    // are disabled, and detaching the drainers here keeps the
-                    // adapter deadline bounded even in that test condition.
-                    drop(stdout_thread);
-                    drop(stderr_thread);
-                    return Err(CollectionError::new(stage, CollectionErrorKind::Timeout));
-                }
-                Err(_) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    drop(stdout_thread);
-                    drop(stderr_thread);
-                    return Err(CollectionError::new(stage, CollectionErrorKind::Io));
+        let mut status = None;
+        let mut stdout = None;
+        let mut stderr = None;
+        loop {
+            if status.is_none() {
+                match child.try_wait() {
+                    Ok(value) => status = value,
+                    Err(_) => {
+                        terminate_group(&mut child);
+                        join_drainers(stdout_thread, stderr_thread);
+                        return Err(CollectionError::new(stage, CollectionErrorKind::Io));
+                    }
                 }
             }
-        };
-
-        let stdout = stdout_thread
-            .join()
-            .map_err(|_| CollectionError::new(stage, CollectionErrorKind::Io))?
+            if poll_drain(&stdout_receiver, &mut stdout, stage).is_err()
+                || poll_drain(&stderr_receiver, &mut stderr, stage).is_err()
+            {
+                terminate_group(&mut child);
+                join_drainers(stdout_thread, stderr_thread);
+                return Err(CollectionError::new(stage, CollectionErrorKind::Io));
+            }
+            if status.is_some() && stdout.is_some() && stderr.is_some() {
+                break;
+            }
+            if started.elapsed() >= self.limits.command_timeout {
+                terminate_group(&mut child);
+                join_drainers(stdout_thread, stderr_thread);
+                return Err(CollectionError::new(stage, CollectionErrorKind::Timeout));
+            }
+            thread::sleep(std::time::Duration::from_millis(5));
+        }
+        join_drainers(stdout_thread, stderr_thread);
+        let status = status.expect("the loop exits only with a child status");
+        let stdout = stdout
+            .expect("the loop exits only after stdout drains")
             .map_err(|_| CollectionError::new(stage, CollectionErrorKind::Io))?;
-        let stderr = stderr_thread
-            .join()
-            .map_err(|_| CollectionError::new(stage, CollectionErrorKind::Io))?
+        let stderr = stderr
+            .expect("the loop exits only after stderr drains")
             .map_err(|_| CollectionError::new(stage, CollectionErrorKind::Io))?;
         if stdout.exceeded || stderr.exceeded {
             return Err(CollectionError::new(
@@ -115,6 +130,34 @@ impl GitProcessRunner {
         ensure_success(status, stage)?;
         Ok(stdout.bytes)
     }
+}
+
+fn poll_drain(
+    receiver: &Receiver<io::Result<DrainedOutput>>,
+    output: &mut Option<io::Result<DrainedOutput>>,
+    stage: CollectionStage,
+) -> Result<(), CollectionError> {
+    if output.is_some() {
+        return Ok(());
+    }
+    match receiver.try_recv() {
+        Ok(value) => *output = Some(value),
+        Err(TryRecvError::Empty) => {}
+        Err(TryRecvError::Disconnected) => {
+            return Err(CollectionError::new(stage, CollectionErrorKind::Io));
+        }
+    }
+    Ok(())
+}
+
+fn terminate_group(child: &mut GroupChild) {
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+fn join_drainers(stdout: thread::JoinHandle<()>, stderr: thread::JoinHandle<()>) {
+    let _ = stdout.join();
+    let _ = stderr.join();
 }
 
 fn global_arguments() -> impl IntoIterator<Item = &'static OsStr> {
