@@ -1,8 +1,8 @@
 use assay_classifier::{
     AttributeAvailability, BUILT_IN_RULE_SET_VERSION, BuiltInPolicy, ClassificationCategory,
-    ClassificationError, ClassificationEvidence, ClassificationPolicy, ClassificationTag,
-    Confidence, FileClassification, FileClassificationInput, LinguistAttributeFacts, PortablePath,
-    RuleId,
+    ClassificationDecision, ClassificationError, ClassificationEvidence, ClassificationPolicy,
+    ClassificationTag, Confidence, FileClassificationInput, LinguistAttributeFacts, PolicyVersion,
+    PortablePath, RuleId, classify_with_policy,
 };
 
 fn classify(path: &str) -> assay_classifier::FileClassification {
@@ -14,7 +14,10 @@ fn classify(path: &str) -> assay_classifier::FileClassification {
 
 #[test]
 fn versioned_rules_cover_every_required_primary_category() {
-    assert_eq!(BuiltInPolicy::V1.version(), BUILT_IN_RULE_SET_VERSION);
+    assert_eq!(
+        BuiltInPolicy::V1.version().as_str(),
+        BUILT_IN_RULE_SET_VERSION
+    );
     assert_eq!(BUILT_IN_RULE_SET_VERSION, "file-classifier-1");
     let cases = [
         ("src/main.ts", ClassificationCategory::ProductionCode),
@@ -41,6 +44,7 @@ fn versioned_rules_cover_every_required_primary_category() {
         assert_eq!(result.category(), expected, "wrong category for {path}");
         assert!(!result.rule_id().as_str().is_empty());
         assert!(result.rule_id().as_str().starts_with("classifier.v1."));
+        assert_eq!(result.policy_version().as_str(), BUILT_IN_RULE_SET_VERSION);
         assert!(result.confidence().basis_points() <= 10_000);
         assert!(!result.evidence().is_empty());
         assert_eq!(
@@ -94,6 +98,51 @@ fn dependency_rules_distinguish_manifests_and_lockfiles_with_tags() {
     let lockfile = classify("pnpm-lock.yaml");
     assert_eq!(lockfile.category(), ClassificationCategory::Dependency);
     assert!(lockfile.tags().contains(&ClassificationTag::Lockfile));
+
+    let bun_lockfile = classify("bun.lock");
+    assert_eq!(bun_lockfile.category(), ClassificationCategory::Dependency);
+    assert!(bun_lockfile.tags().contains(&ClassificationTag::Lockfile));
+}
+
+#[test]
+fn protoc_output_rules_are_specific_and_can_be_suppressed() {
+    for path in [
+        "src/messages_pb.js",
+        "src/messages_pb.d.ts",
+        "src/messages_pb2.py",
+        "src/messages_pb2.pyi",
+        "src/messages.pb.go",
+    ] {
+        assert_eq!(
+            classify(path).category(),
+            ClassificationCategory::Generated,
+            "protoc output was not generated: {path}"
+        );
+    }
+
+    for path in ["src/pb.js", "src/messages_pb.jsx", "src/messages.pb.json"] {
+        assert_ne!(
+            classify(path).category(),
+            ClassificationCategory::Generated,
+            "protobuf rule over-matched: {path}"
+        );
+    }
+
+    let suppressed = FileClassificationInput::try_new(
+        "src/messages_pb.js",
+        LinguistAttributeFacts::available(Some(false), None),
+    )
+    .expect("test path must be portable");
+    let suppressed = BuiltInPolicy::V1.classify(&suppressed);
+    assert_eq!(
+        suppressed.category(),
+        ClassificationCategory::ProductionCode
+    );
+    assert!(
+        suppressed
+            .tags()
+            .contains(&ClassificationTag::GeneratedSuppressed)
+    );
 }
 
 #[test]
@@ -153,6 +202,36 @@ fn linguist_false_overrides_disable_matching_builtin_generated_and_vendor_rules(
             .tags()
             .contains(&ClassificationTag::VendoredSuppressed)
     );
+}
+
+#[test]
+fn false_attributes_remain_evidence_without_claiming_an_unmatched_suppression() {
+    let input = FileClassificationInput::try_new(
+        "src/main.ts",
+        LinguistAttributeFacts::available(Some(false), Some(false)),
+    )
+    .expect("test path must be portable");
+    let result = BuiltInPolicy::V1.classify(&input);
+
+    assert_eq!(result.category(), ClassificationCategory::ProductionCode);
+    assert!(
+        !result
+            .tags()
+            .contains(&ClassificationTag::GeneratedSuppressed)
+    );
+    assert!(
+        !result
+            .tags()
+            .contains(&ClassificationTag::VendoredSuppressed)
+    );
+    assert!(result.evidence().iter().any(|evidence| {
+        evidence.attribute_name() == Some("linguist-generated")
+            && evidence.attribute_value() == Some(false)
+    }));
+    assert!(result.evidence().iter().any(|evidence| {
+        evidence.attribute_name() == Some("linguist-vendored")
+            && evidence.attribute_value() == Some(false)
+    }));
 }
 
 #[test]
@@ -255,19 +334,23 @@ fn error_and_result_debug_output_do_not_expose_paths_or_source_content() {
 
 #[test]
 fn policy_boundary_can_be_replaced_without_embedding_project_rules() {
-    struct DeferredProjectPolicy;
+    struct DeferredProjectPolicy {
+        version: PolicyVersion,
+    }
 
     impl ClassificationPolicy for DeferredProjectPolicy {
-        fn classify(&self, input: &FileClassificationInput) -> FileClassification {
-            let rule_id = RuleId::try_new("deployment-policy.v7.special_source")
-                .expect("static rule ID must be valid");
-            FileClassification::from_policy(
+        fn policy_version(&self) -> PolicyVersion {
+            self.version.clone()
+        }
+
+        fn evaluate(&self, _input: &FileClassificationInput) -> ClassificationDecision {
+            let rule_id = RuleId::try_new("special_source").expect("static rule ID must be valid");
+            ClassificationDecision::new(
                 ClassificationCategory::Configuration,
                 [],
                 rule_id.clone(),
                 Confidence::try_from_basis_points(8_000).expect("static confidence must be valid"),
                 [ClassificationEvidence::policy_rule(rule_id)],
-                input.attributes().availability(),
             )
         }
     }
@@ -277,8 +360,26 @@ fn policy_boundary_can_be_replaced_without_embedding_project_rules() {
         LinguistAttributeFacts::available(None, None),
     )
     .expect("test path must be portable");
-    assert_eq!(
-        DeferredProjectPolicy.classify(&input).category(),
-        ClassificationCategory::Configuration
-    );
+    let policy = DeferredProjectPolicy {
+        version: PolicyVersion::try_new("deployment-policy-v7")
+            .expect("versioned policy identity must be valid"),
+    };
+    let result = classify_with_policy(&policy, &input);
+    assert_eq!(result.category(), ClassificationCategory::Configuration);
+    assert_eq!(result.policy_version().as_str(), "deployment-policy-v7");
+    assert_eq!(result.rule_id().as_str(), "special_source");
+}
+
+#[test]
+fn policy_identity_requires_an_explicit_positive_version() {
+    for invalid in [
+        "deployment-policy",
+        "deployment-policy-v0",
+        "deployment-policy-0",
+        "Deployment-policy-v7",
+    ] {
+        let error = PolicyVersion::try_new(invalid).expect_err("identity must be rejected");
+        assert_eq!(error.value_kind(), "policy_version");
+        assert!(!format!("{error:?} {error}").contains(invalid));
+    }
 }

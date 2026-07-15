@@ -51,6 +51,13 @@ impl ClassificationError {
         }
     }
 
+    fn policy_version(reason: &'static str) -> Self {
+        Self {
+            value_kind: "policy_version",
+            reason,
+        }
+    }
+
     /// Returns the stable input kind that failed validation.
     pub const fn value_kind(&self) -> &'static str {
         self.value_kind
@@ -317,7 +324,10 @@ pub enum ClassificationTag {
     Minified,
 }
 
-/// A stable, versioned rule identifier.
+/// A stable rule identifier scoped by a [`PolicyVersion`].
+///
+/// Individual rule IDs need not repeat the policy version. The policy identity
+/// carried by every [`FileClassification`] versions their meaning.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct RuleId(String);
 
@@ -354,6 +364,60 @@ impl RuleId {
     }
 
     /// Returns the canonical rule identifier.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+/// Validated identity of one complete classification policy.
+///
+/// A canonical policy identity ends in a positive numeric version, such as
+/// `file-classifier-1` or `deployment-policy-v7`. Future CFG-002 rule-set
+/// hashing can combine this identity with normalized external policy inputs;
+/// this identity is provenance and is not itself a configuration hash.
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct PolicyVersion(String);
+
+impl PolicyVersion {
+    fn built_in() -> Self {
+        Self(BUILT_IN_RULE_SET_VERSION.to_owned())
+    }
+
+    /// Creates an explicitly versioned canonical policy identity.
+    pub fn try_new(value: impl Into<String>) -> Result<Self, ClassificationError> {
+        let value = value.into();
+        if value.is_empty() || value.len() > 128 {
+            return Err(ClassificationError::policy_version(
+                "expected a non-empty identity of at most 128 characters",
+            ));
+        }
+        let bytes = value.as_bytes();
+        if !bytes[0].is_ascii_lowercase()
+            || !bytes[bytes.len() - 1].is_ascii_digit()
+            || !bytes.iter().all(|byte| {
+                byte.is_ascii_lowercase()
+                    || byte.is_ascii_digit()
+                    || matches!(byte, b'.' | b'_' | b'-')
+            })
+        {
+            return Err(ClassificationError::policy_version(
+                "expected a canonical lowercase identity",
+            ));
+        }
+        let version = value.rsplit('-').next().unwrap_or_default();
+        let digits = version.strip_prefix('v').unwrap_or(version);
+        if digits.is_empty()
+            || digits.starts_with('0')
+            || !digits.bytes().all(|byte| byte.is_ascii_digit())
+        {
+            return Err(ClassificationError::policy_version(
+                "expected a positive numeric version suffix",
+            ));
+        }
+        Ok(Self(value))
+    }
+
+    /// Returns the canonical policy identity.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -480,6 +544,7 @@ impl ClassificationEvidence {
 /// correctness, value, intent, semantic impact, or contributor performance.
 #[derive(Clone, Eq, PartialEq)]
 pub struct FileClassification {
+    policy_version: PolicyVersion,
     category: ClassificationCategory,
     tags: Vec<ClassificationTag>,
     rule_id: RuleId,
@@ -488,18 +553,31 @@ pub struct FileClassification {
     attribute_availability: AttributeAvailability,
 }
 
-impl FileClassification {
-    /// Creates an explainable result for an external policy adapter.
+/// Explainable decision returned by a classification policy.
+///
+/// The decision does not carry policy identity itself. Callers use
+/// [`classify_with_policy`] so the policy's validated version is attached to
+/// the final result and cannot be omitted by a policy implementation.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClassificationDecision {
+    category: ClassificationCategory,
+    tags: Vec<ClassificationTag>,
+    rule_id: RuleId,
+    confidence: Confidence,
+    evidence: Vec<ClassificationEvidence>,
+}
+
+impl ClassificationDecision {
+    /// Creates an explainable decision for a versioned policy adapter.
     ///
     /// Tags are sorted and deduplicated. The primary policy rule is retained
     /// as evidence automatically if the adapter does not supply it.
-    pub fn from_policy(
+    pub fn new(
         category: ClassificationCategory,
         tags: impl IntoIterator<Item = ClassificationTag>,
         rule_id: RuleId,
         confidence: Confidence,
         evidence: impl IntoIterator<Item = ClassificationEvidence>,
-        attribute_availability: AttributeAvailability,
     ) -> Self {
         let tags = tags
             .into_iter()
@@ -516,8 +594,50 @@ impl FileClassification {
             rule_id,
             confidence,
             evidence,
+        }
+    }
+
+    fn built_in(
+        category: ClassificationCategory,
+        rule_id: &'static str,
+        confidence: Confidence,
+    ) -> Self {
+        Self {
+            category,
+            tags: Vec::new(),
+            rule_id: RuleId::built_in(rule_id),
+            confidence,
+            evidence: Vec::new(),
+        }
+    }
+
+    fn tagged(mut self, tag: ClassificationTag) -> Self {
+        self.tags.push(tag);
+        self
+    }
+}
+
+impl FileClassification {
+    fn from_decision(
+        policy_version: PolicyVersion,
+        decision: ClassificationDecision,
+        attribute_availability: AttributeAvailability,
+    ) -> Self {
+        Self {
+            policy_version,
+            category: decision.category,
+            tags: decision.tags,
+            rule_id: decision.rule_id,
+            confidence: decision.confidence,
+            evidence: decision.evidence,
             attribute_availability,
         }
+    }
+
+    /// Returns the validated identity of the complete policy that produced
+    /// this result.
+    pub const fn policy_version(&self) -> &PolicyVersion {
+        &self.policy_version
     }
 
     /// Returns the single primary category.
@@ -555,6 +675,7 @@ impl fmt::Debug for FileClassification {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("FileClassification")
+            .field("policy_version", &self.policy_version)
             .field("category", &self.category)
             .field("tags", &self.tags)
             .field("rule_id", &self.rule_id)
@@ -571,8 +692,27 @@ impl fmt::Debug for FileClassification {
 /// this trait. The built-in policy intentionally contains no project-specific
 /// names or organization-specific exceptions.
 pub trait ClassificationPolicy {
-    /// Classifies a validated file input without I/O.
-    fn classify(&self, input: &FileClassificationInput) -> FileClassification;
+    /// Returns this policy's validated, explicit version identity.
+    fn policy_version(&self) -> PolicyVersion;
+
+    /// Evaluates a validated file input without I/O.
+    fn evaluate(&self, input: &FileClassificationInput) -> ClassificationDecision;
+}
+
+/// Evaluates a policy and attaches its validated version to the result.
+///
+/// This is the enforced entry point for external policies: implementations
+/// return only a [`ClassificationDecision`], while this function preserves the
+/// policy identity and input availability in [`FileClassification`].
+pub fn classify_with_policy(
+    policy: &(impl ClassificationPolicy + ?Sized),
+    input: &FileClassificationInput,
+) -> FileClassification {
+    FileClassification::from_decision(
+        policy.policy_version(),
+        policy.evaluate(input),
+        input.attributes().availability(),
+    )
 }
 
 /// Built-in Assay file classification policy.
@@ -584,22 +724,32 @@ pub enum BuiltInPolicy {
 
 impl BuiltInPolicy {
     /// Returns the stable version for this policy.
-    pub const fn version(self) -> &'static str {
+    pub fn version(self) -> PolicyVersion {
         match self {
-            Self::V1 => BUILT_IN_RULE_SET_VERSION,
+            Self::V1 => PolicyVersion::built_in(),
         }
+    }
+
+    /// Classifies one file through the same version-preserving entry point
+    /// used by external policies.
+    pub fn classify(self, input: &FileClassificationInput) -> FileClassification {
+        classify_with_policy(&self, input)
     }
 }
 
 impl ClassificationPolicy for BuiltInPolicy {
-    fn classify(&self, input: &FileClassificationInput) -> FileClassification {
+    fn policy_version(&self) -> PolicyVersion {
+        self.version()
+    }
+
+    fn evaluate(&self, input: &FileClassificationInput) -> ClassificationDecision {
         match self {
-            Self::V1 => classify_v1(input),
+            Self::V1 => evaluate_v1(input),
         }
     }
 }
 
-fn classify_v1(input: &FileClassificationInput) -> FileClassification {
+fn evaluate_v1(input: &FileClassificationInput) -> ClassificationDecision {
     let attributes = input.attributes();
     let mut tags = BTreeSet::new();
     let mut evidence = Vec::new();
@@ -612,11 +762,9 @@ fn classify_v1(input: &FileClassificationInput) -> FileClassification {
                     "linguist-generated",
                     value,
                 ));
-                tags.insert(if value {
-                    ClassificationTag::LinguistGenerated
-                } else {
-                    ClassificationTag::GeneratedSuppressed
-                });
+                if value {
+                    tags.insert(ClassificationTag::LinguistGenerated);
+                }
             }
             if let Some(value) = attributes.vendored() {
                 evidence.push(ClassificationEvidence::attribute(
@@ -624,11 +772,9 @@ fn classify_v1(input: &FileClassificationInput) -> FileClassification {
                     "linguist-vendored",
                     value,
                 ));
-                tags.insert(if value {
-                    ClassificationTag::LinguistVendored
-                } else {
-                    ClassificationTag::VendoredSuppressed
-                });
+                if value {
+                    tags.insert(ClassificationTag::LinguistVendored);
+                }
             }
         }
         AttributeAvailability::Unavailable => {
@@ -640,23 +786,40 @@ fn classify_v1(input: &FileClassificationInput) -> FileClassification {
     // When both attributes are true, generated is the deterministic primary
     // category and vendored remains visible as a secondary tag and evidence.
     let decision = if attributes.generated() == Some(true) {
-        Decision::new(
+        ClassificationDecision::built_in(
             ClassificationCategory::Generated,
             "classifier.v1.attribute.generated",
             Confidence::CERTAIN,
         )
     } else if attributes.vendored() == Some(true) {
-        Decision::new(
+        ClassificationDecision::built_in(
             ClassificationCategory::Vendored,
             "classifier.v1.attribute.vendored",
             Confidence::CERTAIN,
         )
     } else {
-        classify_path_v1(
+        let generated_rules_enabled = attributes.generated() != Some(false);
+        let vendored_rules_enabled = attributes.vendored() != Some(false);
+        let decision = classify_path_v1(
             input.path(),
-            attributes.generated() != Some(false),
-            attributes.vendored() != Some(false),
-        )
+            generated_rules_enabled,
+            vendored_rules_enabled,
+        );
+        if attributes.generated() == Some(false)
+            && classify_path_v1(input.path(), true, vendored_rules_enabled).category
+                == ClassificationCategory::Generated
+            && decision.category != ClassificationCategory::Generated
+        {
+            tags.insert(ClassificationTag::GeneratedSuppressed);
+        }
+        if attributes.vendored() == Some(false)
+            && classify_path_v1(input.path(), generated_rules_enabled, true).category
+                == ClassificationCategory::Vendored
+            && decision.category != ClassificationCategory::Vendored
+        {
+            tags.insert(ClassificationTag::VendoredSuppressed);
+        }
+        decision
     };
 
     tags.extend(decision.tags);
@@ -675,40 +838,12 @@ fn classify_v1(input: &FileClassificationInput) -> FileClassification {
         decision.confidence
     };
 
-    FileClassification {
+    ClassificationDecision {
         category: decision.category,
         tags: tags.into_iter().collect(),
         rule_id: decision.rule_id,
         confidence,
         evidence,
-        attribute_availability: attributes.availability(),
-    }
-}
-
-struct Decision {
-    category: ClassificationCategory,
-    tags: Vec<ClassificationTag>,
-    rule_id: RuleId,
-    confidence: Confidence,
-}
-
-impl Decision {
-    fn new(
-        category: ClassificationCategory,
-        rule_id: &'static str,
-        confidence: Confidence,
-    ) -> Self {
-        Self {
-            category,
-            tags: Vec::new(),
-            rule_id: RuleId::built_in(rule_id),
-            confidence,
-        }
-    }
-
-    fn tagged(mut self, tag: ClassificationTag) -> Self {
-        self.tags.push(tag);
-        self
     }
 }
 
@@ -716,26 +851,26 @@ fn classify_path_v1(
     path: &PortablePath,
     generated_rules_enabled: bool,
     vendored_rules_enabled: bool,
-) -> Decision {
+) -> ClassificationDecision {
     let components = path.lowercase_components();
     let filename = components.last().map(String::as_str).unwrap_or_default();
 
     if is_coverage(&components, filename) {
-        return Decision::new(
+        return ClassificationDecision::built_in(
             ClassificationCategory::Coverage,
             "classifier.v1.coverage",
             Confidence::HIGH,
         );
     }
     if is_build_output(&components, filename) {
-        return Decision::new(
+        return ClassificationDecision::built_in(
             ClassificationCategory::BuildOutput,
             "classifier.v1.build_output",
             Confidence::HIGH,
         );
     }
     if generated_rules_enabled && is_generated(&components, filename) {
-        let mut decision = Decision::new(
+        let mut decision = ClassificationDecision::built_in(
             ClassificationCategory::Generated,
             "classifier.v1.generated",
             Confidence::HIGH,
@@ -746,49 +881,49 @@ fn classify_path_v1(
         return decision;
     }
     if vendored_rules_enabled && is_vendored(&components) {
-        return Decision::new(
+        return ClassificationDecision::built_in(
             ClassificationCategory::Vendored,
             "classifier.v1.vendored",
             Confidence::HIGH,
         );
     }
     if is_ci(&components, filename) {
-        return Decision::new(
+        return ClassificationDecision::built_in(
             ClassificationCategory::CiCd,
             "classifier.v1.ci_cd",
             Confidence::HIGH,
         );
     }
     if is_schema_migration(&components, filename) {
-        return Decision::new(
+        return ClassificationDecision::built_in(
             ClassificationCategory::SchemaMigration,
             "classifier.v1.schema_migration",
             Confidence::HIGH,
         );
     }
     if is_security_policy(&components, filename) {
-        return Decision::new(
+        return ClassificationDecision::built_in(
             ClassificationCategory::SecurityPolicy,
             "classifier.v1.security_policy",
             Confidence::HIGH,
         );
     }
     if is_documentation(&components, filename) {
-        return Decision::new(
+        return ClassificationDecision::built_in(
             ClassificationCategory::Documentation,
             "classifier.v1.documentation",
             Confidence::HIGH,
         );
     }
     if is_test(&components, filename) {
-        return Decision::new(
+        return ClassificationDecision::built_in(
             ClassificationCategory::Test,
             "classifier.v1.test",
             Confidence::HIGH,
         );
     }
     if is_lockfile(filename) {
-        return Decision::new(
+        return ClassificationDecision::built_in(
             ClassificationCategory::Dependency,
             "classifier.v1.dependency.lockfile",
             Confidence::HIGH,
@@ -796,7 +931,7 @@ fn classify_path_v1(
         .tagged(ClassificationTag::Lockfile);
     }
     if is_dependency_manifest(filename) {
-        return Decision::new(
+        return ClassificationDecision::built_in(
             ClassificationCategory::Dependency,
             "classifier.v1.dependency.manifest",
             Confidence::HIGH,
@@ -804,27 +939,27 @@ fn classify_path_v1(
         .tagged(ClassificationTag::DependencyManifest);
     }
     if is_infrastructure(&components, filename) {
-        return Decision::new(
+        return ClassificationDecision::built_in(
             ClassificationCategory::Infrastructure,
             "classifier.v1.infrastructure",
             Confidence::HIGH,
         );
     }
     if is_configuration(&components, filename) {
-        return Decision::new(
+        return ClassificationDecision::built_in(
             ClassificationCategory::Configuration,
             "classifier.v1.configuration",
             Confidence::MEDIUM,
         );
     }
     if is_source(filename) {
-        return Decision::new(
+        return ClassificationDecision::built_in(
             ClassificationCategory::ProductionCode,
             "classifier.v1.production_code",
             Confidence::MEDIUM_HIGH,
         );
     }
-    Decision::new(
+    ClassificationDecision::built_in(
         ClassificationCategory::Unknown,
         "classifier.v1.unknown",
         Confidence::LOW,
@@ -852,7 +987,11 @@ fn is_build_output(components: &[String], filename: &str) -> bool {
 fn is_generated(components: &[String], filename: &str) -> bool {
     contains_component(components, &["generated", "gen", "codegen"])
         || filename.contains(".generated.")
+        || filename.ends_with("_pb.js")
+        || filename.ends_with("_pb.d.ts")
         || filename.ends_with("_pb2.py")
+        || filename.ends_with("_pb2.pyi")
+        || filename.ends_with(".pb.go")
         || filename.ends_with(".g.cs")
         || is_minified(filename)
 }
@@ -935,7 +1074,8 @@ fn is_test(components: &[String], filename: &str) -> bool {
 fn is_lockfile(filename: &str) -> bool {
     matches!(
         filename,
-        "cargo.lock"
+        "bun.lock"
+            | "cargo.lock"
             | "package-lock.json"
             | "npm-shrinkwrap.json"
             | "pnpm-lock.yaml"
