@@ -7,3 +7,6 @@ publish.workspace = true
 
 [dependencies]
 assay-domain = { path = "../assay-domain" }
+
+[dev-dependencies]
+assay-test-fixtures = { path = "../../tests/support/assay-fixtures" }

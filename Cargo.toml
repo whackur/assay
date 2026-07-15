@@ -5,6 +5,7 @@ members = [
     "crates/assay-domain",
     "crates/assay-git",
     "crates/assay-project-intelligence",
+    "tests/support/assay-fixtures",
 ]
 resolver = "3"
 

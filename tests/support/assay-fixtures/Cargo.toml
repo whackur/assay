@@ -1,0 +1,9 @@
+[package]
+name = "assay-test-fixtures"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+tempfile = "3.20"
