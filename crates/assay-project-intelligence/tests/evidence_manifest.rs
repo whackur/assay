@@ -15,10 +15,10 @@ use assay_git::{
     CollectionLimits, GitCliAdapter, RepositorySnapshot, RepositorySnapshotPort, SnapshotRequest,
 };
 use assay_project_intelligence::{
-    ClassificationAvailabilityReason, ClassificationEvidenceRecord, ClassifiedSnapshotFile,
-    EvidenceAssemblyErrorKind, HistoryScopeEvidence, ParentDeltaEvidence, PortablePathEncoding,
-    RawEvidenceIssue, RawEvidenceKind, TrackedFileEvidence, assemble_project_evidence,
-    build_project_analysis,
+    ClassificationAvailabilityReason, ClassificationCategoryRecord, ClassificationEvidenceRecord,
+    ClassifiedSnapshotFile, EvidenceAssemblyErrorKind, HistoryScopeEvidence, ParentDeltaEvidence,
+    PortablePathEncoding, RawEvidenceIssue, RawEvidenceKind, TrackedFileEvidence,
+    assemble_project_evidence, build_project_analysis,
 };
 use assay_test_fixtures::{RepositoryFixture, RepositoryScenario};
 
@@ -73,41 +73,43 @@ fn repository_features_cite_the_evidence_layer_that_supports_each_claim() {
     )
     .unwrap();
     let output = build_project_analysis(&snapshot, &complete, "2026-01-02T03:04:06Z").unwrap();
-    let raw_ids = complete
+    let readme_raw_ids = complete
         .raw_facts()
         .iter()
-        .filter(|fact| fact.kind() == RawEvidenceKind::TrackedFile)
-        .map(|fact| fact.id().as_str())
-        .collect::<std::collections::BTreeSet<_>>();
-    let classification_ids = complete
+        .filter(|fact| {
+            fact.kind() == RawEvidenceKind::TrackedFile
+                && fact.source().path().is_some_and(|path| {
+                    path.encoding() == PortablePathEncoding::Utf8
+                        && path
+                            .value()
+                            .to_ascii_lowercase()
+                            .rsplit('/')
+                            .next()
+                            .is_some_and(|name| name.starts_with("readme"))
+                })
+        })
+        .map(|fact| fact.id().as_str().to_owned())
+        .collect::<Vec<_>>();
+    let test_classification_ids = complete
         .classification_facts()
         .iter()
-        .map(|fact| fact.id().as_str())
-        .collect::<std::collections::BTreeSet<_>>();
+        .filter(|fact| fact.category() == Some(ClassificationCategoryRecord::Test))
+        .map(|fact| fact.id().as_str().to_owned())
+        .collect::<Vec<_>>();
     let features = output["evidence"].as_array().unwrap();
     let readme = features
         .iter()
         .find(|fact| fact["payload"]["feature"] == "readme")
         .unwrap();
-    assert!(
-        readme["payload"]["related_evidence_ids"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|id| raw_ids.contains(id.as_str().unwrap()))
-    );
+    assert!(!readme_raw_ids.is_empty());
+    assert_eq!(related_ids(readme), readme_raw_ids);
     let test_feature = features
         .iter()
         .find(|fact| fact["payload"]["feature"] == "test")
         .unwrap();
     assert_eq!(test_feature["payload"]["state"], "present");
-    assert!(
-        test_feature["payload"]["related_evidence_ids"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|id| classification_ids.contains(id.as_str().unwrap()))
-    );
+    assert!(!test_classification_ids.is_empty());
+    assert_eq!(related_ids(test_feature), test_classification_ids);
 
     let partial = assemble_project_evidence(
         &snapshot,
@@ -116,11 +118,12 @@ fn repository_features_cite_the_evidence_layer_that_supports_each_claim() {
     .unwrap();
     let partial_output =
         build_project_analysis(&snapshot, &partial, "2026-01-02T03:04:06Z").unwrap();
-    let partial_ids = partial
+    let partial_test_ids = partial
         .classification_facts()
         .iter()
-        .map(|fact| fact.id().as_str())
-        .collect::<std::collections::BTreeSet<_>>();
+        .filter(|fact| fact.category() == Some(ClassificationCategoryRecord::Test))
+        .map(|fact| fact.id().as_str().to_owned())
+        .collect::<Vec<_>>();
     let partial_test = partial_output["evidence"]
         .as_array()
         .unwrap()
@@ -128,13 +131,117 @@ fn repository_features_cite_the_evidence_layer_that_supports_each_claim() {
         .find(|fact| fact["payload"]["feature"] == "test")
         .unwrap();
     assert_eq!(partial_test["payload"]["state"], "unavailable");
-    assert!(
-        partial_test["payload"]["related_evidence_ids"]
+    assert!(!partial_test_ids.is_empty());
+    assert_eq!(related_ids(partial_test), partial_test_ids);
+}
+
+#[test]
+fn unavailable_no_match_feature_cites_all_incomplete_classifications_and_policy_identity() {
+    let snapshot = snapshot(
+        RepositoryScenario::TypeScriptProject,
+        CollectionLimits::default(),
+    );
+    let analyze = |version| {
+        let facts = snapshot
+            .entries()
+            .iter()
+            .map(|entry| {
+                ClassifiedSnapshotFile::classify(
+                    &snapshot,
+                    entry,
+                    LinguistAttributeFacts::unavailable(),
+                    &NamedPolicy(version),
+                )
+                .unwrap()
+            })
+            .collect::<Vec<_>>();
+        let manifest = assemble_project_evidence(&snapshot, facts).unwrap();
+        let expected = manifest
+            .classification_facts()
+            .iter()
+            .map(|fact| fact.id().as_str().to_owned())
+            .collect::<Vec<_>>();
+        let output = build_project_analysis(&snapshot, &manifest, "2026-01-02T03:04:06Z").unwrap();
+        (output, expected)
+    };
+    let (first, first_expected) = analyze("test-policy-1");
+    let (second, second_expected) = analyze("test-policy-2");
+    let first_feature = feature(&first, "generated_content");
+    let second_feature = feature(&second, "generated_content");
+    assert_eq!(first_feature["payload"]["state"], "unavailable");
+    assert!(!first_expected.is_empty());
+    assert_eq!(related_ids(first_feature), first_expected);
+    assert_eq!(related_ids(second_feature), second_expected);
+    assert_ne!(first_feature["id"], second_feature["id"]);
+    for id in related_ids(first_feature) {
+        let cited = first["evidence"]
             .as_array()
             .unwrap()
             .iter()
-            .all(|id| partial_ids.contains(id.as_str().unwrap()))
-    );
+            .find(|fact| fact["id"] == id)
+            .unwrap();
+        assert_eq!(cited["payload"]["kind"], "file_classification");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn unavailable_path_only_feature_cites_non_utf8_raw_evidence() {
+    let snapshot = edge_snapshot();
+    let manifest = assemble_project_evidence(
+        &snapshot,
+        classifications(&snapshot, LinguistAttributeFacts::available(None, None)),
+    )
+    .unwrap();
+    let expected = manifest
+        .raw_facts()
+        .iter()
+        .filter(|fact| {
+            fact.kind() == RawEvidenceKind::TrackedFile
+                && fact
+                    .source()
+                    .path()
+                    .is_some_and(|path| path.encoding() != PortablePathEncoding::Utf8)
+        })
+        .map(|fact| fact.id().as_str().to_owned())
+        .collect::<Vec<_>>();
+    let output = build_project_analysis(&snapshot, &manifest, "2026-01-02T03:04:06Z").unwrap();
+    let license = output["evidence"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|fact| fact["payload"]["feature"] == "license")
+        .unwrap();
+    assert_eq!(license["payload"]["state"], "unavailable");
+    assert!(!expected.is_empty());
+    assert_eq!(related_ids(license), expected);
+    for id in related_ids(license) {
+        let cited = output["evidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|fact| fact["id"] == id)
+            .unwrap();
+        assert_eq!(cited["payload"]["kind"], "tracked_file");
+    }
+}
+
+fn related_ids(feature: &serde_json::Value) -> Vec<String> {
+    feature["payload"]["related_evidence_ids"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|id| id.as_str().unwrap().to_owned())
+        .collect()
+}
+
+fn feature<'a>(output: &'a serde_json::Value, name: &str) -> &'a serde_json::Value {
+    output["evidence"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|fact| fact["payload"]["feature"] == name)
+        .unwrap()
 }
 
 #[test]

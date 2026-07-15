@@ -98,6 +98,28 @@ fn project_analyze_is_repeatable_private_local_and_has_a_reviewed_digest() {
             .iter()
             .all(|item| item["privacy"]["visibility"] == "private_local")
     );
+    let portable_partial_classifications = value["evidence"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|fact| {
+            fact["status"] == "partial"
+                && fact["payload"]["kind"] == "file_classification"
+                && fact["payload"]["reason"] == "attributes_unavailable"
+        })
+        .map(|fact| fact["id"].clone())
+        .collect::<Vec<_>>();
+    assert!(!portable_partial_classifications.is_empty());
+    let attribute_limitation = value["manifest"]["limitations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|limitation| limitation["code"] == "attribute_resolution_unavailable")
+        .expect("portable partial classifications require an attribute limitation");
+    assert_eq!(
+        attribute_limitation["affected_evidence_ids"],
+        Value::Array(portable_partial_classifications)
+    );
     let text = String::from_utf8(first.stdout).unwrap();
     assert!(!text.contains(&fixture.path().display().to_string()));
     assert!(!text.contains("fixture-author@example.invalid"));
@@ -417,6 +439,30 @@ fn overlong_git_path_becomes_citable_partial_evidence_without_path_disclosure() 
                                 && ids.iter().any(|id| id == classification_id)
                         })
             })
+    );
+    assert!(
+        value["manifest"]["limitations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|limitation| limitation["code"] == "attribute_resolution_unavailable")
+            .all(|limitation| {
+                !limitation["affected_evidence_ids"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|id| id == classification_id)
+            }),
+        "a path-limited public classification is not partial attribute evidence"
+    );
+    let license = evidence
+        .iter()
+        .find(|fact| fact["payload"]["feature"] == "license")
+        .expect("license feature evidence");
+    assert_eq!(license["payload"]["state"], "unavailable");
+    assert_eq!(
+        license["payload"]["related_evidence_ids"],
+        serde_json::json!([raw_id])
     );
     let text = String::from_utf8(output.stdout).unwrap();
     assert!(!text.contains("private-long-component"));

@@ -76,13 +76,10 @@ pub fn build_project_analysis(
     let source = map_repository(snapshot.source_snapshot().source());
     let warnings = warnings(manifest);
     let path_limit_ids = path_limit_ids(manifest);
-    let attribute_unavailable_ids = manifest
-        .classification_facts()
+    let attribute_unavailable_ids = evidence
         .iter()
-        .filter(|fact| {
-            fact.reason() == Some(ClassificationAvailabilityReason::AttributesUnavailable)
-        })
-        .map(|fact| fact.id().as_str())
+        .filter(|fact| is_public_partial_attribute_classification(fact))
+        .filter_map(|fact| fact["id"].as_str())
         .collect::<Vec<_>>();
     let mut limitations = Vec::new();
     if !attribute_unavailable_ids.is_empty() {
@@ -411,6 +408,21 @@ fn repository_features(
         .iter()
         .filter_map(|fact| fact.source_evidence_id().map(|id| (id.as_str(), fact)))
         .collect::<BTreeMap<_, _>>();
+    let incomplete_classification_ids = manifest
+        .classification_facts()
+        .iter()
+        .filter(|fact| !classification_is_publicly_complete(fact))
+        .map(|fact| fact.id().as_str())
+        .collect::<BTreeSet<_>>();
+    let incomplete_raw_path_ids = raw_files
+        .iter()
+        .filter(|fact| {
+            fact.source().path().is_some_and(|path| {
+                path.encoding() != PortablePathEncoding::Utf8 || !path_is_publishable(path)
+            })
+        })
+        .map(|fact| fact.id().as_str())
+        .collect::<BTreeSet<_>>();
     let features = [
         "readme",
         "license",
@@ -449,23 +461,16 @@ fn repository_features(
                     }
                 }
             }
-            let classification_incomplete = manifest
-                .classification_facts()
-                .iter()
-                .any(|fact| !classification_is_publicly_complete(fact));
-            let raw_path_incomplete = raw_files.iter().any(|fact| {
-                fact.source().path().is_some_and(|path| {
-                    path.encoding() != PortablePathEncoding::Utf8 || !path_is_publishable(path)
-                })
-            });
-            let absence_is_uncertain = if path_only {
-                raw_path_incomplete
-            } else {
-                classification_incomplete
-            };
+            if reliable.is_empty() && candidates.is_empty() {
+                candidates.extend(if path_only {
+                    incomplete_raw_path_ids.iter().copied()
+                } else {
+                    incomplete_classification_ids.iter().copied()
+                });
+            }
             let state = if !reliable.is_empty() {
                 "present"
-            } else if !candidates.is_empty() || absence_is_uncertain {
+            } else if !candidates.is_empty() {
                 "unavailable"
             } else {
                 "absent"
@@ -475,10 +480,11 @@ fn repository_features(
             } else {
                 "complete"
             };
-            let related = reliable
-                .into_iter()
-                .chain(candidates)
-                .collect::<BTreeSet<_>>();
+            let related = if reliable.is_empty() {
+                candidates
+            } else {
+                reliable
+            };
             let identity_scope = repository_identity_component(snapshot.source_snapshot().source());
             let id_input = format!(
                 "{identity_scope}\0{}\0{feature}\0{state}\0{}",
@@ -623,6 +629,12 @@ fn path_is_publishable(path: &crate::PortableRepositoryPath) -> bool {
 fn classification_is_publicly_complete(fact: &ClassificationEvidenceRecord) -> bool {
     fact.status() == EvidenceStatus::Complete
         && fact.source().path().is_some_and(path_is_publishable)
+}
+
+fn is_public_partial_attribute_classification(fact: &Value) -> bool {
+    fact["status"] == "partial"
+        && fact["payload"]["kind"] == "file_classification"
+        && fact["payload"]["reason"] == "attributes_unavailable"
 }
 
 fn privacy() -> Value {
