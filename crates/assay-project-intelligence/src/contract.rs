@@ -212,6 +212,17 @@ fn validate_evidence_redundancy(by_id: &BTreeMap<&str, &Value>) -> Result<(), &'
                     .as_str()
                     .ok_or("feature_revision")?;
                 let feature = payload["feature"].as_str().ok_or("feature_name")?;
+                let expectation =
+                    crate::feature::derive_repository_feature(feature, by_id.values().copied())?;
+                if expectation.state != state
+                    || expectation.related_evidence_ids
+                        != related_ids
+                            .iter()
+                            .map(|id| (*id).to_owned())
+                            .collect::<Vec<_>>()
+                {
+                    return Err("feature_semantics");
+                }
                 let expected_id =
                     repository_feature_id(&identity_scope, revision, feature, state, &related_ids);
                 if fact["id"].as_str() != Some(expected_id.as_str()) {

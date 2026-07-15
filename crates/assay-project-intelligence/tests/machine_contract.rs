@@ -1,4 +1,13 @@
-use assay_project_intelligence::validate_project_bundle_consistency;
+use std::{ffi::OsStr, path::PathBuf, str::FromStr};
+
+use assay_classifier::{BuiltInPolicy, LinguistAttributeFacts};
+use assay_domain::{ContentHash, RepositorySource};
+use assay_git::{CollectionLimits, GitCliAdapter, RepositorySnapshotPort, SnapshotRequest};
+use assay_project_intelligence::{
+    ClassifiedSnapshotFile, assemble_project_evidence, build_project_analysis,
+    validate_project_bundle_consistency,
+};
+use assay_test_fixtures::{RepositoryFixture, RepositoryScenario};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -47,8 +56,10 @@ fn public_contract_validator_binds_feature_identity_to_ordered_citations() {
     let mut second = tracked_file_record();
     second["id"] = Value::String("evidence:tracked-file:v1-second".into());
     bundle["evidence"].as_array_mut().unwrap().push(second);
-    feature_mut(&mut bundle)["payload"]["related_evidence_ids"] =
-        serde_json::json!(["evidence:tracked-file:v1-second"]);
+    feature_mut(&mut bundle)["payload"]["related_evidence_ids"] = serde_json::json!([
+        "evidence:tracked-file:v1-golden",
+        "evidence:tracked-file:v1-second"
+    ]);
     refresh_project_artifact(&mut bundle);
 
     assert_eq!(
@@ -131,6 +142,61 @@ fn public_contract_validator_rejects_noncanonical_feature_citation_order() {
     );
 }
 
+#[test]
+fn public_contract_validator_rejects_path_evidence_for_the_wrong_present_feature() {
+    let mut bundle = real_producer_bundle();
+    assert_eq!(feature(&bundle, "license")["payload"]["state"], "absent");
+    let package_evidence = feature_related_ids(&bundle, "package_manifest");
+    set_feature(&mut bundle, "license", "present", &package_evidence);
+
+    assert_eq!(
+        validate_project_bundle_consistency(&bundle),
+        Err("feature_semantics")
+    );
+}
+
+#[test]
+fn public_contract_validator_rejects_complete_unrelated_path_evidence_as_an_unavailable_cause() {
+    let mut bundle = real_producer_bundle();
+    let package_evidence = feature_related_ids(&bundle, "package_manifest");
+    set_feature(&mut bundle, "license", "unavailable", &package_evidence);
+
+    assert_eq!(
+        validate_project_bundle_consistency(&bundle),
+        Err("feature_semantics")
+    );
+}
+
+#[test]
+fn public_contract_validator_rejects_the_wrong_classification_category_for_a_present_feature() {
+    let mut bundle = real_producer_bundle();
+    assert_eq!(feature(&bundle, "test")["payload"]["state"], "absent");
+    let dependency_evidence = feature_related_ids(&bundle, "dependency");
+    set_feature(&mut bundle, "test", "present", &dependency_evidence);
+
+    assert_eq!(
+        validate_project_bundle_consistency(&bundle),
+        Err("feature_semantics")
+    );
+}
+
+#[test]
+fn public_contract_validator_rejects_complete_classification_as_an_unavailable_cause() {
+    let mut bundle = real_producer_bundle();
+    let dependency_evidence = feature_related_ids(&bundle, "dependency");
+    set_feature(
+        &mut bundle,
+        "generated_content",
+        "unavailable",
+        &dependency_evidence,
+    );
+
+    assert_eq!(
+        validate_project_bundle_consistency(&bundle),
+        Err("feature_semantics")
+    );
+}
+
 fn bundle_with_present_feature() -> Value {
     let mut bundle = coherent_bundle();
     let tracked = tracked_file_record();
@@ -168,6 +234,95 @@ fn bundle_with_present_feature() -> Value {
     refresh_project_artifact(&mut bundle);
     validate_project_bundle_consistency(&bundle).expect("baseline feature bundle must validate");
     bundle
+}
+
+fn real_producer_bundle() -> Value {
+    let fixture = RepositoryFixture::build(RepositoryScenario::MissingReadmeAndLicense).unwrap();
+    let source = RepositorySource::local(
+        ContentHash::from_str(&format!("sha256:{}", "1".repeat(64))).unwrap(),
+    );
+    let snapshot =
+        GitCliAdapter::from_trusted_executable(trusted_git(), CollectionLimits::default())
+            .unwrap()
+            .collect(SnapshotRequest::new(
+                fixture.path(),
+                source,
+                OsStr::new("HEAD"),
+            ))
+            .unwrap();
+    let classifications = snapshot
+        .entries()
+        .iter()
+        .map(|entry| {
+            ClassifiedSnapshotFile::classify(
+                &snapshot,
+                entry,
+                LinguistAttributeFacts::available(None, None),
+                &BuiltInPolicy::V1,
+            )
+            .unwrap()
+        })
+        .collect::<Vec<_>>();
+    let manifest = assemble_project_evidence(&snapshot, classifications).unwrap();
+    let bundle = build_project_analysis(&snapshot, &manifest, "2026-01-02T03:04:06Z").unwrap();
+    validate_project_bundle_consistency(&bundle).expect("real producer bundle must validate");
+    bundle
+}
+
+fn trusted_git() -> PathBuf {
+    ["/usr/bin/git", "/usr/local/bin/git"]
+        .into_iter()
+        .map(PathBuf::from)
+        .find(|path| path.is_file())
+        .expect("tests require a deployment-trusted Git executable")
+}
+
+fn feature<'a>(bundle: &'a Value, name: &str) -> &'a Value {
+    bundle["evidence"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|fact| fact["payload"]["feature"] == name)
+        .unwrap()
+}
+
+fn feature_related_ids(bundle: &Value, name: &str) -> Vec<String> {
+    feature(bundle, name)["payload"]["related_evidence_ids"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|id| id.as_str().unwrap().to_owned())
+        .collect()
+}
+
+fn set_feature(bundle: &mut Value, name: &str, state: &str, related: &[String]) {
+    let related_refs = related.iter().map(String::as_str).collect::<Vec<_>>();
+    let id = repository_feature_id(bundle, name, state, &related_refs);
+    let fact = bundle["evidence"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|fact| fact["payload"]["feature"] == name)
+        .unwrap();
+    fact["payload"]["state"] = Value::String(state.into());
+    fact["payload"]["related_evidence_ids"] = serde_json::json!(related);
+    fact["status"] = Value::String(
+        if state == "unavailable" {
+            "partial"
+        } else {
+            "complete"
+        }
+        .into(),
+    );
+    fact["id"] = Value::String(id);
+    let analysis_status = if state == "unavailable" {
+        "partial"
+    } else {
+        "complete"
+    };
+    bundle["manifest"]["status"] = Value::String(analysis_status.into());
+    refresh_project_artifact(bundle);
+    bundle["manifest"]["artifacts"][0]["status"] = Value::String(analysis_status.into());
 }
 
 fn tracked_file_record() -> Value {

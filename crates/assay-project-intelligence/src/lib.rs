@@ -17,6 +17,7 @@
 
 mod contract;
 mod evidence;
+mod feature;
 mod machine;
 
 pub use contract::validate_project_bundle_consistency;

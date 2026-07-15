@@ -42,7 +42,7 @@ pub fn build_project_analysis(
             evidence.push(map_classification(classification, generated_at));
         }
     }
-    evidence.extend(repository_features(snapshot, manifest, generated_at));
+    evidence.extend(repository_features(snapshot, &evidence, generated_at)?);
     evidence.sort_by(|left, right| left["id"].as_str().cmp(&right["id"].as_str()));
 
     let evidence_bytes = serde_json::to_vec(&evidence).map_err(|_| MachineMappingError)?;
@@ -395,106 +395,31 @@ fn map_classification(fact: &ClassificationEvidenceRecord, collected_at: &str) -
 
 fn repository_features(
     snapshot: &RepositorySnapshot,
-    manifest: &ProjectEvidenceManifest,
+    evidence: &[Value],
     collected_at: &str,
-) -> Vec<Value> {
-    let raw_files = manifest
-        .raw_facts()
-        .iter()
-        .filter(|fact| fact.kind() == RawEvidenceKind::TrackedFile)
-        .collect::<Vec<_>>();
-    let classification_by_raw = manifest
-        .classification_facts()
-        .iter()
-        .filter_map(|fact| fact.source_evidence_id().map(|id| (id.as_str(), fact)))
-        .collect::<BTreeMap<_, _>>();
-    let incomplete_classification_ids = manifest
-        .classification_facts()
-        .iter()
-        .filter(|fact| !classification_is_publicly_complete(fact))
-        .map(|fact| fact.id().as_str())
-        .collect::<BTreeSet<_>>();
-    let incomplete_raw_path_ids = raw_files
-        .iter()
-        .filter(|fact| {
-            fact.source().path().is_some_and(|path| {
-                path.encoding() != PortablePathEncoding::Utf8 || !path_is_publishable(path)
-            })
-        })
-        .map(|fact| fact.id().as_str())
-        .collect::<BTreeSet<_>>();
-    let features = [
-        "readme",
-        "license",
-        "package_manifest",
-        "ci",
-        "test",
-        "documentation",
-        "migration",
-        "dependency",
-        "security_policy",
-        "generated_content",
-        "vendored_content",
-    ];
-    features
+) -> Result<Vec<Value>, MachineMappingError> {
+    crate::feature::REPOSITORY_FEATURE_NAMES
         .into_iter()
         .map(|feature| {
-            let path_only = matches!(feature, "readme" | "license" | "package_manifest");
-            let mut reliable = BTreeSet::new();
-            let mut candidates = BTreeSet::new();
-            for raw in &raw_files {
-                let path = raw.source().path();
-                let classification = classification_by_raw.get(raw.id().as_str()).copied();
-                if matches_feature(feature, path.map(|path| path.value()), classification) {
-                    if path_only {
-                        if path.is_some_and(path_is_publishable) {
-                            reliable.insert(raw.id().as_str());
-                        } else {
-                            candidates.insert(raw.id().as_str());
-                        }
-                    } else if let Some(classification) = classification {
-                        if classification_is_publicly_complete(classification) {
-                            reliable.insert(classification.id().as_str());
-                        } else {
-                            candidates.insert(classification.id().as_str());
-                        }
-                    }
-                }
-            }
-            if reliable.is_empty() && candidates.is_empty() {
-                candidates.extend(if path_only {
-                    incomplete_raw_path_ids.iter().copied()
-                } else {
-                    incomplete_classification_ids.iter().copied()
-                });
-            }
-            let state = if !reliable.is_empty() {
-                "present"
-            } else if !candidates.is_empty() {
-                "unavailable"
-            } else {
-                "absent"
-            };
+            let expectation = crate::feature::derive_repository_feature(feature, evidence.iter())
+                .map_err(|_| MachineMappingError)?;
+            let state = expectation.state;
             let status = if state == "unavailable" {
                 "partial"
             } else {
                 "complete"
             };
-            let related = if reliable.is_empty() {
-                candidates
-            } else {
-                reliable
-            };
             let identity_scope = repository_identity_component(snapshot.source_snapshot().source());
-            let related_ids = related.iter().copied().collect::<Vec<_>>();
+            let related_ids = expectation.related_evidence_ids;
+            let related_refs = related_ids.iter().map(String::as_str).collect::<Vec<_>>();
             let id = crate::contract::repository_feature_id(
                 &identity_scope,
                 snapshot.source_snapshot().revision().as_str(),
                 feature,
                 state,
-                &related_ids,
+                &related_refs,
             );
-            json!({
+            Ok(json!({
                 "schema_version": "1.0.0",
                 "repository": map_repository(snapshot.source_snapshot().source()),
                 "id": id,
@@ -514,64 +439,9 @@ fn repository_features(
                     "state": state,
                     "related_evidence_ids": related_ids
                 }
-            })
+            }))
         })
         .collect()
-}
-
-fn matches_feature(
-    feature: &str,
-    path: Option<&str>,
-    classification: Option<&ClassificationEvidenceRecord>,
-) -> bool {
-    let lower = path.unwrap_or_default().to_ascii_lowercase();
-    match feature {
-        "readme" => lower
-            .rsplit('/')
-            .next()
-            .is_some_and(|name| name.starts_with("readme")),
-        "license" => lower
-            .rsplit('/')
-            .next()
-            .is_some_and(|name| name.starts_with("license") || name == "copying"),
-        "package_manifest" => matches!(
-            lower.rsplit('/').next(),
-            Some("package.json" | "pyproject.toml" | "setup.py" | "setup.cfg")
-        ),
-        "ci" => {
-            classification.and_then(|fact| fact.category())
-                == Some(ClassificationCategoryRecord::CiCd)
-        }
-        "test" => {
-            classification.and_then(|fact| fact.category())
-                == Some(ClassificationCategoryRecord::Test)
-        }
-        "documentation" => {
-            classification.and_then(|fact| fact.category())
-                == Some(ClassificationCategoryRecord::Documentation)
-        }
-        "migration" => {
-            classification.and_then(|fact| fact.category())
-                == Some(ClassificationCategoryRecord::SchemaMigration)
-        }
-        "dependency" => {
-            classification.and_then(|fact| fact.category())
-                == Some(ClassificationCategoryRecord::Dependency)
-        }
-        "security_policy" => {
-            classification.and_then(|fact| fact.category())
-                == Some(ClassificationCategoryRecord::SecurityPolicy)
-        }
-        "generated_content" => {
-            classification.and_then(|fact| fact.category())
-                == Some(ClassificationCategoryRecord::Generated)
-        }
-        "vendored_content" => {
-            classification.and_then(|fact| fact.category())
-                == Some(ClassificationCategoryRecord::Vendored)
-        }
-        _ => false,
-    }
 }
 
 fn warnings(manifest: &ProjectEvidenceManifest) -> Vec<Value> {
@@ -623,11 +493,6 @@ fn path_limit_ids(manifest: &ProjectEvidenceManifest) -> Vec<&str> {
 
 fn path_is_publishable(path: &crate::PortableRepositoryPath) -> bool {
     path.value().chars().count() <= PUBLIC_PATH_VALUE_LIMIT
-}
-
-fn classification_is_publicly_complete(fact: &ClassificationEvidenceRecord) -> bool {
-    fact.status() == EvidenceStatus::Complete
-        && fact.source().path().is_some_and(path_is_publishable)
 }
 
 fn is_public_partial_attribute_classification(fact: &Value) -> bool {
