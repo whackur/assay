@@ -275,6 +275,7 @@ impl RepositoryFixtureBuilder {
     /// Overrides one inherited environment variable for each Git child.
     ///
     /// Fixed fixture isolation variables take precedence over these values.
+    /// Keys beginning with `GIT_` (case-insensitively) are ignored entirely.
     /// This supports parallel-safe tests of hostile host configuration without
     /// mutating the test process environment.
     pub fn command_environment(mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) -> Self {
@@ -535,7 +536,12 @@ impl GitRunner {
         remove_git_environment(&mut command);
         command
             .current_dir(current_directory)
-            .envs(self.command_environment.iter().cloned())
+            .envs(
+                self.command_environment
+                    .iter()
+                    .filter(|(key, _)| !is_git_environment_key(key))
+                    .cloned(),
+            )
             .env("GIT_ATTR_NOSYSTEM", "1")
             .env("GIT_CONFIG_NOSYSTEM", "1")
             .env("GIT_CONFIG_GLOBAL", &self.global_config)
@@ -569,7 +575,9 @@ fn remove_git_environment(command: &mut Command) {
 }
 
 fn is_git_environment_key(key: &OsStr) -> bool {
-    key.to_string_lossy().starts_with("GIT_")
+    key.to_string_lossy()
+        .get(..4)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("GIT_"))
 }
 
 fn configure_repository(

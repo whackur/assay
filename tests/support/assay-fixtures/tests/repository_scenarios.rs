@@ -19,7 +19,7 @@ fn every_required_repository_scenario_has_exact_files_and_history() {
             .expect("the deterministic repository fixture must build");
 
         assert_eq!(fixture.scenario(), expected.scenario);
-        assert_eq!(fixture.commit_ids().len(), expected.messages.len());
+        assert_eq!(fixture.commit_ids().len(), expected.commits.len());
         assert_eq!(
             git_text(fixture.path(), &["branch", "--show-current"]),
             "main"
@@ -30,39 +30,50 @@ fn every_required_repository_scenario_has_exact_files_and_history() {
         );
 
         let actual_messages = git_lines(fixture.path(), &["log", "--reverse", "--format=%s"]);
-        assert_eq!(actual_messages, expected.messages);
-
-        let actual_files = git_lines(fixture.path(), &["ls-tree", "-r", "--name-only", "HEAD"]);
-        let expected_paths = expected.files.keys().copied().collect::<Vec<_>>();
-        assert_eq!(actual_files, expected_paths);
-
-        for (relative_path, expected_bytes) in &expected.files {
-            let actual_bytes = fs::read(fixture.path().join(relative_path))
-                .expect("a declared fixture file must be readable");
-            assert!(
-                actual_bytes.as_slice() == *expected_bytes,
-                "fixture file bytes changed for {relative_path}"
-            );
-
-            let object = format!("HEAD:{relative_path}");
-            let committed_bytes =
-                git_output(fixture.path(), &["cat-file", "blob", object.as_str()]).stdout;
-            assert!(
-                committed_bytes.as_slice() == *expected_bytes,
-                "committed fixture blob bytes changed for {relative_path}"
-            );
-        }
-
-        let actual_modes = git_lines(
-            fixture.path(),
-            &["ls-tree", "-r", "--format=%(objectmode) %(path)", "HEAD"],
-        );
-        let expected_modes = expected
-            .files
-            .keys()
-            .map(|path| format!("100644 {path}"))
+        let expected_messages = expected
+            .commits
+            .iter()
+            .map(|commit| commit.message.to_owned())
             .collect::<Vec<_>>();
-        assert_eq!(actual_modes, expected_modes);
+        assert_eq!(actual_messages, expected_messages);
+
+        for (index, expected_commit) in expected.commits.iter().enumerate() {
+            let commit_id = &fixture.commit_ids()[index];
+            let actual_files =
+                git_lines(fixture.path(), &["ls-tree", "-r", "--name-only", commit_id]);
+            let expected_paths = expected_commit.files.keys().copied().collect::<Vec<_>>();
+            assert_eq!(actual_files, expected_paths);
+
+            for (relative_path, expected_bytes) in &expected_commit.files {
+                let object = format!("{commit_id}:{relative_path}");
+                let committed_bytes =
+                    git_output(fixture.path(), &["cat-file", "blob", object.as_str()]).stdout;
+                assert!(
+                    committed_bytes.as_slice() == *expected_bytes,
+                    "committed fixture blob bytes changed for {relative_path}"
+                );
+
+                if index + 1 == expected.commits.len() {
+                    let working_tree_bytes = fs::read(fixture.path().join(relative_path))
+                        .expect("a final fixture file must be readable");
+                    assert!(
+                        working_tree_bytes.as_slice() == *expected_bytes,
+                        "working-tree fixture bytes changed for {relative_path}"
+                    );
+                }
+            }
+
+            let actual_modes = git_lines(
+                fixture.path(),
+                &["ls-tree", "-r", "--format=%(objectmode) %(path)", commit_id],
+            );
+            let expected_modes = expected_commit
+                .files
+                .keys()
+                .map(|path| format!("100644 {path}"))
+                .collect::<Vec<_>>();
+            assert_eq!(actual_modes, expected_modes);
+        }
     }
 }
 
@@ -209,6 +220,60 @@ fn adversarial_external_attributes_and_ignores_cannot_change_the_fixture() {
     assert_eq!(
         git_text(fixture.path(), &["rev-parse", "HEAD^{tree}"]),
         git_text(reference.path(), &["rev-parse", "HEAD^{tree}"])
+    );
+}
+
+#[test]
+fn forbidden_git_environment_cannot_redirect_fixture_boundaries() {
+    let host_parent = workspace_root().join("target/assay-fixture-git-boundaries");
+    fs::create_dir_all(&host_parent).expect("the boundary test parent must be creatable");
+    let host = tempfile::Builder::new()
+        .prefix("forbidden-git-environment-")
+        .tempdir_in(host_parent)
+        .expect("the boundary test directory must be creatable");
+    let external_index = host.path().join("external-index");
+    let external_objects = host.path().join("external-objects");
+    let external_git_dir = host.path().join("external-git-dir");
+    let external_work_tree = host.path().join("external-work-tree");
+    let external_hooks = host.path().join("external-hooks");
+    let external_ignore = host.path().join("external-ignore");
+    fs::create_dir(&external_hooks).expect("the external hooks directory must be creatable");
+    fs::write(&external_ignore, b"*\n").expect("the external ignore file must be writable");
+
+    let fixture = RepositoryFixtureBuilder::new(RepositoryScenario::TypeScriptProject)
+        .command_environment("GIT_INDEX_FILE", &external_index)
+        .command_environment("GIT_OBJECT_DIRECTORY", &external_objects)
+        .command_environment("GIT_ALTERNATE_OBJECT_DIRECTORIES", &external_objects)
+        .command_environment("GIT_DIR", &external_git_dir)
+        .command_environment("GIT_WORK_TREE", &external_work_tree)
+        .command_environment("GIT_CONFIG_COUNT", "2")
+        .command_environment("GIT_CONFIG_KEY_0", "core.hooksPath")
+        .command_environment("GIT_CONFIG_VALUE_0", &external_hooks)
+        .command_environment("GIT_CONFIG_KEY_1", "core.excludesFile")
+        .command_environment("GIT_CONFIG_VALUE_1", &external_ignore)
+        .build()
+        .expect("forbidden Git environment must not redirect fixture boundaries");
+    let reference = RepositoryFixture::build(RepositoryScenario::TypeScriptProject)
+        .expect("the isolated reference fixture must build");
+
+    assert_eq!(fixture.commit_ids(), reference.commit_ids());
+    assert_eq!(
+        git_text(fixture.path(), &["rev-parse", "HEAD^{tree}"]),
+        git_text(reference.path(), &["rev-parse", "HEAD^{tree}"])
+    );
+    for external_path in [
+        external_index,
+        external_objects,
+        external_git_dir,
+        external_work_tree,
+    ] {
+        assert!(!external_path.exists());
+    }
+    assert!(
+        fs::read_dir(external_hooks)
+            .expect("the external hooks directory must be readable")
+            .next()
+            .is_none()
     );
 }
 
@@ -436,7 +501,11 @@ fn without_ascii_whitespace(bytes: &[u8]) -> Vec<u8> {
 
 struct ScenarioExpectation {
     scenario: RepositoryScenario,
-    messages: Vec<String>,
+    commits: Vec<CommitExpectation>,
+}
+
+struct CommitExpectation {
+    message: &'static str,
     files: BTreeMap<&'static str, &'static [u8]>,
 }
 
@@ -463,13 +532,25 @@ fn expectations() -> Vec<ScenarioExpectation> {
                 ("tests/test_add.py", b"from assay_fixture import add\n\n\ndef test_add() -> None:\n    assert add(1, 2) == 3\n"),
             ],
         ),
-        expectation(
+        history_expectation(
             RepositoryScenario::DependencyOnlyChange,
-            &["Add dependency fixture", "Update dependencies only"],
-            &[
-                ("package-lock.json", b"{\n  \"lockfileVersion\": 3,\n  \"packages\": {\"\": {\"dependencies\": {\"left-pad\": \"1.3.0\"}}}\n}\n"),
-                ("package.json", b"{\n  \"name\": \"dependency-fixture\",\n  \"dependencies\": {\"left-pad\": \"1.3.0\"}\n}\n"),
-                ("src/index.ts", b"export const value = 1;\n"),
+            vec![
+                commit_expectation(
+                    "Add dependency fixture",
+                    &[
+                        ("package-lock.json", b"{\n  \"lockfileVersion\": 3,\n  \"packages\": {\"\": {\"dependencies\": {\"left-pad\": \"1.2.0\"}}}\n}\n"),
+                        ("package.json", b"{\n  \"name\": \"dependency-fixture\",\n  \"dependencies\": {\"left-pad\": \"1.2.0\"}\n}\n"),
+                        ("src/index.ts", b"export const value = 1;\n"),
+                    ],
+                ),
+                commit_expectation(
+                    "Update dependencies only",
+                    &[
+                        ("package-lock.json", b"{\n  \"lockfileVersion\": 3,\n  \"packages\": {\"\": {\"dependencies\": {\"left-pad\": \"1.3.0\"}}}\n}\n"),
+                        ("package.json", b"{\n  \"name\": \"dependency-fixture\",\n  \"dependencies\": {\"left-pad\": \"1.3.0\"}\n}\n"),
+                        ("src/index.ts", b"export const value = 1;\n"),
+                    ],
+                ),
             ],
         ),
         expectation(
@@ -482,15 +563,31 @@ fn expectations() -> Vec<ScenarioExpectation> {
                 ("vendor/library.py", b"VENDORED_VALUE = True\n"),
             ],
         ),
-        expectation(
+        history_expectation(
             RepositoryScenario::FormattingOnlyChange,
-            &["Add compact source", "Format source only"],
-            &[("src/format.ts", b"export function format(value: string): string {\n  return value.trim();\n}\n")],
+            vec![
+                commit_expectation(
+                    "Add compact source",
+                    &[("src/format.ts", b"export function format(value:string):string{return value.trim();}\n")],
+                ),
+                commit_expectation(
+                    "Format source only",
+                    &[("src/format.ts", b"export function format(value: string): string {\n  return value.trim();\n}\n")],
+                ),
+            ],
         ),
-        expectation(
+        history_expectation(
             RepositoryScenario::RenameAndMove,
-            &["Add legacy module", "Rename and move module"],
-            &[("src/core/renamed.ts", b"export const stableValue = 42;\n")],
+            vec![
+                commit_expectation(
+                    "Add legacy module",
+                    &[("src/legacy.ts", b"export const stableValue = 42;\n")],
+                ),
+                commit_expectation(
+                    "Rename and move module",
+                    &[("src/core/renamed.ts", b"export const stableValue = 42;\n")],
+                ),
+            ],
         ),
         expectation(
             RepositoryScenario::SupportedAndUnsupportedLanguages,
@@ -523,15 +620,33 @@ fn expectations() -> Vec<ScenarioExpectation> {
 
 fn expectation(
     scenario: RepositoryScenario,
-    messages: &[&str],
+    messages: &[&'static str],
     files: &[(&'static str, &'static [u8])],
 ) -> ScenarioExpectation {
+    assert_eq!(
+        messages.len(),
+        1,
+        "single-commit golden requires one message"
+    );
     ScenarioExpectation {
         scenario,
-        messages: messages
-            .iter()
-            .map(|message| (*message).to_owned())
-            .collect(),
+        commits: vec![commit_expectation(messages[0], files)],
+    }
+}
+
+fn history_expectation(
+    scenario: RepositoryScenario,
+    commits: Vec<CommitExpectation>,
+) -> ScenarioExpectation {
+    ScenarioExpectation { scenario, commits }
+}
+
+fn commit_expectation(
+    message: &'static str,
+    files: &[(&'static str, &'static [u8])],
+) -> CommitExpectation {
+    CommitExpectation {
+        message,
         files: files.iter().copied().collect(),
     }
 }
