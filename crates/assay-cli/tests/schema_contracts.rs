@@ -350,6 +350,20 @@ fn classification_record() -> Value {
     })
 }
 
+fn repository_feature_record(status: &str, state: &str, related: Value) -> Value {
+    let mut feature = tracked_file_record();
+    feature["id"] = Value::String("evidence:repository-feature:v1-golden".into());
+    feature["status"] = Value::String(status.into());
+    feature["provenance"]["content_hash"] = Value::Null;
+    feature["payload"] = serde_json::json!({
+        "kind": "repository_feature",
+        "feature": "readme",
+        "state": state,
+        "related_evidence_ids": related
+    });
+    feature
+}
+
 fn assert_golden_mutation_rejected(contract: &str, case: &str, mutate: impl FnOnce(&mut Value)) {
     let validator = validator(contract);
     let mut instance = golden(contract);
@@ -386,6 +400,78 @@ fn reviewed_golden_contracts_validate() {
             "{} failed {}: {errors:#?}",
             contract.golden.display(),
             contract.name
+        );
+    }
+}
+
+#[test]
+fn repository_feature_schema_closes_state_status_and_citation_cardinality() {
+    let validator = validator("project-evidence");
+    for (case, status, state, related) in [
+        (
+            "present without supporting evidence",
+            "complete",
+            "present",
+            serde_json::json!([]),
+        ),
+        (
+            "unavailable without cause evidence",
+            "partial",
+            "unavailable",
+            serde_json::json!([]),
+        ),
+        (
+            "absent with contradictory evidence",
+            "complete",
+            "absent",
+            serde_json::json!(["evidence:tracked-file:v1-golden"]),
+        ),
+        (
+            "partial present feature",
+            "partial",
+            "present",
+            serde_json::json!(["evidence:tracked-file:v1-golden"]),
+        ),
+        (
+            "complete unavailable feature",
+            "complete",
+            "unavailable",
+            serde_json::json!(["evidence:tracked-file:v1-golden"]),
+        ),
+    ] {
+        assert_rejected(
+            &validator,
+            &repository_feature_record(status, state, related),
+            "project-evidence",
+            case,
+        );
+    }
+
+    for (case, status, state, related) in [
+        (
+            "cited present feature",
+            "complete",
+            "present",
+            serde_json::json!(["evidence:tracked-file:v1-golden"]),
+        ),
+        (
+            "cited unavailable feature",
+            "partial",
+            "unavailable",
+            serde_json::json!(["evidence:tracked-file:v1-golden"]),
+        ),
+        (
+            "uncited absent feature",
+            "complete",
+            "absent",
+            serde_json::json!([]),
+        ),
+    ] {
+        let feature = repository_feature_record(status, state, related);
+        let errors = validation_messages(&validator, &feature);
+        assert!(
+            errors.is_empty(),
+            "{case} failed project-evidence: {errors:#?}"
         );
     }
 }

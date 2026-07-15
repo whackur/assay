@@ -486,14 +486,13 @@ fn repository_features(
                 reliable
             };
             let identity_scope = repository_identity_component(snapshot.source_snapshot().source());
-            let id_input = format!(
-                "{identity_scope}\0{}\0{feature}\0{state}\0{}",
+            let related_ids = related.iter().copied().collect::<Vec<_>>();
+            let id = crate::contract::repository_feature_id(
+                &identity_scope,
                 snapshot.source_snapshot().revision().as_str(),
-                related.iter().copied().collect::<Vec<_>>().join("\0")
-            );
-            let id = format!(
-                "evidence:repository-feature:v1-{}",
-                &stable_hex(id_input.as_bytes())[..24]
+                feature,
+                state,
+                &related_ids,
             );
             json!({
                 "schema_version": "1.0.0",
@@ -513,7 +512,7 @@ fn repository_features(
                     "kind": "repository_feature",
                     "feature": feature,
                     "state": state,
-                    "related_evidence_ids": related.into_iter().collect::<Vec<_>>()
+                    "related_evidence_ids": related_ids
                 }
             })
         })

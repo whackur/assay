@@ -524,7 +524,36 @@
           "uniqueItems": true,
           "items": { "$ref": "#/$defs/evidenceId" }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "state": { "const": "present" } },
+            "required": ["state"]
+          },
+          "then": {
+            "properties": { "related_evidence_ids": { "minItems": 1 } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "state": { "const": "unavailable" } },
+            "required": ["state"]
+          },
+          "then": {
+            "properties": { "related_evidence_ids": { "minItems": 1 } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "state": { "const": "absent" } },
+            "required": ["state"]
+          },
+          "then": {
+            "properties": { "related_evidence_ids": { "maxItems": 0 } }
+          }
+        }
+      ]
     },
     "historyScopePayload": {
       "type": "object",

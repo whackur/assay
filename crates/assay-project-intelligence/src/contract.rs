@@ -149,17 +149,51 @@ fn validate_evidence_redundancy(by_id: &BTreeMap<&str, &Value>) -> Result<(), &'
                 }
             }
             Some("repository_feature") => {
+                let state = payload["state"].as_str().ok_or("feature_state")?;
+                let status = fact["status"].as_str().ok_or("feature_status")?;
+                let related = payload["related_evidence_ids"]
+                    .as_array()
+                    .ok_or("feature_references")?;
+                match state {
+                    "present" => {
+                        if status != "complete" {
+                            return Err("feature_status");
+                        }
+                        if related.is_empty() {
+                            return Err("feature_present_references");
+                        }
+                    }
+                    "unavailable" => {
+                        if status != "partial" {
+                            return Err("feature_status");
+                        }
+                        if related.is_empty() {
+                            return Err("feature_unavailable_references");
+                        }
+                    }
+                    "absent" => {
+                        if status != "complete" {
+                            return Err("feature_status");
+                        }
+                        if !related.is_empty() {
+                            return Err("feature_absent_references");
+                        }
+                    }
+                    _ => return Err("feature_state"),
+                }
+                let related_ids = related
+                    .iter()
+                    .map(|id| id.as_str().ok_or("feature_reference"))
+                    .collect::<Result<Vec<_>, _>>()?;
+                if related_ids.windows(2).any(|pair| pair[0] >= pair[1]) {
+                    return Err("feature_reference_order");
+                }
                 let classification_dependent = !matches!(
                     payload["feature"].as_str(),
                     Some("readme" | "license" | "package_manifest")
                 );
-                for id in payload["related_evidence_ids"]
-                    .as_array()
-                    .ok_or("feature_references")?
-                {
-                    let target = by_id
-                        .get(id.as_str().ok_or("feature_reference")?)
-                        .ok_or("feature_reference")?;
+                for id in &related_ids {
+                    let target = by_id.get(id).ok_or("feature_reference")?;
                     let expected = if classification_dependent {
                         "file_classification"
                     } else {
@@ -173,11 +207,54 @@ fn validate_evidence_redundancy(by_id: &BTreeMap<&str, &Value>) -> Result<(), &'
                         return Err("feature_reference_kind");
                     }
                 }
+                let identity_scope = repository_identity_component(&fact["repository"])?;
+                let revision = fact["provenance"]["repository_revision"]
+                    .as_str()
+                    .ok_or("feature_revision")?;
+                let feature = payload["feature"].as_str().ok_or("feature_name")?;
+                let expected_id =
+                    repository_feature_id(&identity_scope, revision, feature, state, &related_ids);
+                if fact["id"].as_str() != Some(expected_id.as_str()) {
+                    return Err("feature_identity");
+                }
             }
             _ => {}
         }
     }
     Ok(())
+}
+
+pub(crate) fn repository_feature_id(
+    identity_scope: &str,
+    revision: &str,
+    feature: &str,
+    state: &str,
+    related_ids: &[&str],
+) -> String {
+    let id_input = format!(
+        "{identity_scope}\0{revision}\0{feature}\0{state}\0{}",
+        related_ids.join("\0")
+    );
+    let digest = format!("{:x}", Sha256::digest(id_input.as_bytes()));
+    format!("evidence:repository-feature:v1-{}", &digest[..24])
+}
+
+fn repository_identity_component(source: &Value) -> Result<String, &'static str> {
+    match source["kind"].as_str() {
+        Some("local") => Ok(format!(
+            "local:{}",
+            source["repository_id"]
+                .as_str()
+                .ok_or("feature_repository")?
+        )),
+        Some("hosted") => Ok(format!(
+            "hosted:{}:{}:{}",
+            source["provider"].as_str().ok_or("feature_repository")?,
+            source["namespace"].as_str().ok_or("feature_repository")?,
+            source["repository"].as_str().ok_or("feature_repository")?
+        )),
+        _ => Err("feature_repository"),
+    }
 }
 
 fn validate_classification_source(
