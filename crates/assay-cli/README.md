@@ -26,6 +26,12 @@ repository code. It calculates neither project scores nor person-level
 observations. Local sources are treated as private because the CLI cannot
 prove that a clone is public.
 
+Repository paths remain content-bounded. A UTF-8 or hexadecimal path value
+that exceeds the public 8,192-character limit is not serialized. The raw file
+and its derived classification instead remain citable, payload-free
+availability envelopes, and the manifest reports `path_length_limit` with a
+partial result.
+
 Attribute resolution, semantic diff, GitHub collection, AI evaluation, and
 project scores are not implemented. `assay capabilities --format json`
 reports these boundaries. Missing evidence remains an availability state and

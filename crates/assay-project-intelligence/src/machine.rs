@@ -12,6 +12,8 @@ use crate::{
     RawEvidenceKind,
 };
 
+const PUBLIC_PATH_VALUE_LIMIT: usize = 8192;
+
 /// Redacted deterministic mapping failure.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MachineMappingError;
@@ -45,11 +47,6 @@ pub fn build_project_analysis(
 
     let evidence_bytes = serde_json::to_vec(&evidence).map_err(|_| MachineMappingError)?;
     let artifact_hash = sha256(&evidence_bytes);
-    let all_ids = evidence
-        .iter()
-        .filter_map(|fact| fact["id"].as_str())
-        .map(str::to_owned)
-        .collect::<Vec<_>>();
     let snapshot_id = manifest
         .raw_facts()
         .iter()
@@ -65,10 +62,43 @@ pub fn build_project_analysis(
         .payload()
         .as_history_scope()
         .ok_or(MachineMappingError)?;
-    let analysis_status = analysis_status(manifest.status());
+    let has_bounded_path = manifest.raw_facts().iter().any(|fact| {
+        fact.source()
+            .path()
+            .is_some_and(|path| !path_is_publishable(path))
+    });
+    let analysis_status = if has_bounded_path {
+        "partial"
+    } else {
+        analysis_status(manifest.status())
+    };
     let revision = snapshot.source_snapshot().revision().as_str();
     let source = map_repository(snapshot.source_snapshot().source());
     let warnings = warnings(manifest);
+    let path_limit_ids = path_limit_ids(manifest);
+    let attribute_unavailable_ids = manifest
+        .classification_facts()
+        .iter()
+        .filter(|fact| {
+            fact.reason() == Some(ClassificationAvailabilityReason::AttributesUnavailable)
+        })
+        .map(|fact| fact.id().as_str())
+        .collect::<Vec<_>>();
+    let mut limitations = Vec::new();
+    if !attribute_unavailable_ids.is_empty() {
+        limitations.push(json!({
+            "code": "attribute_resolution_unavailable",
+            "affected_evidence_ids": attribute_unavailable_ids
+        }));
+    }
+    limitations.extend([
+        json!({ "code": "project_scores_not_computed", "affected_evidence_ids": [snapshot_id] }),
+        json!({ "code": "repository_code_not_executed", "affected_evidence_ids": [snapshot_id] }),
+    ]);
+    if !path_limit_ids.is_empty() {
+        limitations
+            .push(json!({ "code": "path_length_limit", "affected_evidence_ids": path_limit_ids }));
+    }
     let manifest_value = json!({
         "schema_version": "1.0.0",
         "analysis_version": "repository-evidence-1",
@@ -132,11 +162,7 @@ pub fn build_project_analysis(
             "status": analysis_status
         }],
         "warnings": warnings,
-        "limitations": [
-            { "code": "attribute_resolution_unavailable", "affected_evidence_ids": all_ids },
-            { "code": "project_scores_not_computed", "affected_evidence_ids": [snapshot_id] },
-            { "code": "repository_code_not_executed", "affected_evidence_ids": [snapshot_id] }
-        ]
+        "limitations": limitations
     });
     Ok(json!({
         "schema_version": "1.0.0",
@@ -191,6 +217,14 @@ fn map_raw(
                 .as_tracked_file()
                 .ok_or(MachineMappingError)?;
             let path = fact.source().path().ok_or(MachineMappingError)?;
+            if !path_is_publishable(path) {
+                return Ok(availability_envelope(
+                    fact,
+                    "unsupported",
+                    "tracked_file",
+                    "path_length_limit",
+                ));
+            }
             let (language, language_status) = language(path.encoding(), path.value());
             json!({
                 "kind": "tracked_file",
@@ -272,21 +306,52 @@ fn factual_record(
     })
 }
 
+fn availability_envelope(
+    fact: &RawEvidenceFact,
+    status: &'static str,
+    requested_kind: &'static str,
+    reason: &'static str,
+) -> Value {
+    json!({
+        "schema_version": "1.0.0",
+        "repository": map_repository(fact.source().repository()),
+        "id": fact.id().as_str(),
+        "status": status,
+        "grade": Value::Null,
+        "privacy": privacy(),
+        "requested_kind": requested_kind,
+        "reason": reason
+    })
+}
+
 fn map_classification(fact: &ClassificationEvidenceRecord, collected_at: &str) -> Value {
     let related = fact
         .source_evidence_id()
         .map(|id| vec![id.as_str()])
         .unwrap_or_default();
-    let common = json!({
+    let mut common = json!({
         "schema_version": "1.0.0",
         "repository": map_repository(fact.source().repository()),
         "id": fact.id().as_str(),
         "status": evidence_status(fact.status()),
         "grade": if matches!(fact.status(), EvidenceStatus::Complete | EvidenceStatus::Partial) { Value::String("a".into()) } else { Value::Null },
         "privacy": privacy(),
-        "related_evidence_ids": related,
-        "attempted_policy_version": fact.policy_version()
+        "related_evidence_ids": related
     });
+    if let Some(policy_version) = fact.policy_version() {
+        common["attempted_policy_version"] = Value::String(policy_version.to_owned());
+    }
+    let path_limited = fact
+        .source()
+        .path()
+        .is_some_and(|path| !path_is_publishable(path));
+    if path_limited && fact.policy_version().is_some() {
+        common["status"] = Value::String("unsupported".into());
+        common["grade"] = Value::Null;
+        common["requested_kind"] = Value::String("file_classification".into());
+        common["reason"] = Value::String("path_length_limit".into());
+        return common;
+    }
     if matches!(
         fact.status(),
         EvidenceStatus::Complete | EvidenceStatus::Partial
@@ -369,24 +434,29 @@ fn repository_features(
                 let path = raw.source().path();
                 let classification = classification_by_raw.get(raw.id().as_str()).copied();
                 if matches_feature(feature, path.map(|path| path.value()), classification) {
-                    if path_only
-                        || classification
-                            .is_some_and(|fact| fact.status() == EvidenceStatus::Complete)
-                    {
-                        reliable.insert(raw.id().as_str());
-                    } else {
-                        candidates.insert(raw.id().as_str());
+                    if path_only {
+                        if path.is_some_and(path_is_publishable) {
+                            reliable.insert(raw.id().as_str());
+                        } else {
+                            candidates.insert(raw.id().as_str());
+                        }
+                    } else if let Some(classification) = classification {
+                        if classification_is_publicly_complete(classification) {
+                            reliable.insert(classification.id().as_str());
+                        } else {
+                            candidates.insert(classification.id().as_str());
+                        }
                     }
                 }
             }
             let classification_incomplete = manifest
                 .classification_facts()
                 .iter()
-                .any(|fact| fact.status() != EvidenceStatus::Complete);
+                .any(|fact| !classification_is_publicly_complete(fact));
             let raw_path_incomplete = raw_files.iter().any(|fact| {
-                fact.source()
-                    .path()
-                    .is_some_and(|path| path.encoding() != PortablePathEncoding::Utf8)
+                fact.source().path().is_some_and(|path| {
+                    path.encoding() != PortablePathEncoding::Utf8 || !path_is_publishable(path)
+                })
             });
             let absence_is_uncertain = if path_only {
                 raw_path_incomplete
@@ -519,6 +589,40 @@ fn warnings(manifest: &ProjectEvidenceManifest) -> Vec<Value> {
             Some(json!({ "code": raw_issue(issue), "affected_evidence_ids": [fact.id().as_str()] }))
         })
         .collect()
+}
+
+fn path_limit_ids(manifest: &ProjectEvidenceManifest) -> Vec<&str> {
+    let limited_raw = manifest
+        .raw_facts()
+        .iter()
+        .filter(|fact| {
+            fact.source()
+                .path()
+                .is_some_and(|path| !path_is_publishable(path))
+        })
+        .map(|fact| fact.id().as_str())
+        .collect::<BTreeSet<_>>();
+    let mut ids = limited_raw.iter().copied().collect::<BTreeSet<_>>();
+    ids.extend(
+        manifest
+            .classification_facts()
+            .iter()
+            .filter(|fact| {
+                fact.source_evidence_id()
+                    .is_some_and(|id| limited_raw.contains(id.as_str()))
+            })
+            .map(|fact| fact.id().as_str()),
+    );
+    ids.into_iter().collect()
+}
+
+fn path_is_publishable(path: &crate::PortableRepositoryPath) -> bool {
+    path.value().chars().count() <= PUBLIC_PATH_VALUE_LIMIT
+}
+
+fn classification_is_publicly_complete(fact: &ClassificationEvidenceRecord) -> bool {
+    fact.status() == EvidenceStatus::Complete
+        && fact.source().path().is_some_and(path_is_publishable)
 }
 
 fn privacy() -> Value {

@@ -3,76 +3,142 @@
   "manifest": {
     "schema_version": "1.0.0",
     "analysis_version": "repository-evidence-1",
-    "tool": { "name": "assay", "version": "0.1.0" },
+    "tool": {
+      "name": "assay",
+      "version": "0.1.0"
+    },
     "source_snapshot": {
-      "source": { "kind": "local", "repository_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111" },
+      "source": {
+        "kind": "local",
+        "repository_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
       "revision": "0123456789abcdef0123456789abcdef01234567",
       "root_tree": "89abcdef0123456789abcdef0123456789abcdef",
       "commit_time": "2026-01-02T03:04:05Z"
     },
     "rule_set_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
     "config_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
-    "analyzers": [{ "name": "assay-project-intelligence", "version": "0.1.0" }],
+    "analyzers": [
+      {
+        "name": "assay-project-intelligence",
+        "version": "0.1.0"
+      }
+    ],
     "parsers": [],
-    "status": "partial",
+    "status": "complete",
     "generated_at": "2026-01-02T03:04:06Z",
     "scope": {
       "mode": "single_revision",
       "base_revision": null,
       "head_revision": "0123456789abcdef0123456789abcdef01234567",
-      "history_status": "partial",
+      "history_status": "complete",
       "commit_count": 3,
-      "requested_capabilities": ["repository_snapshot", "tracked_files", "file_classification", "repository_history", "language_detection"]
+      "requested_capabilities": [
+        "repository_snapshot",
+        "tracked_files",
+        "file_classification",
+        "repository_history",
+        "language_detection"
+      ]
     },
-    "data_sources": [{
-      "id": "evidence:repository:snapshot",
-      "kind": "repository",
-      "status": "partial",
-      "revision": "0123456789abcdef0123456789abcdef01234567",
-      "content_hash": null,
-      "remote_record_id": null,
-      "collected_at": "2026-01-02T03:04:06Z",
-      "visibility": "public",
-      "retention": "metadata_only"
-    }],
-    "artifacts": [{
-      "role": "project_evidence",
-      "schema_version": "1.0.0",
-      "content_hash": "sha256:e7abf20074eddec9aeb95c41f6f27f3e426e66dad62ce6b1906ee0f93760ee82",
-      "record_count": 1,
-      "status": "partial"
-    }],
+    "data_sources": [
+      {
+        "id": "evidence:repository-snapshot:v1-golden",
+        "kind": "repository",
+        "status": "complete",
+        "revision": "0123456789abcdef0123456789abcdef01234567",
+        "content_hash": null,
+        "remote_record_id": null,
+        "collected_at": "2026-01-02T03:04:06Z",
+        "visibility": "public",
+        "retention": "metadata_only"
+      },
+      {
+        "id": "evidence:history-scope:v1-golden",
+        "kind": "repository_history",
+        "status": "complete",
+        "revision": "0123456789abcdef0123456789abcdef01234567",
+        "content_hash": null,
+        "remote_record_id": null,
+        "collected_at": "2026-01-02T03:04:06Z",
+        "visibility": "public",
+        "retention": "metadata_only"
+      }
+    ],
+    "artifacts": [
+      {
+        "role": "project_evidence",
+        "schema_version": "1.0.0",
+        "content_hash": "sha256:ca0223421ba8183827aa6e683a7af51eb12933b6ada5d52c10aa827a5e57ad47",
+        "record_count": 2,
+        "status": "complete"
+      }
+    ],
     "warnings": [],
-    "limitations": [{ "code": "repository_code_not_executed", "affected_evidence_ids": ["evidence:file:src-main-ts"] }]
+    "limitations": [
+      {
+        "code": "repository_code_not_executed",
+        "affected_evidence_ids": [
+          "evidence:repository-snapshot:v1-golden"
+        ]
+      }
+    ]
   },
-  "evidence": [{
-    "schema_version": "1.0.0",
-    "repository": { "kind": "local", "repository_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111" },
-    "id": "evidence:file:src-main-ts",
-    "status": "complete",
-    "grade": "a",
-    "privacy": { "visibility": "public", "source_content": "not_retained", "external_transmission": "not_requested" },
-    "provenance": {
-      "source_kind": "repository_content",
-      "collected_at": "2026-01-02T03:04:06Z",
-      "repository_revision": "0123456789abcdef0123456789abcdef01234567",
-      "content_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
-      "remote_record_id": null
+  "evidence": [
+    {
+      "schema_version": "1.0.0",
+      "repository": {
+        "kind": "local",
+        "repository_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "id": "evidence:history-scope:v1-golden",
+      "status": "complete",
+      "grade": "a",
+      "privacy": {
+        "visibility": "public",
+        "source_content": "not_retained",
+        "external_transmission": "not_requested"
+      },
+      "provenance": {
+        "source_kind": "repository_history",
+        "collected_at": "2026-01-02T03:04:06Z",
+        "repository_revision": "0123456789abcdef0123456789abcdef01234567",
+        "content_hash": null,
+        "remote_record_id": null
+      },
+      "payload": {
+        "kind": "history_scope",
+        "base_revision": null,
+        "head_revision": "0123456789abcdef0123456789abcdef01234567",
+        "commit_count": 3
+      }
     },
-    "payload": {
-      "kind": "file",
-      "relative_path": "src/main.ts",
-      "language": "TypeScript",
-      "language_status": "complete",
-      "size_bytes": 418,
-      "content_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
-      "classification": {
-        "primary_category": "production_code",
-        "tags": ["production"],
-        "rule_id": "path.production.typescript",
-        "confidence": 1.0,
-        "evidence": [{ "kind": "policy_rule", "rule_id": "path.production.typescript", "attribute_name": null, "attribute_value": null }]
+    {
+      "schema_version": "1.0.0",
+      "repository": {
+        "kind": "local",
+        "repository_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "id": "evidence:repository-snapshot:v1-golden",
+      "status": "complete",
+      "grade": "a",
+      "privacy": {
+        "visibility": "public",
+        "source_content": "not_retained",
+        "external_transmission": "not_requested"
+      },
+      "provenance": {
+        "source_kind": "repository",
+        "collected_at": "2026-01-02T03:04:06Z",
+        "repository_revision": "0123456789abcdef0123456789abcdef01234567",
+        "content_hash": null,
+        "remote_record_id": null
+      },
+      "payload": {
+        "kind": "repository_snapshot",
+        "commit_time": "2026-01-02T03:04:05Z",
+        "root_tree": "89abcdef0123456789abcdef0123456789abcdef"
       }
     }
-  }]
+  ]
 }

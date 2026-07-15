@@ -1,12 +1,13 @@
 use std::{fmt, fs, path::PathBuf};
 
-use assay_cli::validate_project_bundle_consistency;
+use assay_project_intelligence::validate_project_bundle_consistency;
 use jsonschema::{Draft, Resource, Validator};
 use serde::{
     Deserialize, Deserializer,
     de::{self, MapAccess, SeqAccess, Visitor},
 };
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 #[derive(Debug)]
 struct Contract {
@@ -257,6 +258,98 @@ fn golden(contract: &str) -> Value {
     )
 }
 
+fn refresh_project_artifact(bundle: &mut Value) {
+    let evidence = bundle["evidence"].as_array_mut().unwrap();
+    evidence.sort_by(|left, right| left["id"].as_str().cmp(&right["id"].as_str()));
+    let bytes = serde_json::to_vec(evidence).unwrap();
+    bundle["manifest"]["artifacts"][0]["record_count"] = Value::from(evidence.len());
+    bundle["manifest"]["artifacts"][0]["content_hash"] =
+        Value::String(format!("sha256:{:x}", Sha256::digest(bytes)));
+}
+
+fn tracked_file_record() -> Value {
+    serde_json::json!({
+        "schema_version": "1.0.0",
+        "repository": {
+            "kind": "local",
+            "repository_id": format!("sha256:{}", "1".repeat(64))
+        },
+        "id": "evidence:tracked-file:v1-golden",
+        "status": "complete",
+        "grade": "a",
+        "privacy": {
+            "visibility": "public",
+            "source_content": "not_retained",
+            "external_transmission": "not_requested"
+        },
+        "provenance": {
+            "source_kind": "repository_content",
+            "collected_at": "2026-01-02T03:04:06Z",
+            "repository_revision": "0123456789abcdef0123456789abcdef01234567",
+            "content_hash": format!("sha256:{}", "4".repeat(64)),
+            "remote_record_id": null
+        },
+        "payload": {
+            "kind": "tracked_file",
+            "path": { "encoding": "utf8", "value": "src/main.ts" },
+            "mode": "regular",
+            "object_kind": "blob",
+            "object_id": "89abcdef0123456789abcdef0123456789abcdef",
+            "content_status": "complete",
+            "language": "TypeScript",
+            "language_status": "complete",
+            "size_bytes": 418,
+            "content_hash": format!("sha256:{}", "4".repeat(64)),
+            "issue": null
+        }
+    })
+}
+
+fn classification_record() -> Value {
+    serde_json::json!({
+        "schema_version": "1.0.0",
+        "repository": {
+            "kind": "local",
+            "repository_id": format!("sha256:{}", "1".repeat(64))
+        },
+        "id": "evidence:file-classification:v1-golden",
+        "status": "complete",
+        "grade": "a",
+        "privacy": {
+            "visibility": "public",
+            "source_content": "not_retained",
+            "external_transmission": "not_requested"
+        },
+        "related_evidence_ids": ["evidence:tracked-file:v1-golden"],
+        "attempted_policy_version": "classifier-v1",
+        "provenance": {
+            "source_kind": "repository_content",
+            "collected_at": "2026-01-02T03:04:06Z",
+            "repository_revision": "0123456789abcdef0123456789abcdef01234567",
+            "content_hash": null,
+            "remote_record_id": null
+        },
+        "payload": {
+            "kind": "file_classification",
+            "source_evidence_id": "evidence:tracked-file:v1-golden",
+            "policy_version": "classifier-v1",
+            "reason": null,
+            "classification": {
+                "primary_category": "production_code",
+                "tags": [],
+                "rule_id": "path.production.typescript",
+                "confidence": 1.0,
+                "evidence": [{
+                    "kind": "policy_rule",
+                    "rule_id": "path.production.typescript",
+                    "attribute_name": null,
+                    "attribute_value": null
+                }]
+            }
+        }
+    })
+}
+
 fn assert_golden_mutation_rejected(contract: &str, case: &str, mutate: impl FnOnce(&mut Value)) {
     let validator = validator(contract);
     let mut instance = golden(contract);
@@ -313,7 +406,7 @@ fn project_analysis_bundle_cross_component_invariants_are_enforced() {
     assert!(validate_project_bundle_consistency(&wrong_revision).is_err());
 
     let mut wrong_count = bundle.clone();
-    wrong_count["manifest"]["artifacts"][0]["record_count"] = Value::from(2);
+    wrong_count["manifest"]["artifacts"][0]["record_count"] = Value::from(3);
     assert!(validate_project_bundle_consistency(&wrong_count).is_err());
 
     let mut wrong_role = bundle.clone();
@@ -321,7 +414,7 @@ fn project_analysis_bundle_cross_component_invariants_are_enforced() {
     assert!(validate_project_bundle_consistency(&wrong_role).is_err());
 
     let mut wrong_status = bundle.clone();
-    wrong_status["manifest"]["artifacts"][0]["status"] = Value::String("complete".into());
+    wrong_status["manifest"]["artifacts"][0]["status"] = Value::String("partial".into());
     assert!(validate_project_bundle_consistency(&wrong_status).is_err());
 
     let mut wrong_source_revision = bundle.clone();
@@ -333,6 +426,197 @@ fn project_analysis_bundle_cross_component_invariants_are_enforced() {
     let repeated = duplicate["evidence"][0].clone();
     duplicate["evidence"].as_array_mut().unwrap().push(repeated);
     assert!(validate_project_bundle_consistency(&duplicate).is_err());
+}
+
+#[test]
+fn project_analysis_bundle_references_are_closed_over_the_evidence_set() {
+    let bundle = golden("project-analysis");
+
+    for (case, mutate) in [
+        (
+            "data source",
+            (|value: &mut Value| {
+                value["manifest"]["data_sources"][0]["id"] =
+                    Value::String("evidence:missing:data-source".into());
+            }) as fn(&mut Value),
+        ),
+        ("warning", |value: &mut Value| {
+            value["manifest"]["warnings"] = serde_json::json!([{
+                "code": "test_warning",
+                "affected_evidence_ids": ["evidence:missing:warning"]
+            }]);
+        }),
+        ("limitation", |value: &mut Value| {
+            value["manifest"]["limitations"][0]["affected_evidence_ids"][0] =
+                Value::String("evidence:missing:limitation".into());
+        }),
+        ("top-level relation", |value: &mut Value| {
+            value["evidence"][0]["related_evidence_ids"] =
+                serde_json::json!(["evidence:missing:top-level"]);
+            refresh_project_artifact(value);
+        }),
+    ] {
+        let mut invalid = bundle.clone();
+        mutate(&mut invalid);
+        assert!(
+            validate_project_bundle_consistency(&invalid).is_err(),
+            "unknown {case} reference must be rejected"
+        );
+    }
+
+    let mut payload_relation = bundle;
+    let mut feature = tracked_file_record();
+    feature["id"] = Value::String("evidence:repository-feature:v1-golden".into());
+    feature["provenance"]["content_hash"] = Value::Null;
+    feature["payload"] = serde_json::json!({
+        "kind": "repository_feature",
+        "feature": "readme",
+        "state": "present",
+        "related_evidence_ids": ["evidence:missing:payload"]
+    });
+    payload_relation["evidence"]
+        .as_array_mut()
+        .unwrap()
+        .push(feature);
+    refresh_project_artifact(&mut payload_relation);
+    assert!(
+        validate_project_bundle_consistency(&payload_relation).is_err(),
+        "unknown payload relation must be rejected"
+    );
+}
+
+#[test]
+fn project_analysis_bundle_classification_citations_and_policy_are_consistent() {
+    let mut bundle = golden("project-analysis");
+    bundle["evidence"]
+        .as_array_mut()
+        .unwrap()
+        .extend([tracked_file_record(), classification_record()]);
+    refresh_project_artifact(&mut bundle);
+    validate_project_bundle_consistency(&bundle).expect("coherent classification must validate");
+
+    let mut wrong_relation = bundle.clone();
+    let classification = wrong_relation["evidence"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|fact| fact["payload"]["kind"] == "file_classification")
+        .unwrap();
+    classification["related_evidence_ids"] =
+        serde_json::json!(["evidence:history-scope:v1-golden"]);
+    refresh_project_artifact(&mut wrong_relation);
+    assert!(validate_project_bundle_consistency(&wrong_relation).is_err());
+
+    let mut extra_relation = bundle.clone();
+    let classification = extra_relation["evidence"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|fact| fact["payload"]["kind"] == "file_classification")
+        .unwrap();
+    classification["related_evidence_ids"] = serde_json::json!([
+        "evidence:history-scope:v1-golden",
+        "evidence:tracked-file:v1-golden"
+    ]);
+    refresh_project_artifact(&mut extra_relation);
+    assert!(validate_project_bundle_consistency(&extra_relation).is_err());
+
+    let mut wrong_policy = bundle;
+    let classification = wrong_policy["evidence"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|fact| fact["payload"]["kind"] == "file_classification")
+        .unwrap();
+    classification["attempted_policy_version"] = Value::String("classifier-v2".into());
+    refresh_project_artifact(&mut wrong_policy);
+    assert!(validate_project_bundle_consistency(&wrong_policy).is_err());
+}
+
+#[test]
+fn project_analysis_bundle_snapshot_and_history_facts_match_the_manifest() {
+    let bundle = golden("project-analysis");
+    for (case, mutate) in [
+        (
+            "snapshot root tree",
+            (|value: &mut Value| {
+                let snapshot = value["evidence"]
+                    .as_array_mut()
+                    .unwrap()
+                    .iter_mut()
+                    .find(|fact| fact["payload"]["kind"] == "repository_snapshot")
+                    .unwrap();
+                snapshot["payload"]["root_tree"] =
+                    Value::String("abcdef0123456789abcdef0123456789abcdef01".into());
+                refresh_project_artifact(value);
+            }) as fn(&mut Value),
+        ),
+        ("snapshot commit time", |value: &mut Value| {
+            let snapshot = value["evidence"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|fact| fact["payload"]["kind"] == "repository_snapshot")
+                .unwrap();
+            snapshot["payload"]["commit_time"] = Value::String("2026-01-02T03:04:04Z".into());
+            refresh_project_artifact(value);
+        }),
+        ("history count", |value: &mut Value| {
+            value["manifest"]["scope"]["commit_count"] = Value::from(4);
+        }),
+        ("history head", |value: &mut Value| {
+            value["manifest"]["scope"]["head_revision"] =
+                Value::String("abcdef0123456789abcdef0123456789abcdef01".into());
+        }),
+        ("history status", |value: &mut Value| {
+            value["manifest"]["scope"]["history_status"] = Value::String("partial".into());
+        }),
+        ("repository data-source status", |value: &mut Value| {
+            value["manifest"]["data_sources"][0]["status"] = Value::String("partial".into());
+        }),
+        ("history data-source status", |value: &mut Value| {
+            value["manifest"]["data_sources"][1]["status"] = Value::String("partial".into());
+        }),
+    ] {
+        let mut invalid = bundle.clone();
+        mutate(&mut invalid);
+        assert!(
+            validate_project_bundle_consistency(&invalid).is_err(),
+            "mismatched {case} must be rejected"
+        );
+    }
+}
+
+#[test]
+fn project_analysis_bundle_content_hash_and_status_redundancy_is_closed() {
+    let mut tracked = golden("project-analysis");
+    tracked["evidence"]
+        .as_array_mut()
+        .unwrap()
+        .push(tracked_file_record());
+    refresh_project_artifact(&mut tracked);
+    validate_project_bundle_consistency(&tracked).expect("coherent tracked file must validate");
+
+    let mut wrong_hash = tracked;
+    let fact = wrong_hash["evidence"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|fact| fact["payload"]["kind"] == "tracked_file")
+        .unwrap();
+    fact["provenance"]["content_hash"] = Value::String(format!("sha256:{}", "5".repeat(64)));
+    refresh_project_artifact(&mut wrong_hash);
+    assert!(validate_project_bundle_consistency(&wrong_hash).is_err());
+
+    let mut complete_with_partial_evidence = golden("project-analysis");
+    complete_with_partial_evidence["evidence"][0]["status"] = Value::String("partial".into());
+    refresh_project_artifact(&mut complete_with_partial_evidence);
+    assert!(validate_project_bundle_consistency(&complete_with_partial_evidence).is_err());
+
+    let mut unjustified_partial = golden("project-analysis");
+    unjustified_partial["manifest"]["status"] = Value::String("partial".into());
+    unjustified_partial["manifest"]["artifacts"][0]["status"] = Value::String("partial".into());
+    assert!(validate_project_bundle_consistency(&unjustified_partial).is_err());
 }
 
 #[test]
@@ -688,6 +972,186 @@ fn new_raw_and_derived_file_contracts_preserve_partial_state() {
         &classification,
         "project-evidence",
         "partial classification without reason",
+    );
+}
+
+#[test]
+fn tracked_language_presence_matches_its_supported_status() {
+    let validator = validator("project-evidence");
+    let mut tracked = golden("project-evidence");
+    tracked["payload"] = tracked_file_record()["payload"].clone();
+    assert!(validator.is_valid(&tracked));
+
+    let mut named_but_unsupported = tracked.clone();
+    named_but_unsupported["payload"]["language_status"] = Value::String("unsupported".into());
+    assert_rejected(
+        &validator,
+        &named_but_unsupported,
+        "project-evidence",
+        "named language with unsupported status",
+    );
+
+    let mut unnamed_but_complete = tracked;
+    unnamed_but_complete["payload"]["language"] = Value::Null;
+    assert_rejected(
+        &validator,
+        &unnamed_but_complete,
+        "project-evidence",
+        "null language with complete status",
+    );
+}
+
+#[test]
+fn parent_delta_status_issue_and_observed_counts_are_bidirectional() {
+    let validator = validator("project-evidence");
+    let mut complete = golden("project-evidence");
+    complete["payload"] = serde_json::json!({
+        "kind": "parent_delta",
+        "changed_entries": 3,
+        "renames": 1,
+        "issue": null
+    });
+    assert!(validator.is_valid(&complete));
+
+    let mut partial = complete.clone();
+    partial["status"] = Value::String("partial".into());
+    partial["payload"]["renames"] = Value::Null;
+    partial["payload"]["issue"] = Value::String("rename_candidate_limit".into());
+    assert!(validator.is_valid(&partial));
+
+    let mut complete_with_issue = partial.clone();
+    complete_with_issue["status"] = Value::String("complete".into());
+    assert_rejected(
+        &validator,
+        &complete_with_issue,
+        "project-evidence",
+        "complete parent delta with issue",
+    );
+
+    let mut partial_without_issue = complete;
+    partial_without_issue["status"] = Value::String("partial".into());
+    assert_rejected(
+        &validator,
+        &partial_without_issue,
+        "project-evidence",
+        "partial parent delta without issue",
+    );
+
+    let mut fabricated_rename_count = partial;
+    fabricated_rename_count["payload"]["renames"] = Value::from(0);
+    assert_rejected(
+        &validator,
+        &fabricated_rename_count,
+        "project-evidence",
+        "rename-limit parent delta with fabricated rename count",
+    );
+
+    let mut process_failure_payload = golden("project-evidence");
+    process_failure_payload["status"] = Value::String("partial".into());
+    process_failure_payload["payload"] = serde_json::json!({
+        "kind": "parent_delta",
+        "changed_entries": null,
+        "renames": null,
+        "issue": "process_failure"
+    });
+    assert_rejected(
+        &validator,
+        &process_failure_payload,
+        "project-evidence",
+        "process failure represented as a factual parent delta",
+    );
+
+    let mut process_failure_envelope = golden("project-evidence");
+    process_failure_envelope["status"] = Value::String("unavailable".into());
+    process_failure_envelope["grade"] = Value::Null;
+    process_failure_envelope
+        .as_object_mut()
+        .unwrap()
+        .remove("provenance");
+    process_failure_envelope
+        .as_object_mut()
+        .unwrap()
+        .remove("payload");
+    process_failure_envelope["requested_kind"] = Value::String("parent_delta".into());
+    process_failure_envelope["reason"] = Value::String("process_failure".into());
+    assert!(validator.is_valid(&process_failure_envelope));
+}
+
+#[test]
+fn classification_availability_evidence_and_envelope_policy_are_consistent() {
+    let validator = validator("project-evidence");
+    let mut partial = classification_record();
+    partial["status"] = Value::String("partial".into());
+    partial["payload"]["reason"] = Value::String("attributes_unavailable".into());
+    partial["payload"]["classification"]["evidence"] = serde_json::json!([
+        {
+            "kind": "policy_rule",
+            "rule_id": "path.production.typescript",
+            "attribute_name": null,
+            "attribute_value": null
+        },
+        {
+            "kind": "attribute_facts_unavailable",
+            "rule_id": "attributes.unavailable",
+            "attribute_name": null,
+            "attribute_value": null
+        }
+    ]);
+    assert!(validator.is_valid(&partial));
+
+    let mut partial_without_unavailable_fact = partial.clone();
+    partial_without_unavailable_fact["payload"]["classification"]["evidence"] = serde_json::json!([{
+        "kind": "policy_rule",
+        "rule_id": "path.production.typescript",
+        "attribute_name": null,
+        "attribute_value": null
+    }]);
+    assert_rejected(
+        &validator,
+        &partial_without_unavailable_fact,
+        "project-evidence",
+        "partial classification without unavailable attribute evidence",
+    );
+
+    let mut complete_with_unavailable_fact = partial;
+    complete_with_unavailable_fact["status"] = Value::String("complete".into());
+    complete_with_unavailable_fact["payload"]["reason"] = Value::Null;
+    assert_rejected(
+        &validator,
+        &complete_with_unavailable_fact,
+        "project-evidence",
+        "complete classification with unavailable attribute evidence",
+    );
+
+    let mut missing = golden("project-evidence");
+    missing["status"] = Value::String("unavailable".into());
+    missing["grade"] = Value::Null;
+    missing.as_object_mut().unwrap().remove("provenance");
+    missing.as_object_mut().unwrap().remove("payload");
+    missing["requested_kind"] = Value::String("file_classification".into());
+    missing["reason"] = Value::String("missing_classification".into());
+    missing["related_evidence_ids"] = serde_json::json!(["evidence:tracked-file:v1-golden"]);
+    assert!(
+        validator.is_valid(&missing),
+        "missing classification must not invent an attempted policy"
+    );
+
+    let mut missing_with_policy = missing.clone();
+    missing_with_policy["attempted_policy_version"] = Value::String("classifier-v1".into());
+    assert_rejected(
+        &validator,
+        &missing_with_policy,
+        "project-evidence",
+        "missing classification with invented policy",
+    );
+
+    let mut empty_relation = missing;
+    empty_relation["related_evidence_ids"] = serde_json::json!([]);
+    assert_rejected(
+        &validator,
+        &empty_relation,
+        "project-evidence",
+        "classification envelope without a source citation",
     );
 }
 

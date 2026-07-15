@@ -15,9 +15,11 @@
 
 #![forbid(unsafe_code)]
 
+mod contract;
 mod evidence;
 mod machine;
 
+pub use contract::validate_project_bundle_consistency;
 pub use evidence::{
     ClassificationAvailabilityReason, ClassificationCategoryRecord, ClassificationEvidenceFact,
     ClassificationEvidenceKindRecord, ClassificationEvidenceRecord, ClassificationTagRecord,

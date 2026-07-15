@@ -28,9 +28,17 @@ retain observed values and immutable provenance; unavailable facts remain
 payload-free envelopes. Paths use validated UTF-8 or lowercase
 `git_path_hex`.
 
-Schema validation is followed by deterministic cross-record checks for one
-repository and revision, sorted unique evidence IDs, matching data-source
-revisions, and the exact evidence artifact count, status, and SHA-256 digest.
+Schema validation is followed by deterministic cross-record checks in
+`assay-project-intelligence`. They close every citation over the evidence set;
+match repository snapshot, history scope, data-source, provenance, and payload
+facts; enforce status sufficiency; and verify the exact evidence artifact
+count, status, and SHA-256 digest. The CLI only invokes this shared contract
+validator and maps failure to its stable delivery error.
+
+Public path values remain bounded to 8,192 characters. Longer UTF-8 or
+hexadecimal paths are not serialized or truncated. Their raw and derived IDs
+remain payload-free, citable availability envelopes, and the analysis is
+explicitly partial with a `path_length_limit` limitation.
 
 The Git adapter parses commit time and normalizes it to RFC 3339 UTC `Z`.
 Local repository identity is a domain-separated SHA-256 over object format,

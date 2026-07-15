@@ -16,11 +16,11 @@ use assay_git::{
 };
 use assay_project_intelligence::{
     ClassifiedSnapshotFile, assemble_project_evidence, build_project_analysis,
+    validate_project_bundle_consistency,
 };
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use jsonschema::{Draft, Resource, Validator};
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use time::{OffsetDateTime, UtcOffset, format_description::well_known::Rfc3339};
 
@@ -216,62 +216,6 @@ fn invalid_test_limit() -> RunError {
         exit_code: 2,
         message: "invalid_input field=collection_limit".into(),
     }
-}
-
-/// Enforces cross-component invariants that JSON Schema cannot express.
-pub fn validate_project_bundle_consistency(value: &Value) -> Result<(), &'static str> {
-    let manifest = value.get("manifest").ok_or("missing_manifest")?;
-    let evidence = value
-        .get("evidence")
-        .and_then(Value::as_array)
-        .ok_or("missing_evidence")?;
-    let source = &manifest["source_snapshot"]["source"];
-    let revision = &manifest["source_snapshot"]["revision"];
-    let mut previous: Option<&str> = None;
-    for fact in evidence {
-        if &fact["repository"] != source {
-            return Err("source_mismatch");
-        }
-        if let Some(provenance) = fact.get("provenance")
-            && !provenance["repository_revision"].is_null()
-            && &provenance["repository_revision"] != revision
-        {
-            return Err("revision_mismatch");
-        }
-        let id = fact["id"].as_str().ok_or("missing_evidence_id")?;
-        if previous.is_some_and(|prior| prior >= id) {
-            return Err("evidence_order");
-        }
-        previous = Some(id);
-    }
-    let artifacts = manifest["artifacts"].as_array().ok_or("missing_artifact")?;
-    let mut matching = artifacts
-        .iter()
-        .filter(|item| item["role"] == "project_evidence");
-    let artifact = matching.next().ok_or("missing_artifact")?;
-    if matching.next().is_some() {
-        return Err("duplicate_artifact");
-    }
-    if artifact["status"] != manifest["status"] {
-        return Err("artifact_status");
-    }
-    if artifact["record_count"].as_u64() != Some(evidence.len() as u64) {
-        return Err("artifact_count");
-    }
-    let canonical = serde_json::to_vec(evidence).map_err(|_| "artifact_serialization")?;
-    let expected = format!("sha256:{:x}", Sha256::digest(canonical));
-    if artifact["content_hash"].as_str() != Some(expected.as_str()) {
-        return Err("artifact_hash");
-    }
-    for source in manifest["data_sources"]
-        .as_array()
-        .ok_or("missing_data_sources")?
-    {
-        if !source["revision"].is_null() && source["revision"] != *revision {
-            return Err("data_source_revision");
-        }
-    }
-    Ok(())
 }
 
 fn bundle_error() -> RunError {

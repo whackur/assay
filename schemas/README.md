@@ -52,6 +52,15 @@ and `pending` evidence carries no factual payload or provenance: it names only
 the requested payload kind and a machine-readable reason within the common
 repository, identity, status, and privacy envelope.
 
+Tracked-file language values are present exactly when supported language
+detection is complete. File-classification citations name exactly one raw
+tracked-file record, partial attribute classification cites unavailable
+attribute facts, and a missing classification never invents a policy attempt.
+Parent-delta process and parse failures are availability envelopes rather than
+factual payloads. Public path values are limited to 8,192 characters; producers
+publish an explicit `path_length_limit` envelope instead of removing the bound
+or disclosing a truncated path.
+
 Potential uses a contract distinct from Assay Score. It declares an ISO-8601
 forecast duration plus cited assumptions and major counter-signals. Potential
 is never folded into the current project score. The forecast duration must be

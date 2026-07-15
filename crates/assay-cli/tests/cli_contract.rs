@@ -1,4 +1,8 @@
-use std::{fs, process::Command};
+use std::{
+    fs,
+    io::Write,
+    process::{Command, Stdio},
+};
 
 use assay_test_fixtures::{RepositoryFixture, RepositoryScenario};
 use serde_json::Value;
@@ -314,6 +318,109 @@ fn gitlink_and_non_utf8_paths_survive_the_cli_contract() {
                 && fact["payload"]["content_status"] == "unsupported"
                 && fact["payload"]["issue"] == "gitlink_content")
     );
+}
+
+#[test]
+fn overlong_git_path_becomes_citable_partial_evidence_without_path_disclosure() {
+    let temporary = tempfile::tempdir().unwrap();
+    let repository = temporary.path().join("long-path.git");
+    let init = Command::new("/usr/bin/git")
+        .args(["init", "--bare", "--quiet"])
+        .arg(&repository)
+        .status()
+        .unwrap();
+    assert!(init.success());
+
+    let segment = format!("private-long-component-{}", "x".repeat(76));
+    let path = format!("{}/secret.ts", vec![segment.as_str(); 110].join("/"));
+    assert!(path.len() > 10_000);
+    let stream = format!(
+        "blob\nmark :1\ndata 2\nx\ncommit refs/heads/main\nmark :2\nauthor Fixture <fixture@example.invalid> 981173106 +0000\ncommitter Fixture <fixture@example.invalid> 981173106 +0000\ndata 4\nlong\nM 100644 :1 {path}\n\ndone\n"
+    );
+    let mut importer = Command::new("/usr/bin/git")
+        .current_dir(&repository)
+        .args(["fast-import", "--quiet"])
+        .stdin(Stdio::piped())
+        .spawn()
+        .unwrap();
+    importer
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(stream.as_bytes())
+        .unwrap();
+    assert!(importer.wait().unwrap().success());
+    assert!(
+        Command::new("/usr/bin/git")
+            .current_dir(&repository)
+            .args(["symbolic-ref", "HEAD", "refs/heads/main"])
+            .status()
+            .unwrap()
+            .success()
+    );
+
+    let output = fixed_command()
+        .arg("project")
+        .arg("analyze")
+        .arg(&repository)
+        .args([
+            "--output",
+            "-",
+            "--format",
+            "json",
+            "--no-color",
+            "--non-interactive",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output.stderr.is_empty());
+    let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["manifest"]["status"], "partial");
+    let evidence = value["evidence"].as_array().unwrap();
+    let raw = evidence
+        .iter()
+        .find(|fact| {
+            fact["requested_kind"] == "tracked_file" && fact["reason"] == "path_length_limit"
+        })
+        .expect("overlong raw path envelope");
+    assert_eq!(raw["status"], "unsupported");
+    let raw_id = raw["id"].as_str().unwrap();
+    let classification = evidence
+        .iter()
+        .find(|fact| {
+            fact["requested_kind"] == "file_classification" && fact["reason"] == "path_length_limit"
+        })
+        .expect("overlong classification envelope");
+    assert_eq!(classification["status"], "unsupported");
+    assert_eq!(
+        classification["related_evidence_ids"],
+        serde_json::json!([raw_id])
+    );
+    assert!(classification["attempted_policy_version"].is_string());
+    let classification_id = classification["id"].as_str().unwrap();
+    assert!(
+        value["manifest"]["limitations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|limitation| {
+                limitation["code"] == "path_length_limit"
+                    && limitation["affected_evidence_ids"]
+                        .as_array()
+                        .is_some_and(|ids| {
+                            ids.iter().any(|id| id == raw_id)
+                                && ids.iter().any(|id| id == classification_id)
+                        })
+            })
+    );
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(!text.contains("private-long-component"));
+    assert!(!text.contains(&path));
 }
 
 #[test]
