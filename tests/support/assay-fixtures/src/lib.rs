@@ -9,7 +9,7 @@ use std::{
     collections::BTreeSet,
     env,
     error::Error,
-    ffi::OsStr,
+    ffi::{OsStr, OsString},
     fmt, fs, io,
     path::{Path, PathBuf},
     process::{Command, Output},
@@ -253,6 +253,7 @@ impl RepositoryScenario {
 pub struct RepositoryFixtureBuilder {
     scenario: RepositoryScenario,
     git_program: PathBuf,
+    command_environment: Vec<(OsString, OsString)>,
 }
 
 impl RepositoryFixtureBuilder {
@@ -261,12 +262,24 @@ impl RepositoryFixtureBuilder {
         Self {
             scenario,
             git_program: PathBuf::from("git"),
+            command_environment: Vec::new(),
         }
     }
 
     /// Selects a Git executable path, primarily for hermetic failure tests.
     pub fn git_program(mut self, program: impl Into<PathBuf>) -> Self {
         self.git_program = program.into();
+        self
+    }
+
+    /// Overrides one inherited environment variable for each Git child.
+    ///
+    /// Fixed fixture isolation variables take precedence over these values.
+    /// This supports parallel-safe tests of hostile host configuration without
+    /// mutating the test process environment.
+    pub fn command_environment(mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) -> Self {
+        self.command_environment
+            .push((key.as_ref().to_os_string(), value.as_ref().to_os_string()));
         self
     }
 
@@ -282,6 +295,12 @@ impl RepositoryFixtureBuilder {
         let empty_global_config = temporary_directory.path().join("empty-git-config");
         fs::write(&empty_global_config, [])
             .map_err(|error| FixtureBuildError::io(BuildStage::CreateGitConfiguration, error))?;
+        let empty_attributes = temporary_directory.path().join("empty-git-attributes");
+        fs::write(&empty_attributes, [])
+            .map_err(|error| FixtureBuildError::io(BuildStage::CreateGitConfiguration, error))?;
+        let empty_excludes = temporary_directory.path().join("empty-git-excludes");
+        fs::write(&empty_excludes, [])
+            .map_err(|error| FixtureBuildError::io(BuildStage::CreateGitConfiguration, error))?;
         let empty_template = temporary_directory.path().join("empty-git-template");
         fs::create_dir(&empty_template)
             .map_err(|error| FixtureBuildError::io(BuildStage::CreateGitConfiguration, error))?;
@@ -291,7 +310,11 @@ impl RepositoryFixtureBuilder {
         fs::create_dir(&repository_path)
             .map_err(|error| FixtureBuildError::io(BuildStage::CreateRepositoryDirectory, error))?;
 
-        let git = GitRunner::new(self.git_program, empty_global_config);
+        let git = GitRunner::new(
+            self.git_program,
+            empty_global_config,
+            self.command_environment,
+        );
         let mut init = git.command(temporary_directory.path());
         init.args([
             "init",
@@ -304,7 +327,7 @@ impl RepositoryFixtureBuilder {
         .arg(&repository_path);
         git.run(init, BuildStage::InitializeGitRepository)?;
 
-        configure_repository(&git, &repository_path)?;
+        configure_repository(&git, &repository_path, &empty_attributes, &empty_excludes)?;
 
         let mut tracked_paths = BTreeSet::new();
         let mut commit_ids = Vec::new();
@@ -339,6 +362,7 @@ impl fmt::Debug for RepositoryFixtureBuilder {
             .debug_struct("RepositoryFixtureBuilder")
             .field("scenario", &self.scenario)
             .field("git_program", &"<git-program>")
+            .field("command_environment", &"<redacted-environment>")
             .finish()
     }
 }
@@ -490,13 +514,19 @@ impl fmt::Display for FailureReason {
 struct GitRunner {
     program: PathBuf,
     global_config: PathBuf,
+    command_environment: Vec<(OsString, OsString)>,
 }
 
 impl GitRunner {
-    fn new(program: PathBuf, global_config: PathBuf) -> Self {
+    fn new(
+        program: PathBuf,
+        global_config: PathBuf,
+        command_environment: Vec<(OsString, OsString)>,
+    ) -> Self {
         Self {
             program,
             global_config,
+            command_environment,
         }
     }
 
@@ -505,6 +535,8 @@ impl GitRunner {
         remove_git_environment(&mut command);
         command
             .current_dir(current_directory)
+            .envs(self.command_environment.iter().cloned())
+            .env("GIT_ATTR_NOSYSTEM", "1")
             .env("GIT_CONFIG_NOSYSTEM", "1")
             .env("GIT_CONFIG_GLOBAL", &self.global_config)
             .env("GIT_TERMINAL_PROMPT", "0")
@@ -540,14 +572,19 @@ fn is_git_environment_key(key: &OsStr) -> bool {
     key.to_string_lossy().starts_with("GIT_")
 }
 
-fn configure_repository(git: &GitRunner, repository: &Path) -> Result<(), FixtureBuildError> {
+fn configure_repository(
+    git: &GitRunner,
+    repository: &Path,
+    attributes_file: &Path,
+    excludes_file: &Path,
+) -> Result<(), FixtureBuildError> {
     for (key, value) in [
         ("commit.cleanup", "verbatim"),
         ("commit.gpgSign", "false"),
         ("core.autocrlf", "false"),
         ("core.fileMode", "false"),
         ("core.ignoreCase", "false"),
-        ("core.precomposeUnicode", "false"),
+        ("core.precomposeUnicode", "true"),
         ("core.quotePath", "false"),
         ("i18n.commitEncoding", "UTF-8"),
         ("init.defaultBranch", "main"),
@@ -555,10 +592,22 @@ fn configure_repository(git: &GitRunner, repository: &Path) -> Result<(), Fixtur
         ("user.name", COMMITTER_NAME),
         ("user.useConfigOnly", "true"),
     ] {
-        let mut command = git.command(repository);
-        command.args(["config", "--local", key, value]);
-        git.run(command, BuildStage::ConfigureGitRepository)?;
+        set_local_config(git, repository, key, value)?;
     }
+    set_local_config(git, repository, "core.attributesFile", attributes_file)?;
+    set_local_config(git, repository, "core.excludesFile", excludes_file)?;
+    Ok(())
+}
+
+fn set_local_config(
+    git: &GitRunner,
+    repository: &Path,
+    key: &str,
+    value: impl AsRef<OsStr>,
+) -> Result<(), FixtureBuildError> {
+    let mut command = git.command(repository);
+    command.args(["config", "--local", key]).arg(value.as_ref());
+    git.run(command, BuildStage::ConfigureGitRepository)?;
     Ok(())
 }
 

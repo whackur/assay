@@ -1,7 +1,7 @@
 use std::{
     collections::BTreeMap,
     fs,
-    path::Path,
+    path::{Path, PathBuf},
     process::{Command, Output},
 };
 
@@ -42,6 +42,14 @@ fn every_required_repository_scenario_has_exact_files_and_history() {
             assert!(
                 actual_bytes.as_slice() == *expected_bytes,
                 "fixture file bytes changed for {relative_path}"
+            );
+
+            let object = format!("HEAD:{relative_path}");
+            let committed_bytes =
+                git_output(fixture.path(), &["cat-file", "blob", object.as_str()]).stdout;
+            assert!(
+                committed_bytes.as_slice() == *expected_bytes,
+                "committed fixture blob bytes changed for {relative_path}"
             );
         }
 
@@ -114,7 +122,7 @@ fn repository_config_is_isolated_and_fixed() {
         ("core.autocrlf", "false"),
         ("core.filemode", "false"),
         ("core.ignorecase", "false"),
-        ("core.precomposeunicode", "false"),
+        ("core.precomposeunicode", "true"),
         ("core.quotepath", "false"),
         ("i18n.commitencoding", "UTF-8"),
         ("init.defaultbranch", "main"),
@@ -128,6 +136,80 @@ fn repository_config_is_isolated_and_fixed() {
             "unexpected local Git configuration for {key}"
         );
     }
+
+    for key in ["core.attributesfile", "core.excludesfile"] {
+        let configured_path = PathBuf::from(git_text(
+            fixture.path(),
+            &["config", "--local", "--get", key],
+        ));
+        assert!(
+            configured_path.starts_with(
+                fixture
+                    .path()
+                    .parent()
+                    .expect("fixture repository must have an owned temporary parent")
+            )
+        );
+        assert!(
+            fs::read(configured_path)
+                .expect("the isolated Git policy file must be readable")
+                .is_empty(),
+            "the isolated Git policy file must remain empty"
+        );
+    }
+}
+
+#[test]
+fn adversarial_external_attributes_and_ignores_cannot_change_the_fixture() {
+    let host_parent = workspace_root().join("target/assay-fixture-host-configs");
+    fs::create_dir_all(&host_parent).expect("the host configuration parent must be creatable");
+    let host = tempfile::Builder::new()
+        .prefix("adversarial-host-")
+        .tempdir_in(host_parent)
+        .expect("the adversarial host configuration must be creatable");
+    let home = host.path().join("home");
+    let xdg = host.path().join("xdg");
+    fs::create_dir_all(xdg.join("git")).expect("the fake XDG Git directory must be creatable");
+    fs::create_dir_all(&home).expect("the fake home directory must be creatable");
+
+    let attributes = host.path().join("host-attributes");
+    let excludes = host.path().join("host-ignore");
+    fs::write(&attributes, b"*.ts working-tree-encoding=UTF-16LE\n")
+        .expect("the adversarial attributes file must be writable");
+    fs::write(&excludes, b"*\n").expect("the adversarial ignore file must be writable");
+    fs::write(
+        xdg.join("git/attributes"),
+        b"*.ts working-tree-encoding=UTF-16LE\n",
+    )
+    .expect("the default XDG attributes file must be writable");
+    fs::write(xdg.join("git/ignore"), b"*\n")
+        .expect("the default XDG ignore file must be writable");
+    let config = format!(
+        "[core]\n\tattributesFile = {}\n\texcludesFile = {}\n",
+        attributes.display(),
+        excludes.display()
+    );
+    let home_config = home.join(".gitconfig");
+    fs::write(&home_config, &config).expect("the fake home Git config must be writable");
+    fs::write(xdg.join("git/config"), config).expect("the fake XDG Git config must be writable");
+
+    let fixture = RepositoryFixtureBuilder::new(RepositoryScenario::TypeScriptProject)
+        .command_environment("HOME", &home)
+        .command_environment("XDG_CONFIG_HOME", &xdg)
+        .command_environment("GIT_CONFIG_GLOBAL", &home_config)
+        .command_environment("GIT_CONFIG_NOSYSTEM", "0")
+        .command_environment("GIT_ATTR_NOSYSTEM", "0")
+        .build()
+        .expect("host attributes and ignores must not affect fixture creation");
+    let reference = RepositoryFixture::build(RepositoryScenario::TypeScriptProject)
+        .expect("the isolated reference fixture must build");
+
+    assert!(fixture.path().join("src/add.ts").is_file());
+    assert_eq!(fixture.commit_ids(), reference.commit_ids());
+    assert_eq!(
+        git_text(fixture.path(), &["rev-parse", "HEAD^{tree}"]),
+        git_text(reference.path(), &["rev-parse", "HEAD^{tree}"])
+    );
 }
 
 #[test]
@@ -165,13 +247,7 @@ fn unicode_scenario_uses_a_space_and_unicode_repository_path() {
 fn fixture_repositories_stay_inside_the_workspace_target_directory() {
     let fixture = RepositoryFixture::build(RepositoryScenario::TypeScriptProject)
         .expect("the deterministic repository fixture must build");
-    let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(Path::parent)
-        .and_then(Path::parent)
-        .expect("the fixture crate must remain under tests/support");
-
-    assert!(fixture.path().starts_with(workspace_root.join("target")));
+    assert!(fixture.path().starts_with(workspace_root().join("target")));
 }
 
 #[test]
@@ -191,9 +267,11 @@ fn fixture_debug_output_redacts_paths_and_source_content() {
 fn fixture_build_errors_redact_program_paths_credentials_and_source_content() {
     let sensitive_program = "/machine/private/token/export function add";
     let builder = RepositoryFixtureBuilder::new(RepositoryScenario::TypeScriptProject)
-        .git_program(sensitive_program);
+        .git_program(sensitive_program)
+        .command_environment("SENSITIVE_FIXTURE_TOKEN", "credential-value");
     let builder_debug = format!("{builder:?}");
     assert!(!builder_debug.contains(sensitive_program));
+    assert!(!builder_debug.contains("credential-value"));
 
     let error = builder
         .build()
@@ -201,6 +279,7 @@ fn fixture_build_errors_redact_program_paths_credentials_and_source_content() {
     let diagnostics = format!("{error:?} {error}");
     assert!(!diagnostics.contains(sensitive_program));
     assert!(!diagnostics.contains("example.invalid"));
+    assert!(!diagnostics.contains("credential-value"));
     assert!(!diagnostics.contains("export function add"));
     assert!(!diagnostics.contains("diff --git"));
 }
@@ -294,10 +373,17 @@ fn mixed_language_and_missing_community_scenarios_keep_absence_explicit() {
 
 fn git_output(repository: &Path, arguments: &[&str]) -> Output {
     let mut command = Command::new("git");
+    for (key, _) in std::env::vars_os() {
+        if key.to_string_lossy().starts_with("GIT_") {
+            command.env_remove(key);
+        }
+    }
     command
         .current_dir(repository)
+        .env("GIT_ATTR_NOSYSTEM", "1")
         .env("GIT_CONFIG_NOSYSTEM", "1")
         .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_TERMINAL_PROMPT", "0")
         .env("LC_ALL", "C")
         .env("TZ", "UTC")
         .args(arguments);
@@ -306,6 +392,15 @@ fn git_output(repository: &Path, arguments: &[&str]) -> Output {
         .expect("Git must be available for fixtures");
     assert!(output.status.success(), "fixture Git query failed");
     output
+}
+
+fn workspace_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .and_then(Path::parent)
+        .expect("the fixture crate must remain under tests/support")
+        .to_path_buf()
 }
 
 fn git_text(repository: &Path, arguments: &[&str]) -> String {
