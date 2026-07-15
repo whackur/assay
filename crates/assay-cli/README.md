@@ -32,6 +32,20 @@ and its derived classification instead remain citable, payload-free
 availability envelopes, and the manifest reports `path_length_limit` with a
 partial result.
 
+Feature states are derived only from the published evidence. Because a
+payload-free envelope cannot reveal whether its hidden path directly matches a
+feature, all opaque tracked-file envelopes conservatively cause uncertainty
+for path-only features, and all opaque classification envelopes cause
+uncertainty for classification-dependent features, when no reliable public
+match exists. The resulting `unavailable` feature cites the exact sorted cause
+IDs. If a reliable public match exists, `present` takes precedence and cites
+only the matching facts.
+
+This behavior reports evidence sufficiency, not the likely contents of a
+hidden path. An opaque cause does not mean that the feature exists, and
+`unavailable` must not be interpreted as `present`, `absent`, a project score,
+or a quality judgment.
+
 Attribute resolution, semantic diff, GitHub collection, AI evaluation, and
 project scores are not implemented. `assay capabilities --format json`
 reports these boundaries. Missing evidence remains an availability state and

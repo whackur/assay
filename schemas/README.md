@@ -61,6 +61,20 @@ factual payloads. Public path values are limited to 8,192 characters; producers
 publish an explicit `path_length_limit` envelope instead of removing the bound
 or disclosing a truncated path.
 
+Repository-feature semantics are evaluated from the public evidence set. A
+payload-free path-limit envelope cannot disclose whether it directly matches a
+feature. In the absence of a reliable public match, every opaque tracked-file
+envelope is therefore a global uncertainty cause for path-only features and
+every opaque file-classification envelope is a global uncertainty cause for
+classification-dependent features. The `related_evidence_ids` array is the
+exact sorted cause set and participates in feature identity. A reliable match
+takes precedence and a `present` feature cites only reliable matching facts.
+
+This conservative rule states that the published evidence cannot establish
+absence. It does not assert that an opaque record contains the feature and
+does not assign likelihood, productivity, or project quality. Consumers must
+not convert `unavailable` into `present`, `absent`, or a numeric zero.
+
 Potential uses a contract distinct from Assay Score. It declares an ISO-8601
 forecast duration plus cited assumptions and major counter-signals. Potential
 is never folded into the current project score. The forecast duration must be

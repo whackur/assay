@@ -40,6 +40,23 @@ hexadecimal paths are not serialized or truncated. Their raw and derived IDs
 remain payload-free, citable availability envelopes, and the analysis is
 explicitly partial with a `path_length_limit` limitation.
 
+Repository-feature inference uses only the public evidence records. Once a
+path is replaced by a payload-free `path_length_limit` envelope, a public
+validator cannot determine whether the hidden path directly names a README,
+license, package manifest, or a file in any classification category. When no
+reliable public match exists, every opaque tracked-file envelope is therefore
+a global uncertainty cause for each path-only feature, and every opaque
+file-classification envelope is a global uncertainty cause for each
+classification-dependent feature. Related IDs are sorted and included in the
+feature identity. A reliable public match takes precedence: the feature is
+`present` and cites only its reliable matching facts.
+
+This policy measures whether the public evidence is sufficient to establish a
+feature state. It cannot identify the hidden path, prove that every opaque
+record contains the feature, or estimate a probability. `unavailable` means
+that absence is not reviewable from the published evidence; it must not be
+read as `present`, `absent`, or low project quality.
+
 The Git adapter parses commit time and normalizes it to RFC 3339 UTC `Z`.
 Local repository identity is a domain-separated SHA-256 over object format,
 shallow state, and sorted reachable root commits. The identity operation also
@@ -56,6 +73,8 @@ boundary commit is not evidence of the complete repository root.
 - Local input is `private_local` because the CLI cannot prove it is public.
 - Attribute resolution is not implemented. Classification remains partial,
   and generated or vendored absence is unavailable rather than false.
+- Opaque path envelopes conservatively widen feature uncertainty without
+  disclosing or guessing the hidden path.
 - The CLI implements `project analyze`, not the future top-level alias.
 
 ## Rejected alternatives
