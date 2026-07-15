@@ -1,0 +1,11 @@
+[package]
+name = "assay-project-intelligence"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+assay-classifier = { path = "../assay-classifier" }
+assay-domain = { path = "../assay-domain" }
+assay-git = { path = "../assay-git" }
