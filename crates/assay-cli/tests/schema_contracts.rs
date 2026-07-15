@@ -259,6 +259,16 @@ fn assert_golden_value_rejected(contract: &str, pointer: &str, value: Value, cas
     });
 }
 
+fn assert_golden_value_valid(contract: &str, pointer: &str, value: Value, case: &str) {
+    let validator = validator(contract);
+    let mut instance = golden(contract);
+    *instance
+        .pointer_mut(pointer)
+        .unwrap_or_else(|| panic!("missing golden pointer {contract}{pointer}")) = value;
+    let errors = validation_messages(&validator, &instance);
+    assert!(errors.is_empty(), "{case} failed {contract}: {errors:#?}");
+}
+
 #[test]
 fn reviewed_golden_contracts_validate() {
     for contract in contracts() {
@@ -589,6 +599,44 @@ fn potential_has_a_distinct_forecast_contract_with_cited_context() {
         "project-evaluation",
         "Assay Score with Potential-only fields",
     );
+}
+
+#[test]
+fn potential_forecast_horizon_is_a_positive_iso_8601_duration() {
+    const POINTER: &str = "/scores/potential/forecast_horizon";
+
+    for zero_duration in [
+        "P0D",
+        "PT0S",
+        "P0Y0M0DT0H0M0S",
+        "PT0.0S",
+        "P0Y0M0DT0H0M0.000S",
+    ] {
+        assert_golden_value_rejected(
+            "project-evaluation",
+            POINTER,
+            Value::String(zero_duration.to_owned()),
+            "zero Potential forecast horizon",
+        );
+    }
+
+    for positive_duration in ["P1D", "P1Y", "PT1H"] {
+        assert_golden_value_valid(
+            "project-evaluation",
+            POINTER,
+            Value::String(positive_duration.to_owned()),
+            "positive Potential forecast horizon",
+        );
+    }
+
+    for invalid_duration in ["PT0.5S", "P1Dgarbage", "not-a-duration-1", "P1DT"] {
+        assert_golden_value_rejected(
+            "project-evaluation",
+            POINTER,
+            Value::String(invalid_duration.to_owned()),
+            "invalid Potential forecast horizon containing a non-zero digit",
+        );
+    }
 }
 
 #[test]

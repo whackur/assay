@@ -52,7 +52,11 @@ repository, identity, status, and privacy envelope.
 
 Potential uses a contract distinct from Assay Score. It declares an ISO-8601
 forecast duration plus cited assumptions and major counter-signals. Potential
-is never folded into the current project score.
+is never folded into the current project score. The forecast duration must be
+positive: zero durations are rejected, while the schema does not prescribe a
+deployment-specific horizon. The format assertion remains responsible for the
+duration grammar, so a non-zero digit alone cannot make an invalid duration
+valid.
 
 ## Validation and references
 

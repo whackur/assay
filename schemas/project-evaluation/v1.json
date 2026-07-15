@@ -335,7 +335,8 @@
         "forecast_horizon": {
           "type": "string",
           "format": "duration",
-          "description": "A portable ISO-8601 duration selected by the evaluation policy."
+          "pattern": "[1-9]",
+          "description": "A positive, portable ISO-8601 duration selected by the evaluation policy. The duration format assertion supplies the grammar; the non-zero digit requirement excludes syntactically valid zero durations."
         },
         "assumptions": {
           "type": "array",

@@ -43,6 +43,9 @@ meaning.
 Contract validation enables Draft 2020-12 format assertions, rejects duplicate
 JSON keys, and resolves every internal reference directly. Remote identifiers
 are portable non-path values, and revision fields reject Git null object IDs.
+Potential horizons combine the ISO-8601 duration format with a policy-neutral
+positive-duration constraint; syntactically valid zero durations are not
+forecasts and are rejected without selecting a deployment horizon.
 
 ## Alternatives considered
 
