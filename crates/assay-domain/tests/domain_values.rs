@@ -69,8 +69,11 @@ fn scalar_values_reject_ambiguous_or_unsafe_input() {
         "0123456789abcdef0123456789abcdef0123456",
         "0123456789abcdef0123456789abcdef0123456g",
         "0123456789ABCDEF0123456789ABCDEF01234567",
+        "0000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000",
     ] {
         assert!(RevisionId::from_str(invalid).is_err(), "accepted {invalid}");
+        assert!(serde_json::from_str::<RevisionId>(&format!("\"{invalid}\"")).is_err());
     }
 
     for invalid in [
@@ -104,6 +107,19 @@ fn scalar_values_reject_ambiguous_or_unsafe_input() {
             AnalysisVersion::from_str(invalid).is_err(),
             "accepted {invalid}"
         );
+    }
+}
+
+#[test]
+fn rule_set_hash_reports_its_own_value_kind_without_echoing_input() {
+    let invalid = "sha256:private-input";
+
+    let from_str_error = RuleSetHash::from_str(invalid).unwrap_err();
+    let from_string_error = RuleSetHash::try_from(invalid.to_owned()).unwrap_err();
+
+    for error in [from_str_error, from_string_error] {
+        assert_eq!(error.value_kind(), "rule_set_hash");
+        assert!(!error.to_string().contains(invalid));
     }
 }
 
@@ -348,6 +364,42 @@ fn manifest_canonicalizes_collection_order_and_rejects_duplicate_identifiers() {
         "limitations": []
     });
     assert!(serde_json::from_value::<AnalysisManifest>(duplicate_warnings).is_err());
+}
+
+#[test]
+fn complete_manifest_rejects_every_non_complete_evidence_status() {
+    for evidence_status in [
+        EvidenceStatus::Partial,
+        EvidenceStatus::Unavailable,
+        EvidenceStatus::Unsupported,
+        EvidenceStatus::Insufficient,
+        EvidenceStatus::Pending,
+    ] {
+        let direct = AnalysisManifest::new(
+            snapshot(),
+            AnalysisVersion::from_str("analysis-1").unwrap(),
+            RuleSetHash::from_str(SHA256).unwrap(),
+            AnalysisStatus::Complete,
+            vec![evidence(evidence_status)],
+            vec![],
+            vec![],
+        );
+        assert!(direct.is_err(), "accepted direct {evidence_status:?}");
+
+        let serialized = serde_json::json!({
+            "source_snapshot": snapshot(),
+            "analysis_version": "analysis-1",
+            "rule_set_hash": SHA256,
+            "status": "complete",
+            "evidence_sources": [evidence(evidence_status)],
+            "warnings": [],
+            "limitations": []
+        });
+        assert!(
+            serde_json::from_value::<AnalysisManifest>(serialized).is_err(),
+            "accepted serialized {evidence_status:?}"
+        );
+    }
 }
 
 #[test]

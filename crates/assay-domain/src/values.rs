@@ -98,6 +98,9 @@ fn validate_revision(value: &str) -> Result<(), &'static str> {
     if !is_lower_hex(value) {
         return Err("expected lowercase hexadecimal characters");
     }
+    if value.bytes().all(|byte| byte == b'0') {
+        return Err("the Git null object identifier is not an immutable revision");
+    }
     Ok(())
 }
 
@@ -272,7 +275,9 @@ impl FromStr for RuleSetHash {
     type Err = DomainValueError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        ContentHash::from_str(value).map(Self)
+        ContentHash::from_str(value)
+            .map(Self)
+            .map_err(|error| DomainValueError::new("rule_set_hash", error.reason()))
     }
 }
 
@@ -280,7 +285,9 @@ impl TryFrom<String> for RuleSetHash {
     type Error = DomainValueError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        ContentHash::try_from(value).map(Self)
+        ContentHash::try_from(value)
+            .map(Self)
+            .map_err(|error| DomainValueError::new("rule_set_hash", error.reason()))
     }
 }
 
@@ -671,6 +678,16 @@ impl AnalysisManifest {
             return Err(DomainValueError::new(
                 "analysis_manifest",
                 "at least one explicit evidence source is required",
+            ));
+        }
+        if status == AnalysisStatus::Complete
+            && evidence_sources
+                .iter()
+                .any(|source| source.status != EvidenceStatus::Complete)
+        {
+            return Err(DomainValueError::new(
+                "analysis_manifest",
+                "complete analysis requires every evidence source to be complete",
             ));
         }
 
