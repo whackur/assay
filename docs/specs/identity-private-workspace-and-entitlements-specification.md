@@ -12,13 +12,16 @@ website, identity implementation, user database, or deployment. An operator
 connects one or more standards-compatible identity providers through
 configuration.
 
-Authentication unlocks a private Assay workspace: saved projects, unlisted
-evaluations, comparisons, scheduled rescans, notifications, private notes,
-exports, provider connections, and scoped Agent Skill access.
+Authentication initially unlocks a separate evaluator profile, a seven-day
+account/repository refresh cooldown, and private evaluation previews that may
+be published explicitly. Saved projects, comparisons, notifications, exports,
+provider connections, and scoped Agent Skill access remain extensible member
+capabilities.
 
-Public repository analysis remains usable without an account. Member features
-extend the product but do not change the canonical public score or allow paid
-or privileged users to influence it.
+Public repository analysis remains usable without an account. There is no paid
+tier in the initial product. Anonymous and authenticated profiles produce
+separate, labeled snapshots using the same score semantics; privileged users
+cannot edit either result.
 
 ## 2. Independence Boundary
 
@@ -104,6 +107,19 @@ State-changing browser requests require CSRF protection. Logout revokes the
 Assay session and, when supported and explicitly intended, disconnects or
 revokes the upstream session or token.
 
+### 3.5 Single-issuer deployment profile
+
+A deployment MAY allow membership only through one configured upstream issuer
+and provide no independent Assay registration. The upstream service may bridge
+its existing login into an Assay-audience authorization code or standards-based
+OIDC response. Assay MUST NOT reuse an upstream browser token from
+`localStorage`, accept it in a URL, share another application's session cookie,
+or accept a token issued only for the upstream application's audience.
+
+An explicit deployment mapping MAY grant Assay `Administrator` from a trusted
+upstream role claim. The mapping is configuration and audit data; Assay does
+not query the upstream user database or import its role enum.
+
 ## 4. Local Authorization and Entitlements
 
 Authentication proves identity. Assay controls authorization locally.
@@ -113,9 +129,10 @@ Authentication proves identity. Assay controls authorization locally.
 | Role | Purpose |
 | --- | --- |
 | Member | Personal private workspace and normal analysis features |
-| Maintainer | Verified management of a claimed project profile |
-| Curator | Editorial catalog workflow without score override |
 | Administrator | Assay operations and policy administration |
+
+Maintainer claims and curator workflows are deferred roles rather than initial
+membership features.
 
 External roles MUST NOT automatically grant local administrative privileges.
 An explicit deployment policy may map trusted external groups or claims to
@@ -130,16 +147,15 @@ entitlements include:
 analysis.public.submit
 analysis.private.create
 analysis.compare
-analysis.custom-rubric.preview
 project.save
 project.watch
-project.claim
 report.export
 notification.manage
 provider.codex.connect
 token.agent.create
 catalog.submit
-catalog.curate
+analysis.admin.rerun
+analysis.admin.delete
 ```
 
 Entitlement policy is configuration- and version-controlled. Roles may bundle
@@ -187,9 +203,8 @@ channels require separately scoped credentials and delivery controls.
 ### 5.5 Score history and private annotations — P1
 
 Members can retain historical snapshots, annotate why a change matters, and
-view which evidence, rule, rubric, or evaluator version caused a score change.
-Annotations are private unless deliberately attached to a public correction or
-project claim.
+view which evidence, rule, rubric, evaluator profile, or evaluator version
+caused a score change. Annotations remain private in the initial product.
 
 ### 5.6 Exports and research bundles — P1
 
@@ -197,9 +212,10 @@ Members can export JSON, JSONL, CSV, Markdown project cards, and a reproducible
 evidence manifest. Exports preserve schema, evaluation version, confidence,
 limitations, and canonical source links.
 
-### 5.7 Project ownership claim — P1
+### 5.7 Project ownership claim — deferred
 
-A member may claim a project through a separate proof of repository control,
+Project claims are not part of the initial product. A future member may claim a
+project through a separate proof of repository control,
 such as a supported Git provider authorization or repository challenge. OIDC
 membership alone does not prove repository ownership.
 
@@ -242,38 +258,52 @@ collections:write
 reports:export
 ```
 
-### 5.10 Optional private-repository analysis — P2
+### 5.10 Local private-repository analysis — P0
 
-Private source analysis may be added later through a dedicated Git provider
-connection. It is outside the initial public-source product and requires:
+The first public MVP includes private GitHub repository analysis in a local,
+single-operator installation. It does not provide hosted private-source
+ingestion.
 
-- least-privilege repository selection;
-- strict source retention and deletion controls;
-- isolated build and analysis workers;
-- no public catalog publication;
-- no comparison-corpus ingestion by default; and
-- an explicit privacy and threat-model review before release.
+A user may analyze an existing local clone without credentials. Clone or fetch
+support MAY read a least-privilege GitHub personal access token from a named
+environment variable or ignored local `.env` file. The token value MUST NOT
+appear in command arguments, logs, results, errors, local report records, or
+hosted requests. The public web form never accepts it.
 
-## 6. Quota and Benefit Policy
+Local private analysis requires:
 
-Quotas are entitlement-driven and operator-configurable. An initial candidate
-policy is:
+- loopback-only dashboard and API binding;
+- immutable local history retained across rescans;
+- no public catalog publication or public comparison-corpus ingestion;
+- deterministic analysis without installing, building, testing, importing, or
+  executing repository code;
+- AI evaluation and public competitor discovery disabled by default;
+- explicit informed consent describing the provider and transmitted evidence
+  before any private-source-derived data leaves the machine; and
+- administrator-only soft deletion, restoration, purge, and audited reruns.
 
-| Identity state | New on-demand evaluations | Other benefits |
-| --- | ---: | --- |
-| Anonymous | 2 per IP per UTC day | Public cached results |
-| Verified guest | 4 total per IP per UTC day | Access code or supported model-provider connection |
-| Member | 10 per account per UTC day | Private workspace, saved history, exports |
-| Member with personal model provider | Configurable higher account limit | Provider usage charged to the connected account where supported |
+The single local operator is the local administrator. Hosted private-repository
+connections, multi-user local workspaces, and GitLab are deferred.
 
-Member quota is account-based but remains subject to IP, repository, failure,
-provider, and global service limits. Signing in does not reset already consumed
-anonymous allowance; the quota ledger computes the highest applicable daily
-ceiling and prior usage.
+## 6. Cooldown and Benefit Policy
 
-Cached results, viewing reports, managing notes, and joining an in-flight job
-do not consume analysis quota. Scheduled rescans use a separate entitlement,
-for example a limited number of watched projects on a weekly schedule.
+The initial product has no payment or subscription distinction. Access state
+selects the evaluator profile and refresh policy:
+
+| Identity state | Evaluator profile | Refresh cooldown | Initial visibility |
+| --- | --- | ---: | --- |
+| Anonymous | Anonymous | 14 days per repository/profile | Public on completion |
+| Member | Authenticated | 7 days per account/repository/profile | Private preview |
+
+If an anonymous public result already exists, another anonymous request returns
+that result and cannot force a duplicate run. A member may request a separate
+authenticated-profile evaluation and explicitly publish it later. Engine
+profiles never silently overwrite one another.
+
+Cooldown is separate from abuse and capacity limits. IP, account, repository,
+owner, failure, provider, and global limits remain independently configurable.
+Cached results, viewing reports, and joining an in-flight job consume no new
+analysis capacity.
 
 Benefits and limits MUST be data-driven rather than hard-coded in the UI or
 domain logic so a deployment can change policy without an application release.
@@ -292,7 +322,7 @@ The conceptual model includes:
 | Workspace | Personal or future team privacy boundary |
 | WorkspaceMember | Workspace role and membership lifecycle |
 | SavedProject | Private collection membership, tags, and notes |
-| PrivateEvaluation | Workspace visibility over an immutable evaluation |
+| PrivateEvaluation | Workspace visibility and evaluator profile over an immutable evaluation |
 | Comparison | Saved cohort, dimensions, scenario weights, and notes |
 | WatchRule | Rescan cadence and notification conditions |
 | ProviderConnection | Opaque reference to separately protected provider auth |
@@ -326,6 +356,8 @@ GET    /api/v1/workspaces/current/projects
 POST   /api/v1/workspaces/current/projects
 DELETE /api/v1/workspaces/current/projects/{project_id}
 GET    /api/v1/workspaces/current/evaluations
+POST   /api/v1/workspaces/current/evaluations
+POST   /api/v1/workspaces/current/evaluations/{id}/publish
 POST   /api/v1/workspaces/current/comparisons
 GET    /api/v1/workspaces/current/comparisons/{id}
 POST   /api/v1/workspaces/current/watches
@@ -341,10 +373,20 @@ POST   /api/v1/me/api-tokens
 DELETE /api/v1/me/api-tokens/{id}
 ```
 
-The frontend displays sign-in, private/public visibility, current
-entitlements, quota, saved projects, watch rules, provider connections,
-security sessions, and token revocation. Sensitive values are never rendered
-after initial token creation.
+Administrative analysis operations are separate and audited:
+
+```text
+POST   /api/v1/admin/evaluations/{id}/rerun-stage
+DELETE /api/v1/admin/evaluations/{id}
+POST   /api/v1/admin/evaluations/{id}/restore
+DELETE /api/v1/admin/evaluations/{id}/purge
+```
+
+The frontend displays sign-in, evaluator profile, private/public visibility,
+cooldown, current entitlements, saved projects, watch rules, provider
+connections, security sessions, and token revocation. Users do not receive a
+manual retry or score-edit action. Sensitive values are never rendered after
+initial token creation.
 
 ## 9. Agent Skill Authentication
 
@@ -390,16 +432,18 @@ client and respects workspace and entitlement boundaries.
 | IAM-003 | P0 | Enforce issuer, signature, audience, time, nonce, state, and PKCE validation. | Invalid and replayed authentication responses fail closed. |
 | IAM-004 | P0 | Create an opaque Assay browser session. | Upstream tokens are absent from browser storage and application URLs. |
 | IAM-005 | P0 | Authorize actions with local entitlements. | External roles do not grant Assay administration without explicit mapping policy. |
-| IAM-006 | P0 | Provide member quota without login-reset abuse. | Anonymous and member usage share one atomic ledger and apply the highest eligible ceiling. |
+| IAM-006 | P0 | Enforce profile cooldown and abuse limits without login-reset abuse. | Anonymous and member requests cannot bypass repository, account, IP, failure, provider, or global policy by switching identity state. |
 | IAM-007 | P1 | Create scoped Agent API tokens. | Tokens are one-time-visible, hashed, expiring, revocable, and workspace-bound. |
 | IAM-008 | P1 | Support account export and deletion. | Private workspace and credentials follow documented deletion and retention behavior. |
 | PWS-001 | P0 | Save public projects privately. | Other users and public APIs cannot discover collection membership or notes. |
 | PWS-002 | P0 | Create an unlisted evaluation. | The result remains workspace-private until an explicit catalog submission is accepted. |
 | PWS-003 | P1 | Save comparisons and custom scenarios. | Private weights never overwrite canonical score data. |
-| PWS-004 | P1 | Schedule rescans and notifications. | Idempotent jobs respect watch and quota entitlements and record delivery state. |
-| PWS-005 | P1 | Claim project ownership separately from login. | Repository-control evidence is required before maintainer actions are granted. |
+| PWS-004 | P1 | Schedule rescans and notifications. | Idempotent jobs respect watch and cooldown entitlements and record delivery state. |
+| PWS-005 | P2 | Add project ownership claims only after the initial product. | Repository-control evidence is required before any future maintainer actions are granted. |
 | PWS-006 | P1 | Manage personal model-provider connections. | Identity sessions, provider credentials, and Agent API tokens remain isolated credential domains. |
-| PWS-007 | P2 | Analyze authorized private repositories. | Private source is isolated, retained minimally, excluded from public results, and deletable. |
+| PWS-007 | P0 | Analyze authorized private GitHub repositories locally. | Local source stays on the machine, external AI requires explicit consent, results stay out of public corpora, history is retained, and deletion is administrator-only. |
+| PWS-008 | P0 | Map a trusted upstream administrator claim through explicit deployment policy. | Assay never imports the provider role enum or queries its user database, and every privileged mapping is auditable. |
+| PWS-009 | P0 | Restrict failed-analysis reruns and deletion to administrators. | Users see partial results without retry controls; rerun, soft delete, restore, and purge actions create audit events. |
 
 ## 12. Delivery Plan
 
@@ -407,26 +451,37 @@ client and respects workspace and entitlement boundaries.
 
 - OIDC configuration, callback validation, and opaque sessions.
 - Account, external identity, local role, entitlement, and quota records.
-- Member dashboard and ten-evaluation candidate daily policy.
-- Private saved-project collections and unlisted evaluation visibility.
+- Optional single-issuer deployment with no independent registration.
+- Explicit trusted upstream-role to local-administrator mapping.
+- Anonymous and authenticated evaluator profiles with fourteen- and seven-day
+  cooldowns.
+- Private authenticated evaluation preview and explicit publication.
 
-### Phase B — Private workflows
+### Phase B — Local private-source workflow
+
+- Existing-clone and environment-token GitHub access.
+- Loopback-only shared dashboard with immutable local history.
+- External AI consent states and public-corpus exclusion.
+- Administrator-only rerun, soft delete, restore, purge, and audit.
+
+### Phase C — Private workspace workflows
 
 - Saved comparisons, notes, score history, exports, and watch rules.
 - In-app and email notifications.
-- Project-claim verification and maintainer context workflow.
+- Private saved-project collections and unlisted evaluation visibility.
 
-### Phase C — Skill and provider connections
+### Phase D — Skill and provider connections
 
 - Scoped Assay API tokens and Agent Skill authentication.
 - Personal model-provider connection management.
 - Provider and session security dashboard.
 
-### Phase D — Team and private-source expansion
+### Phase E — Team and hosted private-source expansion
 
 - Multi-member workspaces and invitations.
 - Team-scoped entitlements and audit views.
-- Optional private-repository analysis after a separate threat-model review.
+- Hosted private-repository analysis after a separate threat-model review.
+- Project-claim verification and maintainer context workflow.
 
 ## 13. Security References
 

@@ -9,6 +9,9 @@ The product sources of truth are the specifications under `docs/specs/`.
 Research handoff files under `.orca/drops/` are inputs to the specifications,
 not implementation contracts.
 
+Implementation handoffs belong under `docs/internal/handoffs/`. They provide
+point-in-time implementation context and do not override the specifications.
+
 ## Product Domains
 
 Assay has two related but distinct product domains:
@@ -46,7 +49,12 @@ project score to evaluate an individual contributor.
 ## Language and Public Artifacts
 
 - Write source code, identifiers, comments, commit messages, documentation,
-  schemas, fixtures, issues, and pull request text in English.
+  schemas, fixtures, issues, and pull request text in English, except for
+  internal collaboration documents under `docs/internal/`.
+- Write prose under `docs/internal/` in Korean by default. This exception
+  includes implementation handoffs. Keep code identifiers, commands,
+  machine-readable field names and values, and quoted public contracts in
+  their original English form.
 - User-facing output must be English by default. Localization may be added
   later without changing machine-readable field names.
 - Prefer plain, neutral language. Every metric definition must state what it
