@@ -14,7 +14,7 @@ use std::{
 use assay_domain::{ContentHash, EvidenceStatus, RepositorySource};
 use assay_git::{
     CollectionErrorKind, CollectionLimits, CollectionStage, GitCliAdapter, ObjectIssue,
-    ParentDeltaIssue, RepositorySnapshotPort, SnapshotRequest,
+    ParentDeltaIssue, RepositorySnapshot, RepositorySnapshotPort, SnapshotRequest,
 };
 use assay_test_fixtures::{RepositoryFixture, RepositoryScenario};
 use tempfile::TempDir;
@@ -237,6 +237,116 @@ exec /usr/bin/git "$@"
         snapshot.parent_delta().issue(),
         Some(ParentDeltaIssue::MalformedOutput)
     );
+}
+
+#[test]
+fn raw_diff_contract_rejects_invalid_type_status_score_and_copy_records() {
+    const OLD: &str = "1111111111111111111111111111111111111111";
+    const NEW: &str = "2222222222222222222222222222222222222222";
+    const NULL: &str = "0000000000000000000000000000000000000000";
+    let fixture = RepositoryFixture::build(RepositoryScenario::RenameAndMove)
+        .expect("the rename fixture must build");
+    let empty = "";
+    let malformed = [
+        (
+            "chmod reported as a type change",
+            format!(":100644 100755 {OLD} {NEW} T\\000path\\000"),
+            empty.to_owned(),
+        ),
+        (
+            "type change reported as a modification",
+            format!(":100644 120000 {OLD} {NEW} M\\000path\\000"),
+            empty.to_owned(),
+        ),
+        (
+            "rename emitted while detection is disabled",
+            format!(":100644 100644 {OLD} {NEW} R100\\000old\\000new\\000"),
+            empty.to_owned(),
+        ),
+        (
+            "rename across object type classes",
+            empty.to_owned(),
+            format!(":100644 120000 {OLD} {NEW} R100\\000old\\000new\\000"),
+        ),
+        (
+            "rename below the requested threshold",
+            empty.to_owned(),
+            format!(":100644 100644 {OLD} {NEW} R049\\000old\\000new\\000"),
+        ),
+        (
+            "unrequested copy detection",
+            empty.to_owned(),
+            format!(":100644 100644 {OLD} {NEW} C100\\000old\\000new\\000"),
+        ),
+        (
+            "present add source",
+            format!(":100644 100644 {OLD} {NEW} A\\000path\\000"),
+            empty.to_owned(),
+        ),
+        (
+            "absent modification target",
+            format!(":100644 000000 {OLD} {NULL} M\\000path\\000"),
+            empty.to_owned(),
+        ),
+    ];
+
+    for (case, no_renames, find_renames) in malformed {
+        let snapshot = collect_with_raw_diff(fixture.path(), &no_renames, &find_renames);
+        assert_eq!(
+            snapshot.parent_delta().status(),
+            EvidenceStatus::Unavailable,
+            "{case}"
+        );
+        assert_eq!(
+            snapshot.parent_delta().issue(),
+            Some(ParentDeltaIssue::MalformedOutput),
+            "{case}"
+        );
+    }
+}
+
+#[test]
+fn raw_diff_contract_accepts_chmod_type_change_and_threshold_renames() {
+    const OLD: &str = "1111111111111111111111111111111111111111";
+    const NEW: &str = "2222222222222222222222222222222222222222";
+    const NULL: &str = "0000000000000000000000000000000000000000";
+    let fixture = RepositoryFixture::build(RepositoryScenario::RenameAndMove)
+        .expect("the rename fixture must build");
+
+    for (case, record) in [
+        (
+            "regular-file chmod",
+            format!(":100644 100755 {OLD} {NEW} M\\000path\\000"),
+        ),
+        (
+            "regular-file to symlink type change",
+            format!(":100644 120000 {OLD} {NEW} T\\000path\\000"),
+        ),
+    ] {
+        let snapshot = collect_with_raw_diff(fixture.path(), &record, &record);
+        assert_eq!(
+            snapshot.parent_delta().status(),
+            EvidenceStatus::Complete,
+            "{case}"
+        );
+        assert_eq!(snapshot.parent_delta().changed_entries(), 1, "{case}");
+        assert_eq!(snapshot.parent_delta().renames(), 0, "{case}");
+    }
+
+    let delete_add = format!(
+        ":100644 000000 {OLD} {NULL} D\\000old\\000:000000 100644 {NULL} {NEW} A\\000new\\000"
+    );
+    for score in ["050", "100"] {
+        let rename = format!(":100644 100755 {OLD} {NEW} R{score}\\000old\\000new\\000");
+        let snapshot = collect_with_raw_diff(fixture.path(), &delete_add, &rename);
+        assert_eq!(
+            snapshot.parent_delta().status(),
+            EvidenceStatus::Complete,
+            "R{score}"
+        );
+        assert_eq!(snapshot.parent_delta().changed_entries(), 2, "R{score}");
+        assert_eq!(snapshot.parent_delta().renames(), 1, "R{score}");
+    }
 }
 
 #[test]
@@ -555,6 +665,36 @@ fn missing_promisor_object_never_invokes_transport_or_helper_or_mutates_objects(
 fn fixture() -> RepositoryFixture {
     RepositoryFixture::build(RepositoryScenario::TypeScriptProject)
         .expect("the deterministic fixture must build")
+}
+
+fn collect_with_raw_diff(
+    repository: &Path,
+    no_renames: &str,
+    find_renames: &str,
+) -> RepositorySnapshot {
+    let body = format!(
+        r#"
+for argument in "$@"; do
+  if [ "$argument" = "diff-tree" ]; then
+    for mode in "$@"; do
+      if [ "$mode" = "--find-renames=50%" ]; then
+        printf '{find_renames}'
+        exit 0
+      fi
+    done
+    printf '{no_renames}'
+    exit 0
+  fi
+done
+exec /usr/bin/git "$@"
+"#
+    );
+    let (_directory, executable) = wrapper(&body);
+    let adapter = GitCliAdapter::from_trusted_executable(executable, CollectionLimits::default())
+        .expect("the raw-diff wrapper must pass the capability probe");
+    adapter
+        .collect(request(repository))
+        .expect("optional malformed deltas must not abort the repository snapshot")
 }
 
 fn request(repository: &Path) -> SnapshotRequest<'_> {
