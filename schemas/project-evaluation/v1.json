@@ -1,0 +1,378 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assay.dev/project-evaluation/v1.json",
+  "title": "Assay Project Evaluation v1",
+  "description": "A dimensioned, confidence-aware project evaluation compiled from cited evidence. It evaluates a project, never an individual contributor, and Potential remains separate from Assay Score.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evaluation_version",
+    "status",
+    "provisional",
+    "visibility",
+    "evaluator",
+    "compiler",
+    "project",
+    "classification",
+    "scores",
+    "evidence_ids",
+    "introduction",
+    "warnings",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "$ref": "#/$defs/schemaVersion" },
+    "evaluation_version": { "$ref": "#/$defs/versionIdentifier" },
+    "status": { "$ref": "#/$defs/status" },
+    "provisional": { "type": "boolean" },
+    "visibility": {
+      "type": "string",
+      "enum": ["public", "private_preview", "private_local"]
+    },
+    "evaluator": { "$ref": "#/$defs/evaluator" },
+    "compiler": { "$ref": "#/$defs/compiler" },
+    "project": { "$ref": "#/$defs/project" },
+    "classification": { "$ref": "#/$defs/projectClassification" },
+    "scores": { "$ref": "#/$defs/scores" },
+    "evidence_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/evidenceId" }
+    },
+    "introduction": { "$ref": "#/$defs/introduction" },
+    "warnings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    }
+  },
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+    },
+    "versionIdentifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$"
+    },
+    "machineCode": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "evidenceId": {
+      "type": "string",
+      "pattern": "^evidence:[a-z0-9._-]+:[a-z0-9._-]+(?:[:][a-z0-9._-]+)*$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "partial",
+        "unavailable",
+        "unsupported",
+        "insufficient",
+        "pending"
+      ]
+    },
+    "evaluator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "provider", "model", "rubric_version"],
+      "properties": {
+        "profile": { "$ref": "#/$defs/versionIdentifier" },
+        "provider": {
+          "type": "string",
+          "enum": ["deterministic", "openai_api", "codex_cli", "codex_oauth"]
+        },
+        "model": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "rubric_version": { "$ref": "#/$defs/versionIdentifier" }
+      }
+    },
+    "compiler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "rule_set_hash", "judgment_bundle_hash"],
+      "properties": {
+        "version": { "$ref": "#/$defs/versionIdentifier" },
+        "rule_set_hash": { "$ref": "#/$defs/sha256" },
+        "judgment_bundle_hash": {
+          "oneOf": [
+            { "$ref": "#/$defs/sha256" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "repositorySource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "repository_id"],
+          "properties": {
+            "kind": { "const": "local" },
+            "repository_id": { "$ref": "#/$defs/sha256" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "provider", "namespace", "repository"],
+          "properties": {
+            "kind": { "const": "hosted" },
+            "provider": { "$ref": "#/$defs/versionIdentifier" },
+            "namespace": { "$ref": "#/$defs/versionIdentifier" },
+            "repository": { "$ref": "#/$defs/versionIdentifier" }
+          }
+        }
+      ]
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "revision"],
+      "properties": {
+        "source": { "$ref": "#/$defs/repositorySource" },
+        "revision": { "$ref": "#/$defs/revision" }
+      }
+    },
+    "projectClassification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "primary_type",
+        "secondary_types",
+        "tags",
+        "maturity",
+        "confidence",
+        "evidence_ids"
+      ],
+      "properties": {
+        "status": { "$ref": "#/$defs/status" },
+        "primary_type": {
+          "type": ["string", "null"],
+          "enum": [
+            "application",
+            "library_sdk_framework",
+            "cli_developer_tool",
+            "service_infrastructure_platform",
+            "curated_resource",
+            "protocol_specification_standard",
+            "dataset_model_research_artifact",
+            "educational_example_template",
+            "experimental_proof_of_concept",
+            null
+          ]
+        },
+        "secondary_types": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "application",
+              "library_sdk_framework",
+              "cli_developer_tool",
+              "service_infrastructure_platform",
+              "curated_resource",
+              "protocol_specification_standard",
+              "dataset_model_research_artifact",
+              "educational_example_template",
+              "experimental_proof_of_concept"
+            ]
+          }
+        },
+        "tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/machineCode" }
+        },
+        "maturity": {
+          "type": ["string", "null"],
+          "enum": [
+            "concept",
+            "prototype",
+            "alpha",
+            "beta",
+            "stable",
+            "maintenance",
+            "dormant",
+            "archived",
+            null
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "evidence_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/evidenceId" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": { "enum": ["complete", "partial"] }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "primary_type": { "type": "string" },
+              "maturity": { "type": "string" },
+              "evidence_ids": { "minItems": 1 }
+            }
+          },
+          "else": {
+            "properties": {
+              "primary_type": { "type": "null" },
+              "maturity": { "type": "null" }
+            }
+          }
+        }
+      ]
+    },
+    "score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "value", "confidence", "version", "evidence_ids"],
+      "properties": {
+        "status": { "$ref": "#/$defs/status" },
+        "value": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "version": { "$ref": "#/$defs/versionIdentifier" },
+        "evidence_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/evidenceId" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": { "enum": ["complete", "partial"] }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "value": { "type": "number", "minimum": 0, "maximum": 100 },
+              "evidence_ids": { "minItems": 1 }
+            }
+          },
+          "else": {
+            "properties": { "value": { "type": "null" } }
+          }
+        }
+      ]
+    },
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assay_score",
+        "project_substance",
+        "originality",
+        "engineering_rigor",
+        "open_source_readiness",
+        "maintenance_health",
+        "potential"
+      ],
+      "properties": {
+        "assay_score": { "$ref": "#/$defs/score" },
+        "project_substance": { "$ref": "#/$defs/score" },
+        "originality": { "$ref": "#/$defs/score" },
+        "engineering_rigor": { "$ref": "#/$defs/score" },
+        "open_source_readiness": { "$ref": "#/$defs/score" },
+        "maintenance_health": { "$ref": "#/$defs/score" },
+        "potential": {
+          "allOf": [
+            { "$ref": "#/$defs/score" }
+          ],
+          "description": "A separate future-potential indicator that is never included in assay_score."
+        }
+      }
+    },
+    "citedStatement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "evidence_ids"],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "evidence_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/evidenceId" }
+        }
+      }
+    },
+    "introduction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "factual_statements", "interpretations"],
+      "properties": {
+        "status": { "$ref": "#/$defs/status" },
+        "factual_statements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/citedStatement" }
+        },
+        "interpretations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/citedStatement" }
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "evidence_ids"],
+      "properties": {
+        "code": { "$ref": "#/$defs/machineCode" },
+        "evidence_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/evidenceId" }
+        }
+      }
+    }
+  }
+}

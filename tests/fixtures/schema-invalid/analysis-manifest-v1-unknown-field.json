@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0.0",
+  "analysis_version": "repository-evidence-1",
+  "tool": { "name": "assay", "version": "0.1.0" },
+  "source_snapshot": {
+    "source": {
+      "kind": "local",
+      "repository_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "revision": "0123456789abcdef0123456789abcdef01234567",
+    "root_tree": null,
+    "commit_time": "2026-01-02T03:04:05Z"
+  },
+  "rule_set_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "status": "complete",
+  "generated_at": "2026-01-02T03:04:06Z",
+  "scope": {
+    "mode": "single_revision",
+    "base_revision": null,
+    "head_revision": "0123456789abcdef0123456789abcdef01234567",
+    "history_status": "complete",
+    "commit_count": 1,
+    "requested_capabilities": ["repository_snapshot"]
+  },
+  "data_sources": [
+    {
+      "id": "evidence:repository:snapshot",
+      "kind": "repository",
+      "status": "complete",
+      "revision": "0123456789abcdef0123456789abcdef01234567",
+      "content_hash": null,
+      "remote_record_id": null,
+      "collected_at": "2026-01-02T03:04:06Z",
+      "visibility": "public",
+      "retention": "metadata_only"
+    }
+  ],
+  "artifacts": [
+    {
+      "role": "project_evidence",
+      "schema_version": "1.0.0",
+      "content_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "record_count": 1,
+      "status": "complete"
+    }
+  ],
+  "warnings": [],
+  "limitations": [],
+  "contributor_score": 90
+}

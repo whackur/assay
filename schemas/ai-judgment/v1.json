@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assay.dev/ai-judgment/v1.json",
+  "title": "Assay AI Judgment v1",
+  "description": "A bounded qualitative rubric result. It is not a published score and cannot override the deterministic project score compiler.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evaluation_version",
+    "rubric_version",
+    "status",
+    "evidence_bundle_hash",
+    "privacy",
+    "judgments"
+  ],
+  "properties": {
+    "schema_version": { "$ref": "#/$defs/schemaVersion" },
+    "evaluation_version": { "$ref": "#/$defs/versionIdentifier" },
+    "rubric_version": { "$ref": "#/$defs/versionIdentifier" },
+    "status": { "$ref": "#/$defs/status" },
+    "evidence_bundle_hash": { "$ref": "#/$defs/sha256" },
+    "privacy": { "$ref": "#/$defs/privacy" },
+    "judgments": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/judgment" }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": { "enum": ["complete", "partial"] }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "judgments": { "minItems": 1 }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+    },
+    "versionIdentifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "evidenceId": {
+      "type": "string",
+      "pattern": "^evidence:[a-z0-9._-]+:[a-z0-9._-]+(?:[:][a-z0-9._-]+)*$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "partial",
+        "unavailable",
+        "unsupported",
+        "insufficient",
+        "pending"
+      ]
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_scope", "external_transmission"],
+      "properties": {
+        "evidence_scope": {
+          "type": "string",
+          "enum": ["public_only", "private_local"]
+        },
+        "external_transmission": {
+          "type": "string",
+          "enum": ["not_used", "public_only", "consented_private"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "evidence_scope": { "const": "private_local" } },
+            "required": ["evidence_scope"]
+          },
+          "then": {
+            "properties": {
+              "external_transmission": {
+                "enum": ["not_used", "consented_private"]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "judgment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "criterion_id",
+        "applicability",
+        "rating",
+        "rating_scale",
+        "confidence",
+        "evidence_ids",
+        "rationale"
+      ],
+      "properties": {
+        "criterion_id": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 100,
+          "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+$"
+        },
+        "applicability": {
+          "type": "string",
+          "enum": ["applicable", "partially_applicable", "not_applicable"]
+        },
+        "rating": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 4
+        },
+        "rating_scale": { "const": 4 },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "evidence_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/evidenceId" }
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "description": "Concise provider rationale whose factual claims must be supported by evidence_ids."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "applicability": { "const": "not_applicable" }
+            },
+            "required": ["applicability"]
+          },
+          "then": {
+            "properties": {
+              "rating": { "type": "null" }
+            }
+          },
+          "else": {
+            "properties": {
+              "rating": { "type": "integer", "minimum": 0, "maximum": 4 },
+              "evidence_ids": { "minItems": 1 }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

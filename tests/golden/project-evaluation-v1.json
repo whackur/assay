@@ -1,0 +1,105 @@
+{
+  "schema_version": "1.0.0",
+  "evaluation_version": "project-intelligence-1",
+  "status": "partial",
+  "provisional": false,
+  "visibility": "private_local",
+  "evaluator": {
+    "profile": "deterministic-project-evaluator-1",
+    "provider": "deterministic",
+    "model": null,
+    "rubric_version": "project-rubric-1"
+  },
+  "compiler": {
+    "version": "project-score-compiler-1",
+    "rule_set_hash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+    "judgment_bundle_hash": null
+  },
+  "project": {
+    "source": {
+      "kind": "hosted",
+      "provider": "github",
+      "namespace": "example-org",
+      "repository": "sample-project"
+    },
+    "revision": "0123456789abcdef0123456789abcdef01234567"
+  },
+  "classification": {
+    "status": "complete",
+    "primary_type": "cli_developer_tool",
+    "secondary_types": ["library_sdk_framework"],
+    "tags": ["developer_tool"],
+    "maturity": "prototype",
+    "confidence": 0.76,
+    "evidence_ids": ["evidence:repository:snapshot"]
+  },
+  "scores": {
+    "assay_score": {
+      "status": "insufficient",
+      "value": null,
+      "confidence": 0.0,
+      "version": "project-score-1",
+      "evidence_ids": []
+    },
+    "project_substance": {
+      "status": "insufficient",
+      "value": null,
+      "confidence": 0.0,
+      "version": "project-score-1",
+      "evidence_ids": []
+    },
+    "originality": {
+      "status": "unavailable",
+      "value": null,
+      "confidence": 0.0,
+      "version": "project-score-1",
+      "evidence_ids": []
+    },
+    "engineering_rigor": {
+      "status": "insufficient",
+      "value": null,
+      "confidence": 0.0,
+      "version": "project-score-1",
+      "evidence_ids": []
+    },
+    "open_source_readiness": {
+      "status": "insufficient",
+      "value": null,
+      "confidence": 0.0,
+      "version": "project-score-1",
+      "evidence_ids": []
+    },
+    "maintenance_health": {
+      "status": "unavailable",
+      "value": null,
+      "confidence": 0.0,
+      "version": "project-score-1",
+      "evidence_ids": []
+    },
+    "potential": {
+      "status": "unavailable",
+      "value": null,
+      "confidence": 0.0,
+      "version": "potential-1",
+      "evidence_ids": []
+    }
+  },
+  "evidence_ids": ["evidence:repository:snapshot"],
+  "introduction": {
+    "status": "unavailable",
+    "factual_statements": [],
+    "interpretations": []
+  },
+  "warnings": [
+    {
+      "code": "score_release_gate_not_met",
+      "evidence_ids": []
+    }
+  ],
+  "limitations": [
+    {
+      "code": "repository_code_not_executed",
+      "evidence_ids": ["evidence:repository:snapshot"]
+    }
+  ]
+}

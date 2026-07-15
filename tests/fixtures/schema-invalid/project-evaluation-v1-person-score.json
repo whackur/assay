@@ -1,0 +1,100 @@
+{
+  "schema_version": "1.0.0",
+  "evaluation_version": "project-intelligence-1",
+  "status": "insufficient",
+  "provisional": false,
+  "visibility": "private_local",
+  "evaluator": {
+    "profile": "deterministic-project-evaluator-1",
+    "provider": "deterministic",
+    "model": null,
+    "rubric_version": "project-rubric-1"
+  },
+  "compiler": {
+    "version": "project-score-compiler-1",
+    "rule_set_hash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+    "judgment_bundle_hash": null
+  },
+  "project": {
+    "source": {
+      "kind": "local",
+      "repository_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "revision": "0123456789abcdef0123456789abcdef01234567"
+  },
+  "classification": {
+    "status": "insufficient",
+    "primary_type": null,
+    "secondary_types": [],
+    "tags": [],
+    "maturity": null,
+    "confidence": 0.0,
+    "evidence_ids": []
+  },
+  "scores": {
+    "assay_score": {
+      "status": "insufficient",
+      "value": null,
+      "confidence": 0.0,
+      "version": "project-score-1",
+      "evidence_ids": []
+    },
+    "project_substance": {
+      "status": "insufficient",
+      "value": null,
+      "confidence": 0.0,
+      "version": "project-score-1",
+      "evidence_ids": []
+    },
+    "originality": {
+      "status": "insufficient",
+      "value": null,
+      "confidence": 0.0,
+      "version": "project-score-1",
+      "evidence_ids": []
+    },
+    "engineering_rigor": {
+      "status": "insufficient",
+      "value": null,
+      "confidence": 0.0,
+      "version": "project-score-1",
+      "evidence_ids": []
+    },
+    "open_source_readiness": {
+      "status": "insufficient",
+      "value": null,
+      "confidence": 0.0,
+      "version": "project-score-1",
+      "evidence_ids": []
+    },
+    "maintenance_health": {
+      "status": "insufficient",
+      "value": null,
+      "confidence": 0.0,
+      "version": "project-score-1",
+      "evidence_ids": []
+    },
+    "potential": {
+      "status": "insufficient",
+      "value": null,
+      "confidence": 0.0,
+      "version": "potential-1",
+      "evidence_ids": []
+    },
+    "person_performance": {
+      "status": "complete",
+      "value": 90,
+      "confidence": 1.0,
+      "version": "forbidden-1",
+      "evidence_ids": []
+    }
+  },
+  "evidence_ids": [],
+  "introduction": {
+    "status": "insufficient",
+    "factual_statements": [],
+    "interpretations": []
+  },
+  "warnings": [],
+  "limitations": []
+}

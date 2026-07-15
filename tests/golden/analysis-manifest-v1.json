@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0.0",
+  "analysis_version": "repository-evidence-1",
+  "tool": {
+    "name": "assay",
+    "version": "0.1.0"
+  },
+  "source_snapshot": {
+    "source": {
+      "kind": "local",
+      "repository_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "revision": "0123456789abcdef0123456789abcdef01234567",
+    "root_tree": "89abcdef0123456789abcdef0123456789abcdef",
+    "commit_time": "2026-01-02T03:04:05Z"
+  },
+  "rule_set_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "status": "partial",
+  "generated_at": "2026-01-02T03:04:06Z",
+  "scope": {
+    "mode": "single_revision",
+    "base_revision": null,
+    "head_revision": "0123456789abcdef0123456789abcdef01234567",
+    "history_status": "partial",
+    "commit_count": 3,
+    "requested_capabilities": [
+      "repository_snapshot",
+      "tracked_files",
+      "file_classification",
+      "repository_history",
+      "language_detection"
+    ]
+  },
+  "data_sources": [
+    {
+      "id": "evidence:repository:snapshot",
+      "kind": "repository",
+      "status": "complete",
+      "revision": "0123456789abcdef0123456789abcdef01234567",
+      "content_hash": null,
+      "remote_record_id": null,
+      "collected_at": "2026-01-02T03:04:06Z",
+      "visibility": "public",
+      "retention": "metadata_only"
+    },
+    {
+      "id": "evidence:repository:history",
+      "kind": "repository_history",
+      "status": "partial",
+      "revision": "0123456789abcdef0123456789abcdef01234567",
+      "content_hash": null,
+      "remote_record_id": null,
+      "collected_at": "2026-01-02T03:04:06Z",
+      "visibility": "public",
+      "retention": "metadata_only"
+    }
+  ],
+  "artifacts": [
+    {
+      "role": "project_evidence",
+      "schema_version": "1.0.0",
+      "content_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "record_count": 8,
+      "status": "complete"
+    }
+  ],
+  "warnings": [
+    {
+      "code": "history_depth_limited",
+      "affected_evidence_ids": ["evidence:repository:history"]
+    }
+  ],
+  "limitations": [
+    {
+      "code": "repository_code_not_executed",
+      "affected_evidence_ids": ["evidence:repository:snapshot"]
+    }
+  ]
+}

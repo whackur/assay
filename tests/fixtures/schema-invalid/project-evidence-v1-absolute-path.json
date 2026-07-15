@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0.0",
+  "repository": {
+    "kind": "local",
+    "repository_id": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "id": "evidence:file:private-source",
+  "status": "complete",
+  "grade": "a",
+  "privacy": {
+    "visibility": "private_local",
+    "source_content": "not_retained",
+    "external_transmission": "prohibited"
+  },
+  "provenance": {
+    "source_kind": "repository_content",
+    "collected_at": "2026-01-02T03:04:06Z",
+    "repository_revision": "0123456789abcdef0123456789abcdef01234567",
+    "content_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "remote_record_id": null
+  },
+  "payload": {
+    "kind": "file",
+    "relative_path": "/private/source.rs",
+    "language": "Rust",
+    "language_status": "unsupported",
+    "size_bytes": 418,
+    "content_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "classification": {
+      "primary_category": "production_code",
+      "tags": ["production"],
+      "rule_id": "path.production.rust",
+      "confidence": 1.0
+    }
+  }
+}

@@ -1,0 +1,340 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assay.dev/analysis-manifest/v1.json",
+  "title": "Assay Analysis Manifest v1",
+  "description": "A deterministic manifest for one immutable repository analysis. It describes repository evidence and analysis sufficiency; it does not measure a person's value, effort, productivity, or performance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "analysis_version",
+    "tool",
+    "source_snapshot",
+    "rule_set_hash",
+    "status",
+    "generated_at",
+    "scope",
+    "data_sources",
+    "artifacts",
+    "warnings",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "$ref": "#/$defs/schemaVersion" },
+    "analysis_version": { "$ref": "#/$defs/versionIdentifier" },
+    "tool": { "$ref": "#/$defs/tool" },
+    "source_snapshot": { "$ref": "#/$defs/sourceSnapshot" },
+    "rule_set_hash": { "$ref": "#/$defs/sha256" },
+    "status": { "$ref": "#/$defs/status" },
+    "generated_at": { "$ref": "#/$defs/timestamp" },
+    "scope": { "$ref": "#/$defs/scope" },
+    "data_sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/dataSource" }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "complete" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "data_sources": {
+            "items": {
+              "properties": { "status": { "const": "complete" } },
+              "required": ["status"]
+            }
+          },
+          "scope": {
+            "properties": {
+              "history_status": { "const": "complete" }
+            },
+            "required": ["history_status"]
+          },
+          "artifacts": {
+            "minItems": 1,
+            "items": {
+              "properties": { "status": { "const": "complete" } },
+              "required": ["status"]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "description": "The public contract version. All v1 revisions preserve existing field meanings."
+    },
+    "versionIdentifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$"
+    },
+    "machineCode": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "partial",
+        "unavailable",
+        "unsupported",
+        "insufficient",
+        "pending"
+      ]
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "assay" },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
+        }
+      }
+    },
+    "repositorySource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "repository_id"],
+          "properties": {
+            "kind": { "const": "local" },
+            "repository_id": { "$ref": "#/$defs/sha256" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "provider", "namespace", "repository"],
+          "properties": {
+            "kind": { "const": "hosted" },
+            "provider": { "$ref": "#/$defs/versionIdentifier" },
+            "namespace": { "$ref": "#/$defs/versionIdentifier" },
+            "repository": { "$ref": "#/$defs/versionIdentifier" }
+          }
+        }
+      ]
+    },
+    "sourceSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "revision", "root_tree", "commit_time"],
+      "properties": {
+        "source": { "$ref": "#/$defs/repositorySource" },
+        "revision": { "$ref": "#/$defs/revision" },
+        "root_tree": {
+          "oneOf": [
+            { "$ref": "#/$defs/revision" },
+            { "type": "null" }
+          ]
+        },
+        "commit_time": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "base_revision",
+        "head_revision",
+        "history_status",
+        "commit_count",
+        "requested_capabilities"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["single_revision", "revision_range"]
+        },
+        "base_revision": {
+          "oneOf": [
+            { "$ref": "#/$defs/revision" },
+            { "type": "null" }
+          ]
+        },
+        "head_revision": { "$ref": "#/$defs/revision" },
+        "history_status": { "$ref": "#/$defs/status" },
+        "commit_count": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "requested_capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "repository_snapshot",
+              "tracked_files",
+              "file_classification",
+              "repository_history",
+              "language_detection",
+              "reported_ci"
+            ]
+          }
+        }
+      }
+    },
+    "dataSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "status",
+        "revision",
+        "content_hash",
+        "remote_record_id",
+        "collected_at",
+        "visibility",
+        "retention"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^evidence:[a-z0-9._-]+:[a-z0-9._-]+(?:[:][a-z0-9._-]+)*$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "repository",
+            "repository_content",
+            "repository_history",
+            "platform_record",
+            "reported_ci",
+            "release_artifact",
+            "documentation"
+          ]
+        },
+        "status": { "$ref": "#/$defs/status" },
+        "revision": {
+          "oneOf": [
+            { "$ref": "#/$defs/revision" },
+            { "type": "null" }
+          ]
+        },
+        "content_hash": {
+          "oneOf": [
+            { "$ref": "#/$defs/sha256" },
+            { "type": "null" }
+          ]
+        },
+        "remote_record_id": {
+          "type": ["string", "null"],
+          "maxLength": 200,
+          "pattern": "^[A-Za-z0-9._:/-]+$"
+        },
+        "collected_at": { "$ref": "#/$defs/timestamp" },
+        "visibility": {
+          "type": "string",
+          "enum": ["public", "private_local"]
+        },
+        "retention": {
+          "type": "string",
+          "enum": ["metadata_only", "content_addressed_cache"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": { "enum": ["complete", "partial"] }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "anyOf": [
+              {
+                "properties": { "revision": { "$ref": "#/$defs/revision" } },
+                "required": ["revision"]
+              },
+              {
+                "properties": { "content_hash": { "$ref": "#/$defs/sha256" } },
+                "required": ["content_hash"]
+              },
+              {
+                "properties": { "remote_record_id": { "type": "string" } },
+                "required": ["remote_record_id"]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "schema_version", "content_hash", "record_count", "status"],
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["project_evidence", "analysis_diagnostics"]
+        },
+        "schema_version": { "$ref": "#/$defs/schemaVersion" },
+        "content_hash": { "$ref": "#/$defs/sha256" },
+        "record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": { "$ref": "#/$defs/status" }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "affected_evidence_ids"],
+      "properties": {
+        "code": { "$ref": "#/$defs/machineCode" },
+        "affected_evidence_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^evidence:[a-z0-9._-]+:[a-z0-9._-]+(?:[:][a-z0-9._-]+)*$"
+          }
+        }
+      }
+    }
+  }
+}

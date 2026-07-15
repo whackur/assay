@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "evaluation_version": "project-intelligence-1",
+  "rubric_version": "project-rubric-1",
+  "status": "complete",
+  "evidence_bundle_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "privacy": {
+    "evidence_scope": "public_only",
+    "external_transmission": "not_used"
+  },
+  "judgments": [
+    {
+      "criterion_id": "substance.claim_implementation_fit",
+      "applicability": "applicable",
+      "rating": 3,
+      "rating_scale": 4,
+      "confidence": 0.82,
+      "evidence_ids": [
+        "evidence:readme:claim-4",
+        "evidence:test:integration-2"
+      ],
+      "rationale": "The documented workflow is supported by cited implementation and test evidence."
+    }
+  ]
+}
