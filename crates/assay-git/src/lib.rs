@@ -22,7 +22,7 @@ pub use model::{
     CollectionError, CollectionErrorKind, CollectionLimits, CollectionStage, EntryMode,
     GitObjectFormat, GitObjectId, GitProvenance, HistoryAvailability, HistoryIssue, ObjectIssue,
     ObjectKind, ObjectMetadata, ParentDelta, ParentDeltaIssue, RepositoryPath, RepositorySnapshot,
-    RepositorySnapshotPort, SnapshotRequest, TrackedEntry,
+    RepositorySnapshotPort, ResolvedLocalRepository, SnapshotRequest, TrackedEntry,
 };
 
 /// Stable package identifier for diagnostics and capability reporting.

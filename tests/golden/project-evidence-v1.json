@@ -32,7 +32,15 @@
       "primary_category": "production_code",
       "tags": ["production"],
       "rule_id": "path.production.typescript",
-      "confidence": 1.0
+      "confidence": 1.0,
+      "evidence": [
+        {
+          "kind": "policy_rule",
+          "rule_id": "path.production.typescript",
+          "attribute_name": null,
+          "attribute_value": null
+        }
+      ]
     }
   }
 }

@@ -23,9 +23,11 @@ internal Rust types. Rust serializers and consumers must validate their output
 against these schemas through reviewed golden contract tests.
 
 All public object shapes are closed with `additionalProperties: false`.
-Schemas use internal references only, so validation never resolves a network
-resource. Major-version compatibility and unknown-field behavior are defined
-in `schemas/README.md`.
+Schemas use internal references by default. An additive composition amendment
+accepted on 2026-07-16 permits only registered, same-origin, version-pinned
+references to other bundled Assay schemas. Validators use an in-memory
+registry and never resolve a network resource. See ADR 0003. Major-version
+compatibility and unknown-field behavior are defined in `schemas/README.md`.
 
 `analysis-manifest/v1.json` and `project-evidence/v1.json` are complete for the
 foundation evidence slice. `ai-judgment/v1.json` and
@@ -41,7 +43,8 @@ recorded pre-release corrections, not a silent change to a released v1
 meaning.
 
 Contract validation enables Draft 2020-12 format assertions, rejects duplicate
-JSON keys, and resolves every internal reference directly. Remote identifiers
+JSON keys, and resolves every internal or registered bundled reference
+directly. Remote identifiers
 are portable non-path values, and revision fields reject Git null object IDs.
 Potential horizons combine the ISO-8601 duration format with a policy-neutral
 positive-duration constraint; syntactically valid zero durations are not

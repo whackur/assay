@@ -80,6 +80,52 @@ fn accepts_a_bounded_vendor_git_version_suffix() {
 }
 
 #[test]
+fn rejects_malformed_or_multiline_commit_time() {
+    for reported in ["not-a-time\\n", "2001-02-03T04:05:06+09:00\\nextra\\n"] {
+        let body = format!(
+            r#"
+for argument in "$@"; do
+  if [ "$argument" = "--format=%cI" ]; then
+    printf '{}'
+    exit 0
+  fi
+done
+exec /usr/bin/git "$@"
+"#,
+            reported
+        );
+        let (_directory, executable) = wrapper(&body);
+        let error = GitCliAdapter::from_trusted_executable(executable, CollectionLimits::default())
+            .expect("the wrapper must pass the capability probe")
+            .collect(request(fixture().path()))
+            .expect_err("invalid commit time must fail closed");
+        assert_eq!(error.stage(), CollectionStage::ReadCommitTime);
+        assert_eq!(error.kind(), CollectionErrorKind::MalformedOutput);
+    }
+}
+
+#[test]
+fn rejects_empty_records_in_reachable_root_identity() {
+    let script = r#"
+for argument in "$@"; do
+  if [ "$argument" = "rev-list" ]; then
+    printf '1111111111111111111111111111111111111111\n\n2222222222222222222222222222222222222222\n'
+    exit 0
+  fi
+done
+exec /usr/bin/git "$@"
+"#;
+    let (_directory, executable) = wrapper(script);
+    let fixture = fixture();
+    let error = GitCliAdapter::from_trusted_executable(executable, CollectionLimits::default())
+        .expect("the wrapper must pass the capability probe")
+        .derive_local_repository_source(fixture.path(), OsStr::new("HEAD"))
+        .expect_err("an empty root record must fail closed");
+    assert_eq!(error.stage(), CollectionStage::DeriveRepositoryIdentity);
+    assert_eq!(error.kind(), CollectionErrorKind::MalformedOutput);
+}
+
+#[test]
 fn rejects_symlinked_dot_git_and_unrelated_gitdir_redirects() {
     let target = fixture();
     let parent = tempfile::tempdir().expect("the submitted parent must be creatable");

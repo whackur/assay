@@ -9,6 +9,7 @@ publish.workspace = true
 assay-domain = { path = "../assay-domain" }
 command-group = "5.0.1"
 sha2 = "0.10"
+time = { version = "0.3", features = ["formatting", "parsing"] }
 
 [dev-dependencies]
 assay-test-fixtures = { path = "../../tests/support/assay-fixtures" }

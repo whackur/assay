@@ -18,6 +18,7 @@ use assay_project_intelligence::{
     ClassificationAvailabilityReason, ClassificationEvidenceRecord, ClassifiedSnapshotFile,
     EvidenceAssemblyErrorKind, HistoryScopeEvidence, ParentDeltaEvidence, PortablePathEncoding,
     RawEvidenceIssue, RawEvidenceKind, TrackedFileEvidence, assemble_project_evidence,
+    build_project_analysis,
 };
 use assay_test_fixtures::{RepositoryFixture, RepositoryScenario};
 
@@ -27,6 +28,29 @@ fn trusted_git() -> PathBuf {
         .map(PathBuf::from)
         .find(|path| path.is_file())
         .expect("tests require a deployment-trusted Git executable")
+}
+
+#[test]
+fn complete_attribute_facts_allow_absent_features_without_false_unavailability() {
+    let snapshot = snapshot(
+        RepositoryScenario::MissingReadmeAndLicense,
+        CollectionLimits::default(),
+    );
+    let manifest = assemble_project_evidence(
+        &snapshot,
+        classifications(&snapshot, LinguistAttributeFacts::available(None, None)),
+    )
+    .unwrap();
+    let output = build_project_analysis(&snapshot, &manifest, "2026-01-02T03:04:06Z").unwrap();
+    let features = output["evidence"].as_array().unwrap();
+    for feature in ["readme", "license", "generated_content", "vendored_content"] {
+        let fact = features
+            .iter()
+            .find(|fact| fact["payload"]["feature"] == feature)
+            .expect("feature fact must exist");
+        assert_eq!(fact["payload"]["state"], "absent");
+        assert_eq!(fact["status"], "complete");
+    }
 }
 
 fn source_with_digest(digit: char) -> RepositorySource {

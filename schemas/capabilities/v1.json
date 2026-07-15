@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assay.dev/capabilities/v1.json",
+  "title": "Assay Capabilities v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "tool", "commands", "formats", "schemas", "languages", "features"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^1\\.[0-9]+\\.[0-9]+$" },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "assay" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "enum": ["project analyze", "capabilities"] }
+    },
+    "formats": { "type": "array", "const": ["json"] },
+    "schemas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "version"],
+        "properties": {
+          "name": { "type": "string", "enum": ["analysis-manifest", "capabilities", "project-analysis", "project-evidence"] },
+          "version": { "const": "1.0.0" }
+        }
+      }
+    },
+    "languages": { "type": "array", "const": ["javascript", "python", "tsx", "typescript"] },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": ["ai_evaluation", "attribute_resolution", "file_classification", "github_collection", "local_git_snapshot", "project_scores", "repository_code_execution", "semantic_diff"]
+          },
+          "status": { "type": "string", "enum": ["implemented", "not_implemented", "prohibited"] }
+        }
+      }
+    }
+  }
+}

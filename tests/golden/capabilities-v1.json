@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.0",
+  "tool": { "name": "assay", "version": "0.1.0" },
+  "commands": ["capabilities", "project analyze"],
+  "formats": ["json"],
+  "schemas": [
+    { "name": "analysis-manifest", "version": "1.0.0" },
+    { "name": "capabilities", "version": "1.0.0" },
+    { "name": "project-analysis", "version": "1.0.0" },
+    { "name": "project-evidence", "version": "1.0.0" }
+  ],
+  "languages": ["javascript", "python", "tsx", "typescript"],
+  "features": [
+    { "id": "ai_evaluation", "status": "not_implemented" },
+    { "id": "attribute_resolution", "status": "not_implemented" },
+    { "id": "file_classification", "status": "implemented" },
+    { "id": "github_collection", "status": "not_implemented" },
+    { "id": "local_git_snapshot", "status": "implemented" },
+    { "id": "project_scores", "status": "not_implemented" },
+    { "id": "repository_code_execution", "status": "prohibited" },
+    { "id": "semantic_diff", "status": "not_implemented" }
+  ]
+}

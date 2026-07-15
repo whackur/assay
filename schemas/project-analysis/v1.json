@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assay.dev/project-analysis/v1.json",
+  "title": "Assay Project Analysis Bundle v1",
+  "description": "One CLI result whose bundled same-origin references require an analysis-manifest instance and project-evidence instances without network resolution.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "manifest", "evidence"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+    },
+    "manifest": { "$ref": "https://schemas.assay.dev/analysis-manifest/v1.json" },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "https://schemas.assay.dev/project-evidence/v1.json" }
+    }
+  }
+}

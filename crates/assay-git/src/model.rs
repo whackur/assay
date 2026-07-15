@@ -1,6 +1,6 @@
 use std::{error::Error, ffi::OsStr, fmt, path::Path, time::Duration};
 
-use assay_domain::{ContentHash, EvidenceStatus, RepositorySource, SourceSnapshot};
+use assay_domain::{ContentHash, EvidenceStatus, RepositorySource, RevisionId, SourceSnapshot};
 
 /// Explicit resource limits applied to every installed-Git collection.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -59,6 +59,8 @@ pub enum CollectionStage {
     ValidateObjectStore,
     ResolveRevision,
     ResolveTree,
+    ReadCommitTime,
+    DeriveRepositoryIdentity,
     EnumerateTree,
     ReadObjectMetadata,
     HashObject,
@@ -507,6 +509,32 @@ pub struct RepositorySnapshot {
     history: HistoryAvailability,
     parent_delta: ParentDelta,
     provenance: GitProvenance,
+    commit_time: String,
+}
+
+/// Portable local identity paired with the exact revision used to derive it.
+/// Callers must collect this full revision rather than resolving a movable ref
+/// a second time.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ResolvedLocalRepository {
+    source: RepositorySource,
+    revision: RevisionId,
+}
+
+impl ResolvedLocalRepository {
+    pub(crate) const fn new(source: RepositorySource, revision: RevisionId) -> Self {
+        Self { source, revision }
+    }
+
+    /// Returns the content-derived path-independent source identity.
+    pub const fn source(&self) -> &RepositorySource {
+        &self.source
+    }
+
+    /// Returns the exact commit used for reachable-root identity derivation.
+    pub const fn revision(&self) -> &RevisionId {
+        &self.revision
+    }
 }
 
 impl RepositorySnapshot {
@@ -517,6 +545,7 @@ impl RepositorySnapshot {
         history: HistoryAvailability,
         parent_delta: ParentDelta,
         provenance: GitProvenance,
+        commit_time: String,
     ) -> Self {
         Self {
             source_snapshot,
@@ -525,6 +554,7 @@ impl RepositorySnapshot {
             history,
             parent_delta,
             provenance,
+            commit_time,
         }
     }
 
@@ -556,6 +586,11 @@ impl RepositorySnapshot {
     /// Returns adapter and installed Git provenance.
     pub const fn provenance(&self) -> &GitProvenance {
         &self.provenance
+    }
+
+    /// Returns the immutable commit timestamp normalized to RFC 3339 UTC.
+    pub fn commit_time(&self) -> &str {
+        &self.commit_time
     }
 }
 

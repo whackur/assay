@@ -99,6 +99,55 @@ fn collects_an_immutable_snapshot_without_reading_the_working_tree() {
     assert_eq!(first.parent_delta().changed_entries(), 0);
     assert_eq!(first.provenance().adapter_id(), "installed-git-cli-v1");
     assert!(!first.provenance().git_version().is_empty());
+    assert_eq!(first.commit_time(), "2001-02-02T19:05:06Z");
+}
+
+#[test]
+fn local_repository_identity_is_stable_across_host_paths() {
+    let first = RepositoryFixture::build(RepositoryScenario::TypeScriptProject)
+        .expect("the first deterministic fixture must build");
+    let second = RepositoryFixture::build(RepositoryScenario::TypeScriptProject)
+        .expect("the second deterministic fixture must build");
+    assert_ne!(first.path(), second.path());
+
+    let adapter = adapter(CollectionLimits::default());
+    let first_source = adapter
+        .derive_local_repository_source(first.path(), OsStr::new("HEAD"))
+        .expect("the first identity must derive");
+    let second_source = adapter
+        .derive_local_repository_source(second.path(), OsStr::new("HEAD"))
+        .expect("the second identity must derive");
+
+    assert_eq!(first_source.source(), second_source.source());
+    assert_eq!(first_source.revision(), second_source.revision());
+    assert!(first_source.source().local_repository_id().is_some());
+}
+
+#[test]
+fn resolved_local_identity_pins_collection_across_a_head_move() {
+    let fixture = RepositoryFixture::build(RepositoryScenario::DependencyOnlyChange)
+        .expect("the deterministic fixture must build");
+    let adapter = adapter(CollectionLimits::default());
+    let identity = adapter
+        .derive_local_repository_source(fixture.path(), OsStr::new("HEAD"))
+        .expect("identity and exact revision must derive together");
+    let expected = identity.revision().as_str().to_owned();
+    let first = fixture.commit_ids().first().unwrap();
+    let status = Command::new(trusted_git())
+        .current_dir(fixture.path())
+        .args(["reset", "--hard", "--quiet", first])
+        .status()
+        .expect("HEAD move must execute");
+    assert!(status.success());
+
+    let snapshot = adapter
+        .collect(SnapshotRequest::new(
+            fixture.path(),
+            identity.source().clone(),
+            OsStr::new(&expected),
+        ))
+        .expect("the immutable resolved commit must remain collectable");
+    assert_eq!(snapshot.source_snapshot().revision().as_str(), expected);
 }
 
 #[test]

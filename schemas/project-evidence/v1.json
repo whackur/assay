@@ -205,6 +205,203 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1
+        },
+        "evidence": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "rule_id", "attribute_name", "attribute_value"],
+                "properties": {
+                  "kind": { "const": "policy_rule" },
+                  "rule_id": { "$ref": "#/$defs/machineCode" },
+                  "attribute_name": { "type": "null" },
+                  "attribute_value": { "type": "null" }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "rule_id", "attribute_name", "attribute_value"],
+                "properties": {
+                  "kind": { "const": "linguist_attribute" },
+                  "rule_id": { "$ref": "#/$defs/machineCode" },
+                  "attribute_name": { "enum": ["linguist-generated", "linguist-vendored"] },
+                  "attribute_value": { "type": "boolean" }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "rule_id", "attribute_name", "attribute_value"],
+                "properties": {
+                  "kind": { "const": "attribute_facts_unavailable" },
+                  "rule_id": { "$ref": "#/$defs/machineCode" },
+                  "attribute_name": { "type": "null" },
+                  "attribute_value": { "type": "null" }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "trackedFilePayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "path",
+        "mode",
+        "object_kind",
+        "object_id",
+        "content_status",
+        "language",
+        "language_status",
+        "size_bytes",
+        "content_hash",
+        "issue"
+      ],
+      "properties": {
+        "kind": { "const": "tracked_file" },
+        "path": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["encoding", "value"],
+          "properties": {
+            "encoding": { "type": "string", "enum": ["utf8", "git_path_hex"] },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192,
+              "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\u0000\\\\]+$"
+            }
+          },
+          "allOf": [{
+            "if": { "properties": { "encoding": { "const": "git_path_hex" } }, "required": ["encoding"] },
+            "then": { "properties": { "value": { "pattern": "^(?:[0-9a-f]{2})+$" } } }
+          }]
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["regular", "executable", "symbolic_link", "gitlink"]
+        },
+        "object_kind": { "type": "string", "enum": ["blob", "commit"] },
+        "object_id": { "$ref": "#/$defs/revision" },
+        "content_status": { "type": "string", "enum": ["complete", "partial", "unavailable", "unsupported"] },
+        "language": { "type": ["string", "null"], "enum": ["JavaScript", "Python", "TSX", "TypeScript", null] },
+        "language_status": { "$ref": "#/$defs/status" },
+        "size_bytes": { "type": ["integer", "null"], "minimum": 0 },
+        "content_hash": {
+          "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "issue": {
+          "type": ["string", "null"],
+          "enum": ["gitlink_content", "size_limit", "missing_or_unreadable", "timeout", "output_limit", "malformed_metadata", null]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "const": "gitlink" } }, "required": ["mode"] },
+          "then": {
+            "properties": {
+              "object_kind": { "const": "commit" },
+              "content_status": { "const": "unsupported" },
+              "size_bytes": { "type": "null" },
+              "content_hash": { "type": "null" },
+              "issue": { "const": "gitlink_content" }
+            }
+          },
+          "else": { "properties": { "object_kind": { "const": "blob" } } }
+        },
+        {
+          "if": { "properties": { "content_status": { "const": "complete" } }, "required": ["content_status"] },
+          "then": {
+            "properties": {
+              "size_bytes": { "type": "integer" },
+              "content_hash": { "$ref": "#/$defs/sha256" },
+              "issue": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "issue": { "const": "size_limit" } }, "required": ["issue"] },
+          "then": {
+            "properties": {
+              "content_status": { "const": "partial" },
+              "size_bytes": { "type": "integer" },
+              "content_hash": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "content_status": { "const": "partial" } }, "required": ["content_status"] },
+          "then": {
+            "properties": {
+              "size_bytes": { "type": "integer" },
+              "content_hash": { "type": "null" },
+              "issue": { "const": "size_limit" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "content_status": { "const": "unavailable" } }, "required": ["content_status"] },
+          "then": {
+            "properties": {
+              "size_bytes": { "type": "null" },
+              "content_hash": { "type": "null" },
+              "issue": { "enum": ["missing_or_unreadable", "timeout", "output_limit", "malformed_metadata"] }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "content_status": { "const": "unsupported" } }, "required": ["content_status"] },
+          "then": {
+            "properties": {
+              "mode": { "const": "gitlink" },
+              "object_kind": { "const": "commit" },
+              "size_bytes": { "type": "null" },
+              "content_hash": { "type": "null" },
+              "issue": { "const": "gitlink_content" }
+            }
+          }
+        }
+      ]
+    },
+    "fileClassificationPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "source_evidence_id", "policy_version", "reason", "classification"],
+      "properties": {
+        "kind": { "const": "file_classification" },
+        "source_evidence_id": { "$ref": "#/$defs/evidenceId" },
+        "policy_version": { "$ref": "#/$defs/versionIdentifier" },
+        "reason": {
+          "type": ["string", "null"],
+          "enum": ["attributes_unavailable", null]
+        },
+        "classification": {
+          "allOf": [
+            { "$ref": "#/$defs/classification" },
+            { "required": ["evidence"], "properties": { "evidence": { "minItems": 1 } } }
+          ]
+        }
+      }
+    },
+    "parentDeltaPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "changed_entries", "renames", "issue"],
+      "properties": {
+        "kind": { "const": "parent_delta" },
+        "changed_entries": { "type": ["integer", "null"], "minimum": 0 },
+        "renames": { "type": ["integer", "null"], "minimum": 0 },
+        "issue": {
+          "type": ["string", "null"],
+          "enum": ["shallow_repository", "process_failure", "malformed_output", "rename_candidate_limit", null]
         }
       }
     },
@@ -377,6 +574,9 @@
       "oneOf": [
         { "$ref": "#/$defs/repositorySnapshotPayload" },
         { "$ref": "#/$defs/filePayload" },
+        { "$ref": "#/$defs/trackedFilePayload" },
+        { "$ref": "#/$defs/fileClassificationPayload" },
+        { "$ref": "#/$defs/parentDeltaPayload" },
         { "$ref": "#/$defs/repositoryFeaturePayload" },
         { "$ref": "#/$defs/historyScopePayload" },
         { "$ref": "#/$defs/reportedCiPayload" },
@@ -389,6 +589,9 @@
       "enum": [
         "repository_snapshot",
         "file",
+        "tracked_file",
+        "file_classification",
+        "parent_delta",
         "repository_feature",
         "history_scope",
         "reported_ci",
@@ -421,6 +624,13 @@
         "payload": { "$ref": "#/$defs/payload" },
         "requested_kind": { "$ref": "#/$defs/requestedKind" },
         "reason": { "$ref": "#/$defs/machineCode" }
+        ,
+        "related_evidence_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/evidenceId" }
+        },
+        "attempted_policy_version": { "$ref": "#/$defs/versionIdentifier" }
       },
       "allOf": [
         {
@@ -474,6 +684,93 @@
               ]
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "payload": { "properties": { "kind": { "const": "file_classification" } }, "required": ["kind"] },
+              "status": { "const": "complete" }
+            },
+            "required": ["payload", "status"]
+          },
+          "then": { "properties": { "payload": { "properties": { "reason": { "type": "null" } } } } }
+        },
+        {
+          "if": {
+            "properties": {
+              "payload": { "properties": { "kind": { "const": "file_classification" } }, "required": ["kind"] },
+              "status": { "const": "partial" }
+            },
+            "required": ["payload", "status"]
+          },
+          "then": { "properties": { "payload": { "properties": { "reason": { "const": "attributes_unavailable" } } } } }
+        },
+        {
+          "if": {
+            "properties": { "requested_kind": { "const": "file_classification" } },
+            "required": ["requested_kind"]
+          },
+          "then": { "required": ["related_evidence_ids", "attempted_policy_version"] }
+        },
+        {
+          "if": {
+            "properties": {
+              "payload": {
+                "properties": {
+                  "kind": { "const": "tracked_file" },
+                  "content_status": { "const": "complete" }
+                },
+                "required": ["kind", "content_status"]
+              }
+            },
+            "required": ["payload"]
+          },
+          "then": { "properties": { "status": { "const": "complete" } } }
+        },
+        {
+          "if": {
+            "properties": {
+              "payload": {
+                "properties": {
+                  "kind": { "const": "tracked_file" },
+                  "content_status": { "enum": ["partial", "unavailable", "unsupported"] }
+                },
+                "required": ["kind", "content_status"]
+              }
+            },
+            "required": ["payload"]
+          },
+          "then": { "properties": { "status": { "const": "partial" } } }
+        },
+        {
+          "if": {
+            "properties": {
+              "payload": {
+                "properties": {
+                  "kind": { "const": "repository_feature" },
+                  "state": { "const": "unavailable" }
+                },
+                "required": ["kind", "state"]
+              }
+            },
+            "required": ["payload"]
+          },
+          "then": { "properties": { "status": { "const": "partial" } } }
+        },
+        {
+          "if": {
+            "properties": {
+              "payload": {
+                "properties": {
+                  "kind": { "const": "repository_feature" },
+                  "state": { "enum": ["present", "absent"] }
+                },
+                "required": ["kind", "state"]
+              }
+            },
+            "required": ["payload"]
+          },
+          "then": { "properties": { "status": { "const": "complete" } } }
         }
       ]
     }

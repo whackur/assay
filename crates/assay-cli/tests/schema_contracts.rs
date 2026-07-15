@@ -1,6 +1,7 @@
 use std::{fmt, fs, path::PathBuf};
 
-use jsonschema::{Draft, Validator};
+use assay_cli::validate_project_bundle_consistency;
+use jsonschema::{Draft, Resource, Validator};
 use serde::{
     Deserialize, Deserializer,
     de::{self, MapAccess, SeqAccess, Visitor},
@@ -222,8 +223,20 @@ fn validator(contract: &str) -> Validator {
     );
     jsonschema::draft202012::meta::validate(&schema)
         .unwrap_or_else(|error| panic!("{contract} failed the Draft 2020-12 meta-schema: {error}"));
+    let root = repository_root();
+    let resources = contracts().into_iter().map(|candidate| {
+        let schema = read_json(root.join("schemas").join(&candidate.name).join("v1.json"));
+        let id = schema["$id"]
+            .as_str()
+            .expect("every public schema must declare an ID")
+            .to_owned();
+        let resource = Resource::from_contents(schema)
+            .expect("a bundled public schema must be a valid resource");
+        (id, resource)
+    });
     jsonschema::options()
         .with_draft(Draft::Draft202012)
+        .with_resources(resources)
         .should_validate_formats(true)
         .build(&schema)
         .unwrap_or_else(|error| panic!("invalid {contract} schema: {error}"))
@@ -282,6 +295,44 @@ fn reviewed_golden_contracts_validate() {
             contract.name
         );
     }
+}
+
+#[test]
+fn project_analysis_bundle_cross_component_invariants_are_enforced() {
+    let bundle = golden("project-analysis");
+    validate_project_bundle_consistency(&bundle).expect("reviewed bundle must be coherent");
+
+    let mut foreign_source = bundle.clone();
+    foreign_source["evidence"][0]["repository"]["repository_id"] =
+        Value::String(format!("sha256:{}", "9".repeat(64)));
+    assert!(validate_project_bundle_consistency(&foreign_source).is_err());
+
+    let mut wrong_revision = bundle.clone();
+    wrong_revision["evidence"][0]["provenance"]["repository_revision"] =
+        Value::String("abcdef0123456789abcdef0123456789abcdef01".into());
+    assert!(validate_project_bundle_consistency(&wrong_revision).is_err());
+
+    let mut wrong_count = bundle.clone();
+    wrong_count["manifest"]["artifacts"][0]["record_count"] = Value::from(2);
+    assert!(validate_project_bundle_consistency(&wrong_count).is_err());
+
+    let mut wrong_role = bundle.clone();
+    wrong_role["manifest"]["artifacts"][0]["role"] = Value::String("other".into());
+    assert!(validate_project_bundle_consistency(&wrong_role).is_err());
+
+    let mut wrong_status = bundle.clone();
+    wrong_status["manifest"]["artifacts"][0]["status"] = Value::String("complete".into());
+    assert!(validate_project_bundle_consistency(&wrong_status).is_err());
+
+    let mut wrong_source_revision = bundle.clone();
+    wrong_source_revision["manifest"]["data_sources"][0]["revision"] =
+        Value::String("abcdef0123456789abcdef0123456789abcdef01".into());
+    assert!(validate_project_bundle_consistency(&wrong_source_revision).is_err());
+
+    let mut duplicate = bundle;
+    let repeated = duplicate["evidence"][0].clone();
+    duplicate["evidence"].as_array_mut().unwrap().push(repeated);
+    assert!(validate_project_bundle_consistency(&duplicate).is_err());
 }
 
 #[test]
@@ -346,7 +397,7 @@ fn representative_invalid_contracts_are_rejected() {
 
 #[test]
 fn discovered_contract_files_have_exact_fixture_mapping_and_unique_json_keys() {
-    assert_eq!(contracts().len(), 4);
+    assert_eq!(contracts().len(), 6);
     assert!(
         parse_json_without_duplicate_keys(r#"{"schema_version":"1.0.0","schema_version":"1.0.1"}"#)
             .is_err(),
@@ -544,6 +595,103 @@ fn unavailable_project_evidence_is_an_availability_envelope_not_a_fact() {
 }
 
 #[test]
+fn new_raw_and_derived_file_contracts_preserve_partial_state() {
+    let validator = validator("project-evidence");
+    let mut tracked = golden("project-evidence");
+    tracked["status"] = Value::String("partial".into());
+    tracked["payload"] = serde_json::json!({
+        "kind": "tracked_file",
+        "path": { "encoding": "utf8", "value": "src/main.ts" },
+        "mode": "regular",
+        "object_kind": "blob",
+        "object_id": "89abcdef0123456789abcdef0123456789abcdef",
+        "content_status": "partial",
+        "language": "TypeScript",
+        "language_status": "complete",
+        "size_bytes": 20_000_000,
+        "content_hash": null,
+        "issue": "size_limit"
+    });
+    assert!(validator.is_valid(&tracked));
+
+    let mut fake_complete = tracked.clone();
+    fake_complete["payload"]["content_status"] = Value::String("complete".into());
+    assert_rejected(
+        &validator,
+        &fake_complete,
+        "project-evidence",
+        "complete content without hash",
+    );
+
+    let mut fake_unavailable = tracked.clone();
+    fake_unavailable["payload"]["content_status"] = Value::String("unavailable".into());
+    fake_unavailable["payload"]["size_bytes"] = Value::from(0);
+    fake_unavailable["payload"]["content_hash"] =
+        Value::String(format!("sha256:{}", "0".repeat(64)));
+    fake_unavailable["payload"]["issue"] = Value::String("timeout".into());
+    assert_rejected(
+        &validator,
+        &fake_unavailable,
+        "project-evidence",
+        "unavailable content with fabricated values",
+    );
+
+    let mut gitlink = tracked.clone();
+    gitlink["payload"] = serde_json::json!({
+        "kind": "tracked_file",
+        "path": { "encoding": "git_path_hex", "value": "7375626d6f64756c65" },
+        "mode": "gitlink",
+        "object_kind": "commit",
+        "object_id": "89abcdef0123456789abcdef0123456789abcdef",
+        "content_status": "unsupported",
+        "language": null,
+        "language_status": "unsupported",
+        "size_bytes": null,
+        "content_hash": null,
+        "issue": "gitlink_content"
+    });
+    assert!(validator.is_valid(&gitlink));
+    gitlink["payload"]["object_kind"] = Value::String("blob".into());
+    assert_rejected(
+        &validator,
+        &gitlink,
+        "project-evidence",
+        "gitlink blob contradiction",
+    );
+
+    let mut classification = golden("project-evidence");
+    classification["status"] = Value::String("partial".into());
+    classification["related_evidence_ids"] = serde_json::json!(["evidence:file:src-main-ts"]);
+    classification["attempted_policy_version"] = Value::String("classifier-v1".into());
+    classification["payload"] = serde_json::json!({
+        "kind": "file_classification",
+        "source_evidence_id": "evidence:file:src-main-ts",
+        "policy_version": "classifier-v1",
+        "reason": "attributes_unavailable",
+        "classification": {
+            "primary_category": "production_code",
+            "tags": ["production"],
+            "rule_id": "path.production.typescript",
+            "confidence": 1.0,
+            "evidence": [{
+                "kind": "attribute_facts_unavailable",
+                "rule_id": "attributes.unavailable",
+                "attribute_name": null,
+                "attribute_value": null
+            }]
+        }
+    });
+    assert!(validator.is_valid(&classification));
+    classification["payload"]["reason"] = Value::Null;
+    assert_rejected(
+        &validator,
+        &classification,
+        "project-evidence",
+        "partial classification without reason",
+    );
+}
+
+#[test]
 fn potential_has_a_distinct_forecast_contract_with_cited_context() {
     let root = repository_root();
     let validator = validator("project-evaluation");
@@ -671,6 +819,12 @@ fn reviewed_invalid_fixtures_are_rejected() {
                         .expect("scores must be an object")
                         .remove("person_performance");
                 }
+                "capabilities-v1-future-claim.json" => {
+                    instance["commands"] = serde_json::json!(["capabilities", "project analyze"]);
+                }
+                "project-analysis-v1-invalid-nested-manifest.json" => {
+                    instance = golden("project-analysis");
+                }
                 _ => panic!("invalid fixture lacks an isolation repair: {fixture_name}"),
             }
             let errors = validation_messages(&validator, &instance);
@@ -747,7 +901,7 @@ fn assert_rejected(validator: &Validator, instance: &Value, contract: &str, case
 }
 
 #[test]
-fn public_schemas_are_closed_and_use_only_internal_references() {
+fn public_schemas_are_closed_and_use_only_internal_or_bundled_references() {
     for contract in contracts() {
         let schema = read_json(
             repository_root()
@@ -755,11 +909,11 @@ fn public_schemas_are_closed_and_use_only_internal_references() {
                 .join(&contract.name)
                 .join("v1.json"),
         );
-        assert_closed_objects_and_internal_refs(&schema, &schema, &contract.name);
+        assert_closed_objects_and_bundled_refs(&schema, &schema, &contract.name);
     }
 }
 
-fn assert_closed_objects_and_internal_refs(schema: &Value, value: &Value, location: &str) {
+fn assert_closed_objects_and_bundled_refs(schema: &Value, value: &Value, location: &str) {
     match value {
         Value::Object(object) => {
             if object.get("type") == Some(&Value::String("object".to_owned())) {
@@ -770,29 +924,29 @@ fn assert_closed_objects_and_internal_refs(schema: &Value, value: &Value, locati
                 );
             }
             if let Some(reference) = object.get("$ref").and_then(Value::as_str) {
-                assert!(
-                    reference.starts_with("#/$defs/"),
-                    "external or non-canonical reference at {location}: {reference}"
-                );
-                let pointer = reference
-                    .strip_prefix('#')
-                    .expect("internal references must begin with #");
-                assert!(
-                    schema.pointer(pointer).is_some(),
-                    "dangling internal reference at {location}: {reference}"
-                );
+                if let Some(pointer) = reference.strip_prefix('#') {
+                    assert!(
+                        pointer.starts_with("/$defs/") && schema.pointer(pointer).is_some(),
+                        "dangling or non-canonical internal reference at {location}: {reference}"
+                    );
+                } else {
+                    assert!(
+                        matches!(
+                            reference,
+                            "https://schemas.assay.dev/analysis-manifest/v1.json"
+                                | "https://schemas.assay.dev/project-evidence/v1.json"
+                        ) && location.starts_with("project-analysis/"),
+                        "unregistered or non-composition reference at {location}: {reference}"
+                    );
+                }
             }
             for (key, child) in object {
-                assert_closed_objects_and_internal_refs(
-                    schema,
-                    child,
-                    &format!("{location}/{key}"),
-                );
+                assert_closed_objects_and_bundled_refs(schema, child, &format!("{location}/{key}"));
             }
         }
         Value::Array(values) => {
             for (index, child) in values.iter().enumerate() {
-                assert_closed_objects_and_internal_refs(
+                assert_closed_objects_and_bundled_refs(
                     schema,
                     child,
                     &format!("{location}/{index}"),

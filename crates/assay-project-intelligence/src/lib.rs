@@ -16,6 +16,7 @@
 #![forbid(unsafe_code)]
 
 mod evidence;
+mod machine;
 
 pub use evidence::{
     ClassificationAvailabilityReason, ClassificationCategoryRecord, ClassificationEvidenceFact,
@@ -26,6 +27,7 @@ pub use evidence::{
     RawEvidenceIssue, RawEvidenceKind, RawEvidencePayload, TrackedFileEvidence,
     assemble_project_evidence,
 };
+pub use machine::{MachineMappingError, build_project_analysis};
 
 /// Stable package identifier for diagnostics and capability reporting.
 pub const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");

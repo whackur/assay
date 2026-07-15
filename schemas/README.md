@@ -11,6 +11,8 @@ remain independent and do not generate a second public schema.
 | --- | --- | --- |
 | `analysis-manifest` | Complete | Immutable source, effective-config hash, component versions, status, scope, and artifacts |
 | `project-evidence` | Complete | Citable facts or explicit availability envelopes without raw source or person scores |
+| `project-analysis` | Complete | Offline composition of one manifest and its evidence records |
+| `capabilities` | Complete | Exact implemented commands, formats, schemas, languages, and feature states |
 | `ai-judgment` | Reviewable skeleton | Bounded rubric ratings with required evidence citations |
 | `project-evaluation` | Reviewable skeleton | Dimensioned project-score envelope compiled from cited evidence |
 
@@ -60,8 +62,10 @@ valid.
 
 ## Validation and references
 
-Schemas use only internal `#/$defs/...` references. Their HTTPS `$id` values
-are stable identifiers, not network dependencies. Contract tests compile each
+Schemas use internal `#/$defs/...` references except that composition schemas
+may use allowlisted same-origin bundled schema IDs. HTTPS `$id` values are
+stable identifiers, not network dependencies. Validators register bundled
+resources in memory and do not resolve HTTP. Contract tests compile each
 schema after validating it against the Draft 2020-12 meta-schema, validate
 every reviewed golden, and reject missing fields, unknown fields, unsupported
 major versions, unknown statuses, uncited AI judgments, absolute source paths,
@@ -71,8 +75,9 @@ ISO-8601 syntax cannot bypass semantic validation.
 
 Tests discover all `schemas/*/v1.json`, matching goldens, and invalid fixtures;
 reject duplicate JSON object keys; resolve every internal JSON Pointer
-directly; and fail on an orphan fixture, dangling reference, or external
-reference. Git null object IDs and path-like remote record IDs are invalid.
+directly; and fail on an orphan fixture, dangling reference, or unregistered
+external reference. Git null object IDs and path-like remote record IDs are
+invalid.
 
 Run the validator with:
 
