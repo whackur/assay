@@ -40,7 +40,7 @@ pages listed under Primary sources.
 | Fact | Native tree-sitter adapter | difftastic | GumTree |
 | --- | --- | --- | --- |
 | Version compared | `semantic-unit-matcher-1` on tree-sitter 0.26.11 | 0.69.0 (released 2026-04-30) | 4.0.0-beta4 binary; latest release is 4.0.0-beta8 (2026-07-15) |
-| License | Assay code over MIT tree-sitter crates | MIT, with vendored parsers under MIT and Apache-2.0 | LGPL-3.0 |
+| License | Assay code over MIT tree-sitter crates | MIT, with vendored parsers under MIT and Apache-2.0 | LGPL-3.0-or-later |
 | Implementation | Rust, in-process | Rust CLI binary | Java, requires JDK or JRE 17+ |
 | Distribution | Part of the Assay workspace | crates.io source crate that builds the `difft` binary | GitHub release zip for beta4; beta5 through beta8 publish source archives only |
 | Machine-readable output | Typed Rust values | None documented; terminal display plus `--exit-code` | Text, XML, and JSON edit-script dumps of match and action lists |
@@ -165,11 +165,16 @@ about either tool's parser throughput on large files.
   locally built stripped release binary is about 119 MiB due to dozens of
   vendored grammars) and parsing terminal-oriented output that offers no
   documented machine-readable mode.
-- GumTree is LGPL-3.0 and requires a Java 17 runtime. Its current 4.0.0
+- GumTree is LGPL-3.0-or-later (its source headers grant "version 3 ... or
+  any later version") and requires a Java 17 runtime. Its current 4.0.0
   line publishes no binary distribution after beta4, so Assay would have to
   build it from source or pin a beta. The JVM requirement conflicts with the
-  self-contained CLI goal, and LGPL-3.0 would add distribution obligations
-  that MIT-licensed alternatives avoid.
+  self-contained CLI goal, and the LGPL would add distribution obligations
+  that MIT-licensed alternatives avoid. The beta4 distribution jar also
+  shades third-party components under other licenses (the bundled license
+  texts include Apache-2.0, MIT, and BSD terms), so any future production
+  inclusion needs a separate review of the bundled licenses and
+  distribution composition.
 
 ## Decision
 
@@ -199,7 +204,7 @@ insufficient on real-world corpora.
 
 ### Integrate GumTree now
 
-Rejected for the first slice: JVM runtime requirement, LGPL-3.0 distribution
+Rejected for the first slice: JVM runtime requirement, LGPL distribution
 obligations, no maintained binary distribution of the current release line,
 roughly 640 ms per file pair at the process boundary, and silent
 error-recovery output that would require Assay-side parse validation anyway.
@@ -259,7 +264,7 @@ The following sources were checked on 2026-07-16.
 - difftastic 0.69.0 release: <https://github.com/Wilfred/difftastic/releases>
 - difftastic manual, syntactic diffing scope and exit codes:
   <https://difftastic.wilfred.me.uk/>
-- GumTree repository and LGPL-3.0 license:
+- GumTree repository, LGPL-3.0-or-later source headers, and LICENSE text:
   <https://github.com/GumTreeDiff/gumtree>
 - GumTree releases, 4.0.0-beta8 source-only assets, 4.0.0-beta4 binary zip,
   and the JDK 17 requirement:
