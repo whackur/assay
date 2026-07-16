@@ -22,7 +22,10 @@ pub struct ProviderRequest<'a> {
 }
 
 impl<'a> ProviderRequest<'a> {
-    fn new(rubric: QualitativeRubric, bundle: &'a EvidenceBundle) -> Result<Self, EvaluationError> {
+    pub(crate) fn new(
+        rubric: QualitativeRubric,
+        bundle: &'a EvidenceBundle,
+    ) -> Result<Self, EvaluationError> {
         let criteria = rubric
             .criteria()
             .iter()
@@ -453,22 +456,29 @@ impl Evaluator {
         provider: &P,
         bundle: &EvidenceBundle,
     ) -> Result<ValidatedJudgmentSet, EvaluationError> {
-        match (provider.execution_boundary(), bundle.transmission()) {
-            (ProviderExecutionBoundary::Local, ExternalTransmission::NotUsed) => {}
-            (ProviderExecutionBoundary::External, ExternalTransmission::PublicOnly)
-                if bundle.scope() == EvidenceScope::PublicOnly => {}
-            (ProviderExecutionBoundary::External, ExternalTransmission::ConsentedPrivate)
-                if bundle.scope() == EvidenceScope::PrivateLocal => {}
-            _ => return Err(EvaluationError::new(EvaluationErrorKind::PrivacyMismatch)),
-        }
+        enforce_transmission_boundary(provider.execution_boundary(), bundle)?;
         let request = ProviderRequest::new(self.rubric, bundle)?;
         let bytes = provider
             .evaluate(&request)
             .map_err(|_| EvaluationError::new(EvaluationErrorKind::ProviderFailure))?;
+        self.validate_bytes(&bytes, bundle)
+    }
+
+    /// Returns the immutable rubric bound to this evaluator.
+    pub(crate) const fn rubric(&self) -> QualitativeRubric {
+        self.rubric
+    }
+
+    /// Validates untrusted provider bytes without assuming a provider transport.
+    pub(crate) fn validate_bytes(
+        &self,
+        bytes: &[u8],
+        bundle: &EvidenceBundle,
+    ) -> Result<ValidatedJudgmentSet, EvaluationError> {
         if bytes.len() > MAX_PROVIDER_OUTPUT_BYTES {
             return Err(EvaluationError::new(EvaluationErrorKind::OutputTooLarge));
         }
-        let raw: RawJudgmentSet = serde_json::from_slice(&bytes).map_err(|error| {
+        let raw: RawJudgmentSet = serde_json::from_slice(bytes).map_err(|error| {
             if error.is_syntax() || error.is_eof() {
                 EvaluationError::new(EvaluationErrorKind::MalformedOutput)
             } else {
@@ -600,6 +610,27 @@ impl Evaluator {
             },
             judgments,
         })
+    }
+}
+
+/// Rejects any provider boundary that would move evidence past its consent.
+pub(crate) fn enforce_transmission_boundary(
+    boundary: ProviderExecutionBoundary,
+    bundle: &EvidenceBundle,
+) -> Result<(), EvaluationError> {
+    match (boundary, bundle.transmission()) {
+        (ProviderExecutionBoundary::Local, ExternalTransmission::NotUsed) => Ok(()),
+        (ProviderExecutionBoundary::External, ExternalTransmission::PublicOnly)
+            if bundle.scope() == EvidenceScope::PublicOnly =>
+        {
+            Ok(())
+        }
+        (ProviderExecutionBoundary::External, ExternalTransmission::ConsentedPrivate)
+            if bundle.scope() == EvidenceScope::PrivateLocal =>
+        {
+            Ok(())
+        }
+        _ => Err(EvaluationError::new(EvaluationErrorKind::PrivacyMismatch)),
     }
 }
 

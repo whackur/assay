@@ -3,14 +3,17 @@
 //! Provider output and provider prose are untrusted until [`Evaluator`]
 //! validates their schema-shaped fields, rubric membership, bounded ratings,
 //! and citations against the exact [`EvidenceBundle`]. The validated scoring
-//! view intentionally excludes provider rationale. This crate performs no
-//! network, filesystem, process, credential, or score-compilation work.
+//! view intentionally excludes provider rationale. The crate defines the
+//! credential and HTTP transport ports used by [`OpenAiEvaluator`] but performs
+//! no network, filesystem, process, credential, or score-compilation I/O; the
+//! concrete secret store and HTTP client are injected from outside the crate.
 
 #![forbid(unsafe_code)]
 
 mod bundle;
 mod error;
 mod evaluator;
+mod openai;
 mod rubric;
 
 pub use bundle::{
@@ -21,6 +24,11 @@ pub use evaluator::{
     Applicability, DeterministicFakeProvider, EvaluationProvider, EvaluationStatus, Evaluator,
     ProviderExecutionBoundary, ProviderRequest, ScoringJudgment, ValidatedJudgment,
     ValidatedJudgmentSet,
+};
+pub use openai::{
+    EvaluationSnapshot, HttpTransport, OpenAiConfig, OpenAiEvaluator, OutboundRequest,
+    ProviderSecret, ProviderTelemetry, SamplingConfig, SecretError, SecretName, SecretStore,
+    SnapshotOutcome, SnapshotProvenance, TransportError, TransportResponse, Usage,
 };
 pub use rubric::{QualitativeCriterion, QualitativeRubric};
 

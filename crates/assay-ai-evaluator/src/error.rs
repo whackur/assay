@@ -13,6 +13,10 @@ pub enum EvaluationErrorKind {
     PersonDomainMixing,
     PrivacyMismatch,
     ProviderFailure,
+    ProviderTimeout,
+    ProviderRateLimited,
+    ProviderUnauthorized,
+    SecretUnavailable,
     OutputTooLarge,
     MalformedOutput,
     SchemaInvalid,
@@ -30,7 +34,8 @@ pub enum EvaluationErrorKind {
 }
 
 impl EvaluationErrorKind {
-    const fn code(self) -> &'static str {
+    /// Returns the stable machine-readable status code for this category.
+    pub const fn code(self) -> &'static str {
         match self {
             Self::EmptyEvidenceBundle => "empty_evidence_bundle",
             Self::DuplicateEvidence => "duplicate_evidence",
@@ -42,6 +47,10 @@ impl EvaluationErrorKind {
             Self::PersonDomainMixing => "person_domain_mixing",
             Self::PrivacyMismatch => "privacy_mismatch",
             Self::ProviderFailure => "provider_failure",
+            Self::ProviderTimeout => "provider_timeout",
+            Self::ProviderRateLimited => "provider_rate_limited",
+            Self::ProviderUnauthorized => "provider_unauthorized",
+            Self::SecretUnavailable => "secret_unavailable",
             Self::OutputTooLarge => "output_too_large",
             Self::MalformedOutput => "malformed_output",
             Self::SchemaInvalid => "schema_invalid",

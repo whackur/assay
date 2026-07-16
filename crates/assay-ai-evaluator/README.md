@@ -1,9 +1,11 @@
 # assay-ai-evaluator
 
 This crate owns Assay's provider-independent qualitative project rubric,
-bounded evidence bundle, provider adapter port, and validation of untrusted AI
-judgments. It performs no filesystem, process, network, database, credential,
-or score-compilation work.
+bounded evidence bundle, provider adapter port, the server-managed OpenAI API
+adapter, and validation of untrusted AI judgments. It defines the credential
+and HTTP transport ports the adapter needs but performs no filesystem, process,
+network, database, credential, or score-compilation I/O itself; the concrete
+secret store and HTTP client are injected from the deployment.
 
 ## What it measures
 
@@ -56,3 +58,23 @@ Errors and debug output retain no provider response or evidence statement.
 The authoritative public contract is
 `schemas/ai-judgment/v1.json`; Rust serialization is validated against that
 reviewed schema in the contract tests.
+
+## OpenAI API adapter
+
+`OpenAiEvaluator` implements the server-managed OpenAI API provider mode. It
+loads the key from a `SecretStore` by reference name, so a rotated key is read
+without data migration and is never passed as a command-line argument. The key
+is wrapped in a `ProviderSecret` that never appears in `Debug`, `Display`,
+errors, logs, or serialization; it leaves the process only as the `Authorization`
+header value of one `OutboundRequest`, never in the request body. The concrete
+HTTP client and secret store live outside this crate and are injected through
+the `HttpTransport` and `SecretStore` ports; the adapter logic is proven end to
+end with a deterministic in-memory transport, so tests make no network calls.
+
+Every evaluation returns an `EvaluationSnapshot` that always records
+deterministic provenance (provider, model, prompt and rubric versions, sampling
+settings, evidence-bundle hash) and an explicit outcome. Token usage and latency
+are isolated in optional non-deterministic telemetry that never feeds score
+compilation. A timeout, rate limit, unauthorized or other HTTP failure, a
+malformed envelope, and a schema-invalid judgment each become an explicit failed
+status; none is disguised as a zero-rated success.
