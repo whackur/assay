@@ -38,6 +38,20 @@ npm run build       # production build
 Next.js telemetry is disabled in every script via `NEXT_TELEMETRY_DISABLED=1`.
 The app pulls no external CDN, font, or telemetry resources.
 
+## Containerized production preview
+
+From the repository root, run the web dashboard and its production build with
+Docker Compose:
+
+```sh
+docker compose up --build
+```
+
+The dashboard is available at `http://localhost:3000`. Set `ASSAY_WEB_PORT` in
+the root `.env` file to change the host port. The current container serves the
+fixture-backed web surface; it does not imply that a hosted API or database is
+available yet.
+
 ## Catalog and badges
 
 Catalog presentation lives in `src/lib/catalog/` as pure functions: entry

@@ -1,0 +1,14 @@
+.git
+.github
+.orca
+.worktrees
+target
+web/node_modules
+web/.next
+node_modules
+*.log
+.env
+.env.*
+!.env.example
+assay-cache
+.assay-cache
