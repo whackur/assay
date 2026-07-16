@@ -1,0 +1,102 @@
+{
+  "audit_events": [
+    {
+      "action": "soft_delete",
+      "policy_version": "project-run-retry-1",
+      "recorded_at": "2026-07-16T09:15:00Z",
+      "run_id": "run-0000000042",
+      "stage": null
+    },
+    {
+      "action": "restore",
+      "policy_version": "project-run-retry-1",
+      "recorded_at": "2026-07-16T09:20:00Z",
+      "run_id": "run-0000000042",
+      "stage": null
+    }
+  ],
+  "lifecycle": "active",
+  "ordinary_user_retry_available": false,
+  "retry_policy": {
+    "automatic_retry_budget": 2,
+    "version": "project-run-retry-1"
+  },
+  "run_id": "run-0000000042",
+  "run_state_version": "project-run-1",
+  "schema_version": "1.0.0",
+  "stages": [
+    {
+      "attempts": 1,
+      "automatic_retries_exhausted": false,
+      "reason": "reported_ci_incomplete",
+      "result_snapshot": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "stage": "source_verification",
+      "status": "complete"
+    },
+    {
+      "attempts": 1,
+      "automatic_retries_exhausted": false,
+      "reason": null,
+      "result_snapshot": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "stage": "revision_pinning",
+      "status": "complete"
+    },
+    {
+      "attempts": 1,
+      "automatic_retries_exhausted": false,
+      "reason": null,
+      "result_snapshot": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "stage": "file_and_history_analysis",
+      "status": "complete"
+    },
+    {
+      "attempts": 1,
+      "automatic_retries_exhausted": false,
+      "reason": null,
+      "result_snapshot": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "stage": "project_type_determination",
+      "status": "complete"
+    },
+    {
+      "attempts": 1,
+      "automatic_retries_exhausted": false,
+      "reason": "reported_ci_incomplete",
+      "result_snapshot": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "stage": "ci_and_dependency_evidence",
+      "status": "partial"
+    },
+    {
+      "attempts": 3,
+      "automatic_retries_exhausted": true,
+      "reason": "cohort_provider_unavailable",
+      "result_snapshot": null,
+      "stage": "similar_project_discovery",
+      "status": "unavailable"
+    },
+    {
+      "attempts": 0,
+      "automatic_retries_exhausted": false,
+      "reason": null,
+      "result_snapshot": null,
+      "stage": "ai_rubric_evaluation",
+      "status": "pending"
+    },
+    {
+      "attempts": 0,
+      "automatic_retries_exhausted": false,
+      "reason": null,
+      "result_snapshot": null,
+      "stage": "score_compilation",
+      "status": "pending"
+    },
+    {
+      "attempts": 0,
+      "automatic_retries_exhausted": false,
+      "reason": null,
+      "result_snapshot": null,
+      "stage": "result_publication",
+      "status": "pending"
+    }
+  ],
+  "status": "partial"
+}

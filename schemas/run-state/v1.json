@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assay.dev/run-state/v1.json",
+  "title": "Assay Run State v1",
+  "description": "The stage state of one project analysis run. A partial stage failure preserves completed stages; only failed stages carry partial or unavailable plus a reason. Bounded automatic retries are policy data, ordinary users cannot retry, and administrator recovery actions are audited without secrets.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_state_version",
+    "run_id",
+    "lifecycle",
+    "status",
+    "ordinary_user_retry_available",
+    "retry_policy",
+    "stages",
+    "audit_events"
+  ],
+  "properties": {
+    "schema_version": { "$ref": "#/$defs/schemaVersion" },
+    "run_state_version": { "$ref": "#/$defs/versionIdentifier" },
+    "run_id": { "$ref": "#/$defs/runId" },
+    "lifecycle": {
+      "type": "string",
+      "enum": ["active", "deleted", "purged"]
+    },
+    "status": { "$ref": "#/$defs/lifecycleStatus" },
+    "ordinary_user_retry_available": { "const": false },
+    "retry_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "automatic_retry_budget"],
+      "properties": {
+        "version": { "$ref": "#/$defs/versionIdentifier" },
+        "automatic_retry_budget": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/stageState" }
+    },
+    "audit_events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/auditEvent" }
+    }
+  },
+  "$defs": {
+    "schemaVersion": { "type": "string", "pattern": "^1\\.[0-9]+\\.[0-9]+$" },
+    "versionIdentifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$"
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$"
+    },
+    "machineCode": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+    },
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "lifecycleStatus": {
+      "type": "string",
+      "enum": ["pending", "complete", "partial", "unavailable"]
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "source_verification",
+        "revision_pinning",
+        "file_and_history_analysis",
+        "project_type_determination",
+        "ci_and_dependency_evidence",
+        "similar_project_discovery",
+        "ai_rubric_evaluation",
+        "score_compilation",
+        "result_publication"
+      ]
+    },
+    "stageState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "status",
+        "attempts",
+        "automatic_retries_exhausted",
+        "reason",
+        "result_snapshot"
+      ],
+      "properties": {
+        "stage": { "$ref": "#/$defs/stage" },
+        "status": { "$ref": "#/$defs/lifecycleStatus" },
+        "attempts": { "type": "integer", "minimum": 0 },
+        "automatic_retries_exhausted": { "type": "boolean" },
+        "reason": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/machineCode" }]
+        },
+        "result_snapshot": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/sha256" }]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "complete" } } },
+          "then": {
+            "properties": {
+              "reason": { "type": "null" },
+              "result_snapshot": { "type": "string" },
+              "automatic_retries_exhausted": { "const": false }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "partial" } } },
+          "then": {
+            "properties": {
+              "reason": { "type": "string" },
+              "result_snapshot": { "type": "string" },
+              "automatic_retries_exhausted": { "const": false }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "unavailable" } } },
+          "then": {
+            "properties": {
+              "reason": { "type": "string" },
+              "result_snapshot": { "type": "null" },
+              "automatic_retries_exhausted": { "const": true }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "pending" } } },
+          "then": {
+            "properties": {
+              "reason": { "type": "null" },
+              "result_snapshot": { "type": "null" },
+              "automatic_retries_exhausted": { "const": false }
+            }
+          }
+        }
+      ]
+    },
+    "auditEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "run_id", "stage", "policy_version", "recorded_at"],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "rerun_stage",
+            "rerun_failed_stages",
+            "soft_delete",
+            "restore",
+            "purge"
+          ]
+        },
+        "run_id": { "$ref": "#/$defs/runId" },
+        "stage": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/stage" }]
+        },
+        "policy_version": { "$ref": "#/$defs/versionIdentifier" },
+        "recorded_at": { "type": "string", "format": "date-time" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "action": { "const": "rerun_stage" } } },
+          "then": { "properties": { "stage": { "type": "string" } } }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "enum": [
+                  "rerun_failed_stages",
+                  "soft_delete",
+                  "restore",
+                  "purge"
+                ]
+              }
+            }
+          },
+          "then": { "properties": { "stage": { "type": "null" } } }
+        }
+      ]
+    }
+  }
+}

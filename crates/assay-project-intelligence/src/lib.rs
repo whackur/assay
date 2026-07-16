@@ -21,6 +21,7 @@ mod contract;
 mod evidence;
 mod feature;
 mod machine;
+mod run;
 mod scoring;
 
 pub use classification::{
@@ -44,6 +45,10 @@ pub use evidence::{
     assemble_project_evidence,
 };
 pub use machine::{MachineMappingError, build_project_analysis};
+pub use run::{
+    AdminAction, AdminAuditEvent, Administrator, AttemptDisposition, PIPELINE_STAGES, ProjectRun,
+    RetryPolicy, RunError, RunErrorKind, RunId, RunLifecycle, Stage, StageAttempt, StageStatus,
+};
 pub use scoring::{
     ASSAY_SCORE_DIMENSIONS, AssayScore, CitedStatement, CompiledEvaluation, CompilerPolicy,
     ContributionSource, DeterministicContribution, DimensionScore, EvaluatorDescriptor,

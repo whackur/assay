@@ -767,7 +767,7 @@ fn representative_invalid_contracts_are_rejected() {
 
 #[test]
 fn discovered_contract_files_have_exact_fixture_mapping_and_unique_json_keys() {
-    assert_eq!(contracts().len(), 7);
+    assert_eq!(contracts().len(), 8);
     assert!(
         parse_json_without_duplicate_keys(r#"{"schema_version":"1.0.0","schema_version":"1.0.1"}"#)
             .is_err(),
@@ -1381,6 +1381,14 @@ fn reviewed_invalid_fixtures_are_rejected() {
                 "project-comparison-v1-uncited-selection.json" => {
                     instance["detailed_candidates"][0]["selection_reasons"] =
                         serde_json::json!(["technical_similarity"]);
+                }
+                "run-state-v1-complete-stage-with-reason.json" => {
+                    let stages = instance["stages"].as_array_mut().unwrap();
+                    let stage = stages
+                        .iter_mut()
+                        .find(|entry| entry["status"] == "complete")
+                        .unwrap();
+                    stage["reason"] = Value::Null;
                 }
                 _ => panic!("invalid fixture lacks an isolation repair: {fixture_name}"),
             }

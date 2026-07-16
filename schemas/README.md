@@ -16,6 +16,7 @@ remain independent and do not generate a second public schema.
 | `ai-judgment` | Complete | Bounded rubric ratings with required evidence citations |
 | `project-evaluation` | Reviewable skeleton | Dimensioned project-score envelope compiled from cited evidence |
 | `project-comparison` | Complete | One-depth functional-cohort comparison with cited similarity evidence and differentiators |
+| `run-state` | Complete | Named-stage run state with preserved completed stages, bounded-retry policy, and audited administrator recovery |
 
 `ai-judgment/v1.json` is the implemented provider-independent qualitative
 judgment contract. `project-evaluation/v1.json` remains a reviewable contract
@@ -83,6 +84,17 @@ This conservative rule states that the published evidence cannot establish
 absence. It does not assert that an opaque record contains the feature and
 does not assign likelihood, productivity, or project quality. Consumers must
 not convert `unavailable` into `present`, `absent`, or a numeric zero.
+
+The `run-state` contract models one analysis run as its named pipeline stages.
+A partial stage failure preserves every completed stage and its immutable
+result snapshot; only failed stages carry `partial` or `unavailable` plus a
+machine-readable reason, and neither is a numeric zero or a success. Automatic
+retries are bounded, versioned policy data, `ordinary_user_retry_available` is
+always `false`, and the only stage carrying `automatic_retries_exhausted: true`
+is an `unavailable` stage. Administrator recovery actions — rerun a failed
+stage, rerun all failed stages, soft delete, restore, and purge — append
+secret-free audit events; a single-stage rerun names its stage while the other
+actions do not.
 
 Potential uses a contract distinct from Assay Score. It declares an ISO-8601
 forecast duration plus cited assumptions and major counter-signals. Potential
