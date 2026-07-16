@@ -1,0 +1,11 @@
+export function increment(value) {
+  return value + 2;
+}
+
+export function double(value) {
+  return value * 2;
+}
+
+export function label(value) {
+  return `value:${value}`;
+}
