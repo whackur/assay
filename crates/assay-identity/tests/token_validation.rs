@@ -114,6 +114,18 @@ fn multiple_audiences_require_matching_authorized_party() {
 }
 
 #[test]
+fn a_present_authorized_party_must_match_even_for_a_single_audience() {
+    let mismatched_azp = base_claims().authorized_party("someone-else").build();
+    assert_eq!(
+        validate(mismatched_azp),
+        Err(ValidationError::AuthorizedPartyMismatch)
+    );
+
+    let matching_azp = base_claims().authorized_party(CLIENT_ID).build();
+    assert!(validate(matching_azp).is_ok());
+}
+
+#[test]
 fn expired_not_yet_valid_and_future_issued_all_fail_closed() {
     let expired = VerifiedClaimsBuilder::new(ISSUER, "s", NOW - 61, NOW - 400)
         .audience(AUDIENCE)

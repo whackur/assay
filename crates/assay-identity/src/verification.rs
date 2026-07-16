@@ -187,12 +187,17 @@ impl<'a> TokenValidator<'a> {
         if !claims.audiences().iter().any(|value| value == expected) {
             return Err(ValidationError::AudienceMismatch);
         }
-        if claims.audiences().len() > 1 {
-            let client = self.config.client_id().as_str();
-            match claims.authorized_party() {
-                Some(party) if party == client => {}
-                _ => return Err(ValidationError::AuthorizedPartyMismatch),
+        let client = self.config.client_id().as_str();
+        // OIDC Core 3.1.3.7: a present azp must equal the client id regardless of
+        // audience count, and multiple audiences require azp to be present.
+        match claims.authorized_party() {
+            Some(party) if party != client => {
+                return Err(ValidationError::AuthorizedPartyMismatch);
             }
+            None if claims.audiences().len() > 1 => {
+                return Err(ValidationError::AuthorizedPartyMismatch);
+            }
+            _ => {}
         }
         Ok(())
     }
