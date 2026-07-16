@@ -1,0 +1,150 @@
+{
+  "classification": {
+    "confidence": 0.76,
+    "evidence_ids": [
+      "evidence:readme:claim-1"
+    ],
+    "maturity": "prototype",
+    "primary_type": "cli_developer_tool",
+    "secondary_types": [
+      "library_sdk_framework"
+    ],
+    "status": "complete",
+    "tags": [
+      "developer_tool"
+    ]
+  },
+  "compiler": {
+    "judgment_bundle_hash": "sha256:333c2bdf6127ae130a8b02d06526288f5f89cd5b99626b69ee4c159aa680c1f4",
+    "rule_set_hash": "sha256:acb040a75e8a7da11f86702eed10e477837528e7e2a4d5f95d20e9185ccd4030",
+    "version": "project-score-compiler-1"
+  },
+  "evaluation_version": "project-intelligence-1",
+  "evaluator": {
+    "model": null,
+    "profile": "deterministic-project-evaluator-1",
+    "provider": "deterministic",
+    "rubric_version": "project-rubric-1"
+  },
+  "evidence_ids": [
+    "evidence:readme:claim-1",
+    "evidence:repository:snapshot",
+    "evidence:test:integration-1"
+  ],
+  "introduction": {
+    "factual_statements": [],
+    "interpretations": [],
+    "status": "unavailable"
+  },
+  "limitations": [
+    {
+      "code": "repository_code_not_executed",
+      "evidence_ids": [
+        "evidence:readme:claim-1"
+      ]
+    }
+  ],
+  "project": {
+    "revision": "0123456789abcdef0123456789abcdef01234567",
+    "source": {
+      "kind": "hosted",
+      "namespace": "example-org",
+      "provider": "github",
+      "repository": "sample-project"
+    }
+  },
+  "provisional": false,
+  "schema_version": "1.0.0",
+  "scores": {
+    "assay_score": {
+      "confidence": 0.0,
+      "evidence_ids": [],
+      "status": "insufficient",
+      "value": null,
+      "version": "project-score-1"
+    },
+    "engineering_rigor": {
+      "confidence": 0.0,
+      "evidence_ids": [],
+      "status": "insufficient",
+      "value": null,
+      "version": "project-score-1"
+    },
+    "maintenance_health": {
+      "confidence": 0.0,
+      "evidence_ids": [],
+      "status": "unavailable",
+      "value": null,
+      "version": "project-score-1"
+    },
+    "open_source_readiness": {
+      "confidence": 0.75,
+      "evidence_ids": [
+        "evidence:readme:claim-1",
+        "evidence:repository:snapshot",
+        "evidence:test:integration-1"
+      ],
+      "status": "complete",
+      "value": 75.0,
+      "version": "project-score-1"
+    },
+    "originality": {
+      "confidence": 0.75,
+      "evidence_ids": [
+        "evidence:readme:claim-1",
+        "evidence:repository:snapshot",
+        "evidence:test:integration-1"
+      ],
+      "status": "complete",
+      "value": 75.0,
+      "version": "project-score-1"
+    },
+    "potential": {
+      "assumptions": [
+        {
+          "evidence_ids": [
+            "evidence:readme:claim-1"
+          ],
+          "text": "Continued iteration is required before a numeric forecast."
+        }
+      ],
+      "confidence": 0.75,
+      "evidence_ids": [
+        "evidence:readme:claim-1",
+        "evidence:repository:snapshot",
+        "evidence:test:integration-1"
+      ],
+      "forecast_horizon": "P1Y",
+      "major_counter_signals": [
+        {
+          "evidence_ids": [
+            "evidence:readme:claim-1"
+          ],
+          "text": "The current evidence is insufficient for a numeric forecast."
+        }
+      ],
+      "status": "complete",
+      "value": 75.0,
+      "version": "potential-1"
+    },
+    "project_substance": {
+      "confidence": 0.75,
+      "evidence_ids": [
+        "evidence:readme:claim-1",
+        "evidence:repository:snapshot",
+        "evidence:test:integration-1"
+      ],
+      "status": "complete",
+      "value": 75.0,
+      "version": "project-score-1"
+    }
+  },
+  "status": "partial",
+  "visibility": "private_local",
+  "warnings": [
+    {
+      "code": "score_release_gate_not_met",
+      "evidence_ids": []
+    }
+  ]
+}

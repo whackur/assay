@@ -25,4 +25,6 @@ jsonschema = { version = "0.33", default-features = false }
 serde = "1.0"
 serde_json = "1.0"
 sha2 = "0.10"
+assay-ai-evaluator = { path = "../assay-ai-evaluator" }
+assay-domain = { path = "../assay-domain" }
 assay-test-fixtures = { path = "../../tests/support/assay-fixtures" }

@@ -98,7 +98,9 @@ dependencies = [
 name = "assay-cli"
 version = "0.1.0"
 dependencies = [
+ "assay-ai-evaluator",
  "assay-classifier",
+ "assay-domain",
  "assay-git",
  "assay-local",
  "assay-project-intelligence",
