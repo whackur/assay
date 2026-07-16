@@ -6,12 +6,21 @@
 //! and responses are plain bytes.
 
 use std::io::{self, BufRead, BufReader, Read, Write};
+use std::net::TcpStream;
+use std::time::Duration;
 
 use serde_json::{Value, json};
 
 use crate::history::LocalHistoryStore;
 use crate::loopback::LoopbackListener;
 use crate::report::LOCAL_REPORT_SCHEMA_VERSION;
+
+/// Upper bound on the request line the server will read before rejecting it.
+const MAX_REQUEST_LINE_BYTES: usize = 8 * 1024;
+
+/// Read timeout applied to accepted connections so a stalled peer cannot pin
+/// the single-threaded serial loop.
+const READ_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// A rendered HTTP response with a JSON body.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -129,19 +138,34 @@ fn store_error() -> HttpResponse {
     )
 }
 
-/// Reads one request line from a connection and writes the routed response.
+/// Reads one bounded request line from a connection and writes the routed
+/// response. A line exceeding [`MAX_REQUEST_LINE_BYTES`] is rejected instead of
+/// being buffered without limit.
 pub fn serve_connection(
     reader: &mut dyn Read,
     writer: &mut dyn Write,
     store: &LocalHistoryStore,
 ) -> io::Result<()> {
-    let mut buffered = BufReader::new(reader);
+    let mut buffered = BufReader::new(reader.take((MAX_REQUEST_LINE_BYTES + 1) as u64));
     let mut request_line = String::new();
     buffered.read_line(&mut request_line)?;
-    let (method, path) = parse_request_line(&request_line);
-    let response = handle_request(method, path, store);
+    let response = if request_line.len() > MAX_REQUEST_LINE_BYTES {
+        HttpResponse::json(
+            431,
+            "Request Header Fields Too Large",
+            &json!({ "error": "request_line_too_long" }),
+        )
+    } else {
+        let (method, path) = parse_request_line(&request_line);
+        handle_request(method, path, store)
+    };
     response.write_to(writer)?;
     writer.flush()
+}
+
+/// Applies a read timeout to an accepted connection.
+fn configure_stream(stream: &TcpStream) -> io::Result<()> {
+    stream.set_read_timeout(Some(READ_TIMEOUT))
 }
 
 fn parse_request_line(line: &str) -> (&str, &str) {
@@ -154,6 +178,7 @@ fn parse_request_line(line: &str) -> (&str, &str) {
 /// Accepts and serves the next inbound loopback connection.
 pub fn serve_next(listener: &LoopbackListener, store: &LocalHistoryStore) -> io::Result<()> {
     let mut stream = listener.accept()?;
+    configure_stream(&stream)?;
     let mut peer = stream.try_clone()?;
     serve_connection(&mut peer, &mut stream, store)
 }
@@ -229,5 +254,31 @@ mod tests {
         let text = String::from_utf8(output).unwrap();
         assert!(text.starts_with("HTTP/1.1 200 OK"));
         assert!(text.contains("\"binding\":\"loopback\""));
+    }
+
+    #[test]
+    fn overlong_request_line_is_rejected_without_unbounded_read() {
+        let (_dir, store) = store_with_record();
+        // A stream that never sends a newline must not grow memory unbounded or
+        // stall; the bounded read rejects it instead of reading everything.
+        let request = vec![b'A'; MAX_REQUEST_LINE_BYTES * 4];
+        let mut reader = &request[..];
+        let mut output = Vec::new();
+        serve_connection(&mut reader, &mut output, &store).unwrap();
+        let text = String::from_utf8(output).unwrap();
+        assert!(text.starts_with("HTTP/1.1 431"));
+        assert!(text.contains("request_line_too_long"));
+        // The bounded reader left the remaining bytes unconsumed.
+        assert!(reader.len() >= request.len() - (MAX_REQUEST_LINE_BYTES + 1));
+    }
+
+    #[test]
+    fn accepted_stream_carries_a_read_timeout() {
+        let listener = LoopbackListener::bind(0).unwrap();
+        let address = listener.local_addr().unwrap();
+        let _client = std::net::TcpStream::connect(address).unwrap();
+        let accepted = listener.accept().unwrap();
+        configure_stream(&accepted).unwrap();
+        assert_eq!(accepted.read_timeout().unwrap(), Some(READ_TIMEOUT));
     }
 }
