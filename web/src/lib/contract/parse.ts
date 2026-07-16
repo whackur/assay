@@ -1,4 +1,8 @@
-import type { ProjectEvaluation, ProjectEvidence } from "@/lib/contract/types";
+import type {
+  ProjectComparison,
+  ProjectEvaluation,
+  ProjectEvidence,
+} from "@/lib/contract/types";
 
 // Defensive narrowing of untyped API/fixture JSON into the versioned contract.
 // It checks presence and shape of load-bearing fields only; it never fills in
@@ -57,4 +61,26 @@ export function parseEvidence(input: unknown): ProjectEvidence {
   );
   require(typeof value.status === "string", "evidence status is required");
   return input as unknown as ProjectEvidence;
+}
+
+export function parseComparison(input: unknown): ProjectComparison {
+  require(isRecord(input), "comparison must be an object");
+  const value = input as Record<string, unknown>;
+  require(
+    typeof value.schema_version === "string" && value.schema_version.startsWith("1."),
+    "unsupported project-comparison schema_version",
+  );
+  require(
+    value.mode === "functional_cohort" || value.mode === "curated_list",
+    "comparison mode must be functional_cohort or curated_list",
+  );
+  require(value.search_depth === "one_depth", "comparison search_depth must be one_depth");
+  require(typeof value.status === "string", "comparison status is required");
+  require(Array.isArray(value.detailed_candidates), "detailed_candidates must be an array");
+  require(
+    (value.detailed_candidates as unknown[]).length <= 5,
+    "a comparison lists at most five detailed candidates",
+  );
+  require(Array.isArray(value.additional_candidates), "additional_candidates must be an array");
+  return input as unknown as ProjectComparison;
 }

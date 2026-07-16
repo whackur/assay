@@ -18,5 +18,12 @@ export default async function EvaluationPage({
     return <ProgressPanel job={record.job} />;
   }
 
-  return <ResultView evaluation={record.evaluation} evidence={record.evidence} />;
+  const comparison = await fixtureApi.getComparison(id);
+  return (
+    <ResultView
+      evaluation={record.evaluation}
+      evidence={record.evidence}
+      comparison={comparison}
+    />
+  );
 }

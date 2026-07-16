@@ -28,6 +28,11 @@ export default function RootLayout({
         <main id="main" className="page">
           {children}
         </main>
+        <footer className="site-footer">
+          <div className="page">
+            <Link href="/contact">Contact or report an issue</Link>
+          </div>
+        </footer>
       </body>
     </html>
   );

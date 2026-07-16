@@ -1,9 +1,14 @@
-import type { HostedSource, ProjectEvaluation, ProjectEvidence } from "@/lib/contract/types";
+import type {
+  HostedSource,
+  ProjectComparison,
+  ProjectEvaluation,
+  ProjectEvidence,
+} from "@/lib/contract/types";
 import type { AnalysisStage } from "@/lib/state/stages";
 import type { CooldownStatus, EvaluatorProfileKind } from "@/lib/state/cooldown";
 import { cooldownStatus } from "@/lib/state/cooldown";
 import { parseGithubTarget } from "@/lib/state/github-url";
-import { RECORDS, SUBMISSION_COOLDOWNS, findRecordId } from "@/lib/api/fixtures";
+import { COMPARISONS, RECORDS, SUBMISSION_COOLDOWNS, findRecordId } from "@/lib/api/fixtures";
 
 // Thin client over the versioned Assay report contract. The repository has no
 // hosted API yet, so this default implementation is fixture-backed. Swap the
@@ -37,6 +42,7 @@ export type SubmissionOutcome =
 export interface AssayApi {
   submit(input: string, nowIso?: string): Promise<SubmissionOutcome>;
   getRecord(id: string): Promise<EvaluationRecord | null>;
+  getComparison(id: string): Promise<ProjectComparison | null>;
 }
 
 // A known cache hit navigates to the existing result. A recent run still inside
@@ -67,5 +73,9 @@ export const fixtureApi: AssayApi = {
 
   async getRecord(id) {
     return RECORDS[id] ?? null;
+  },
+
+  async getComparison(id) {
+    return COMPARISONS[id] ?? null;
   },
 };

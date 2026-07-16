@@ -1,8 +1,14 @@
-import type { ProjectEvaluation, ProjectEvidence } from "@/lib/contract/types";
+import type {
+  ProjectComparison,
+  ProjectEvaluation,
+  ProjectEvidence,
+} from "@/lib/contract/types";
 import { resultState } from "@/lib/state/result-state";
 import { ScoreCards } from "@/components/ScoreCards";
 import { EngineProfile } from "@/components/EngineProfile";
 import { EvidenceExplorer } from "@/components/EvidenceExplorer";
+import { SimilarProjects } from "@/components/SimilarProjects";
+import { BadgeShare } from "@/components/BadgeShare";
 import { ProjectNotice } from "@/components/ProjectNotice";
 
 function repositoryUrl(evaluation: ProjectEvaluation): string | null {
@@ -14,9 +20,11 @@ function repositoryUrl(evaluation: ProjectEvaluation): string | null {
 export function ResultView({
   evaluation,
   evidence,
+  comparison = null,
 }: {
   evaluation: ProjectEvaluation;
   evidence: ProjectEvidence[];
+  comparison?: ProjectComparison | null;
 }) {
   const state = resultState(evaluation);
   const source = evaluation.project.source;
@@ -79,6 +87,10 @@ export function ResultView({
         <h2>Evidence</h2>
         <EvidenceExplorer evidence={evidence} />
       </section>
+
+      {comparison && <SimilarProjects comparison={comparison} />}
+
+      <BadgeShare evaluation={evaluation} />
 
       {(evaluation.warnings.length > 0 || evaluation.limitations.length > 0) && (
         <section>
