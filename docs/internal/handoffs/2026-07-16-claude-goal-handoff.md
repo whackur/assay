@@ -113,8 +113,14 @@ ProbeCapabilities/Io가 간헐적으로 한 번 실패한 이력이 있으므로
 - Markdown 26개, 오류 0
 - workflow parse, `git diff --check`, gitlink 및 공개 한글 scan
 
-hosted GitHub Actions는 당시 push 금지 범위 때문에 실행하지 않았다. 이번 인수인계
-정리에서 `main`을 push하므로 이후 GitHub Actions 결과를 새 goal 시작 시 확인한다.
+기반 카드 완료 시에는 push 금지 범위 때문에 hosted GitHub Actions를 실행하지
+않았다. 인수인계 push 뒤 실행된 CI run `29464612278`은 1분 5초에 성공했고 format,
+Clippy, workspace tests와 public schema/golden 검증이 모두 통과했다.
+
+비차단 annotation이 1건 있다. pinned `actions/checkout`과 `actions/cache`가 Node.js
+20을 대상으로 하므로 GitHub runner가 Node.js 24로 강제 실행했다. 다음 goal에서
+upstream의 현재 immutable SHA와 runtime 변경을 공식 자료로 검토하되, exact CI
+contract와 tests를 함께 갱신하지 않고 action pin만 임의로 바꾸지 않는다.
 
 ## 4. 준비 상태의 checkpoint 세 개
 
