@@ -1,4 +1,4 @@
-# ADR 0005: Isolate the OpenAI Adapter Behind Credential and Transport Ports
+# ADR 0006: Isolate the OpenAI Adapter Behind Credential and Transport Ports
 
 - Status: Accepted
 - Date: 2026-07-16
