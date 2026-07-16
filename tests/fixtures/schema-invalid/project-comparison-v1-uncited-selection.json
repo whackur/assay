@@ -95,9 +95,7 @@
       "popularity": {
         "stars": 12
       },
-      "selection_reasons": [
-        "technical_similarity"
-      ]
+      "selection_reasons": []
     },
     {
       "candidate": {
@@ -437,7 +435,7 @@
   ],
   "mode": "functional_cohort",
   "schema_version": "1.0.0",
-  "search_depth": "two_depth",
+  "search_depth": "one_depth",
   "seed": {
     "revision": "0123456789abcdef0123456789abcdef01234567",
     "source": {

@@ -60,6 +60,56 @@
       "items": { "$ref": "#/$defs/diagnostic" }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "mode": { "const": "functional_cohort" } },
+        "required": ["mode"]
+      },
+      "then": {
+        "properties": {
+          "detailed_candidates": {
+            "items": {
+              "properties": {
+                "facets": {
+                  "allOf": [
+                    { "contains": { "properties": { "facet": { "const": "problem_overlap" } }, "required": ["facet"] } },
+                    { "contains": { "properties": { "facet": { "const": "feature_overlap" } }, "required": ["facet"] } },
+                    { "contains": { "properties": { "facet": { "const": "technical_similarity" } }, "required": ["facet"] } },
+                    { "contains": { "properties": { "facet": { "const": "structural_similarity" } }, "required": ["facet"] } }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "mode": { "const": "curated_list" } },
+        "required": ["mode"]
+      },
+      "then": {
+        "properties": {
+          "detailed_candidates": {
+            "items": {
+              "properties": {
+                "facets": {
+                  "allOf": [
+                    { "contains": { "properties": { "facet": { "const": "entry_overlap" } }, "required": ["facet"] } },
+                    { "contains": { "properties": { "facet": { "const": "list_structure" } }, "required": ["facet"] } },
+                    { "contains": { "properties": { "facet": { "const": "unique_coverage" } }, "required": ["facet"] } },
+                    { "contains": { "properties": { "facet": { "const": "editorial_quality" } }, "required": ["facet"] } }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "schemaVersion": {
       "type": "string",
@@ -76,6 +126,20 @@
       "minLength": 1,
       "maxLength": 64,
       "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+    },
+    "canonicalFacet": {
+      "type": "string",
+      "description": "The closed similarity-facet vocabulary. Each mode enumerates its four canonical facets on every detailed candidate.",
+      "enum": [
+        "problem_overlap",
+        "feature_overlap",
+        "technical_similarity",
+        "structural_similarity",
+        "entry_overlap",
+        "list_structure",
+        "unique_coverage",
+        "editorial_quality"
+      ]
     },
     "revision": {
       "type": "string",
@@ -163,7 +227,7 @@
       "additionalProperties": false,
       "required": ["facet", "weight"],
       "properties": {
-        "facet": { "$ref": "#/$defs/machineCode" },
+        "facet": { "$ref": "#/$defs/canonicalFacet" },
         "weight": { "type": "integer", "minimum": 0 }
       }
     },
@@ -197,7 +261,7 @@
       "additionalProperties": false,
       "required": ["facet", "status", "value"],
       "properties": {
-        "facet": { "$ref": "#/$defs/machineCode" },
+        "facet": { "$ref": "#/$defs/canonicalFacet" },
         "status": { "$ref": "#/$defs/status" },
         "value": {
           "oneOf": [
@@ -262,13 +326,16 @@
         "candidate": { "$ref": "#/$defs/hostedRepositoryRef" },
         "selection_reasons": {
           "type": "array",
+          "minItems": 1,
           "uniqueItems": true,
-          "items": { "$ref": "#/$defs/machineCode" }
+          "items": { "$ref": "#/$defs/canonicalFacet" }
         },
         "confidence": { "$ref": "#/$defs/unitInterval" },
         "overall_similarity": { "$ref": "#/$defs/similarity" },
         "facets": {
           "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
           "items": { "$ref": "#/$defs/facetSimilarity" }
         },
         "popularity": { "$ref": "#/$defs/popularity" },

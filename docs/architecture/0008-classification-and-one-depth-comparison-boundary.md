@@ -57,10 +57,20 @@ is deferred and out of this change's scope.
 The one-depth comparison is published as `schemas/project-comparison/v1.json`, a
 new versioned contract separate from the evaluation envelope, because discovery
 is a distinct job stage that runs before AI evaluation and produces its own
-similarity evidence. Similarity facets are computed with deterministic integer
-Jaccard arithmetic over declared tokens; an absent facet is an explicit
-unavailable value, never a zero. Popularity is recorded as labeled context and
-used only as an ordering tie-break. Curated-list mode compares an awesome list
+similarity evidence. Each mode has a closed canonical facet set —
+`functional_cohort` uses the specification's problem overlap, feature overlap,
+technical similarity, and structural similarity; `curated_list` uses entry
+overlap, list structure, unique coverage, and editorial quality — and every
+detailed candidate enumerates all four. Custom facets are rejected so the
+contract stays enumerable; the schema fixes the facet vocabulary as an enum and
+requires the mode's facets on every detailed candidate. Similarity facets are
+computed with deterministic integer Jaccard arithmetic over declared tokens; a
+facet without tokens on either side is an explicit unavailable value, never a
+zero. A detailed candidate must earn at least one cited selection reason: a
+candidate with no positive facet overlap is demoted to an explicit
+`candidate_similarity_insufficient` limitation rather than shown as a
+zero-similarity entry. Popularity is recorded as labeled context and used only
+as an ordering tie-break. Curated-list mode compares an awesome list
 against other curated lists and excludes non-curated candidates, and no linked
 project is ever expanded because discovery never recurses.
 

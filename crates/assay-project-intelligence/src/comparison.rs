@@ -9,8 +9,11 @@
 //! is exercised with deterministic fakes.
 //!
 //! Similarity is computed only from declared facet tokens with deterministic
-//! integer arithmetic; identical input yields byte-identical output. Similarity
-//! is never a quality signal and never implies misconduct. Popularity such as
+//! integer arithmetic; identical input yields byte-identical output. Each mode
+//! has a closed canonical facet set that every comparison enumerates — a facet
+//! without data on either side is explicitly unavailable, never a zero — and a
+//! detailed candidate always carries at least one cited selection reason.
+//! Similarity is never a quality signal and never implies misconduct. Popularity such as
 //! star counts is retained as context and used only as an ordering tie-break;
 //! it never raises a similarity value. An awesome list is compared as a curated
 //! artifact against other curated lists, never by analyzing its linked projects.
@@ -40,6 +43,27 @@ impl CohortMode {
             Self::CuratedList => "curated_list",
         }
     }
+
+    /// Returns the closed canonical facet set every comparison must enumerate.
+    ///
+    /// The specification's similarity dimensions are contract fields, not
+    /// seed-dependent extras: a facet without data is explicit `unavailable`.
+    pub const fn canonical_facets(self) -> [&'static str; 4] {
+        match self {
+            Self::FunctionalCohort => [
+                "problem_overlap",
+                "feature_overlap",
+                "technical_similarity",
+                "structural_similarity",
+            ],
+            Self::CuratedList => [
+                "entry_overlap",
+                "list_structure",
+                "unique_coverage",
+                "editorial_quality",
+            ],
+        }
+    }
 }
 
 /// The one-depth discovery guarantee recorded on every comparison.
@@ -61,6 +85,7 @@ impl SearchDepth {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ComparisonErrorKind {
     InvalidFacet,
+    NonCanonicalFacet,
     InvalidToken,
     EmptyProfile,
     CandidateNotHosted,
@@ -147,15 +172,23 @@ pub struct ComparisonProfile {
 impl ComparisonProfile {
     /// Validates the seed profile, requiring at least one non-empty facet.
     ///
-    /// Facet codes and tokens are canonical snake_case machine codes so the
-    /// comparison stays portable and free of raw source text. Empty token sets
-    /// are dropped rather than compared as a zero.
+    /// Facets are restricted to the mode's closed canonical set; custom facets
+    /// are rejected so the published contract stays enumerable. Tokens are
+    /// canonical snake_case machine codes so the comparison stays portable and
+    /// free of raw source text. Empty token sets are dropped rather than
+    /// compared as a zero.
     pub fn new(
         mode: CohortMode,
         facet_tokens: Vec<(String, Vec<String>)>,
         evidence_ids: Vec<EvidenceId>,
     ) -> Result<Self, ComparisonError> {
         let facets = validate_facets(facet_tokens)?;
+        if facets
+            .keys()
+            .any(|facet| !mode.canonical_facets().contains(&facet.as_str()))
+        {
+            return Err(ComparisonError::new(ComparisonErrorKind::NonCanonicalFacet));
+        }
         if facets.is_empty() || evidence_ids.is_empty() {
             return Err(ComparisonError::new(ComparisonErrorKind::EmptyProfile));
         }
@@ -475,9 +508,10 @@ pub fn discover_cohort(
 
     let facet_weights = seed
         .profile
-        .facets
-        .keys()
-        .map(|facet| (facet.clone(), policy.facet_weight(facet)))
+        .mode
+        .canonical_facets()
+        .into_iter()
+        .map(|facet| (facet.to_owned(), policy.facet_weight(facet)))
         .collect::<BTreeMap<_, _>>();
 
     let mut limitations: Vec<(String, Vec<EvidenceId>)> = Vec::new();
@@ -509,7 +543,10 @@ pub fn discover_cohort(
             continue;
         }
         let candidate = compare_candidate(seed, descriptor, policy);
-        if candidate.overall_similarity_bp.is_none() {
+        // A candidate must earn at least one cited selection reason; a zero
+        // overlap or facet-less result is an explicit insufficiency, not a
+        // zero-similarity detailed entry.
+        if candidate.overall_similarity_bp.is_none() || candidate.selection_reasons.is_empty() {
             limitations.push((
                 "candidate_similarity_insufficient".to_owned(),
                 vec![descriptor.discovery_evidence_id.clone()],
@@ -572,25 +609,30 @@ fn compare_candidate(
     let mut available = 0usize;
     let mut selection_reasons = Vec::new();
 
-    for (facet, seed_tokens) in &seed.profile.facets {
-        let similarity = descriptor
-            .facets
-            .get(facet)
-            .map(|candidate_tokens| jaccard_basis_points(seed_tokens, candidate_tokens));
+    // Every canonical facet is enumerated; a side without tokens for a facet
+    // makes that facet explicitly unavailable, never a zero.
+    let canonical = seed.profile.mode.canonical_facets();
+    for facet in canonical {
+        let similarity = match (seed.profile.facets.get(facet), descriptor.facets.get(facet)) {
+            (Some(seed_tokens), Some(candidate_tokens)) => {
+                Some(jaccard_basis_points(seed_tokens, candidate_tokens))
+            }
+            _ => None,
+        };
         if let Some(bp) = similarity {
             available += 1;
             let weight = u64::from(policy.facet_weight(facet));
             weight_sum += weight;
             value_sum += weight * u64::from(bp);
             if bp > 0 {
-                selection_reasons.push(facet.clone());
+                selection_reasons.push(facet.to_owned());
             }
         }
-        facet_similarities.insert(facet.clone(), similarity);
+        facet_similarities.insert(facet.to_owned(), similarity);
     }
 
     let overall_similarity_bp = (weight_sum > 0).then(|| (value_sum / weight_sum) as u32);
-    let confidence_bp = ((available as u64 * 10_000) / seed.profile.facets.len() as u64) as u32;
+    let confidence_bp = ((available as u64 * 10_000) / canonical.len() as u64) as u32;
     selection_reasons.sort();
 
     let (seed_only, candidate_only) = differentiators(seed, descriptor);
@@ -1004,6 +1046,116 @@ mod tests {
             .unwrap()
         };
         assert_eq!(build(), build());
+    }
+
+    #[test]
+    fn every_canonical_facet_is_reported_with_explicit_unavailability() {
+        // The seed declares one facet; the contract still enumerates all four.
+        let profile = ComparisonProfile::new(
+            CohortMode::FunctionalCohort,
+            vec![("problem_overlap".to_owned(), vec!["scoring".to_owned()])],
+            vec![evidence("evidence:repository:snapshot")],
+        )
+        .unwrap();
+        let narrow_seed = SeedProject::new(hosted("example-org", "seed"), revision(), profile);
+        let search = FakeSearch {
+            outcome: CandidateSearchOutcome::new(
+                EvidenceStatus::Complete,
+                vec![candidate(
+                    "a",
+                    Some(10),
+                    vec![("problem_overlap", vec!["scoring"])],
+                )],
+            )
+            .unwrap(),
+            calls: Cell::new(0),
+        };
+        let value = discover_cohort(&narrow_seed, &search, &ComparisonPolicy::v1())
+            .unwrap()
+            .to_machine_value();
+        let facets = value["detailed_candidates"][0]["facets"]
+            .as_array()
+            .unwrap();
+        let names = facets
+            .iter()
+            .map(|facet| facet["facet"].as_str().unwrap().to_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names,
+            [
+                "feature_overlap",
+                "problem_overlap",
+                "structural_similarity",
+                "technical_similarity",
+            ],
+            "all four canonical facets must always be enumerated"
+        );
+        for facet in facets {
+            if facet["facet"] == "problem_overlap" {
+                assert_eq!(facet["status"], "complete");
+            } else {
+                assert_eq!(facet["status"], "unavailable");
+                assert!(facet["value"].is_null(), "an absent facet is never a zero");
+            }
+        }
+        assert_eq!(
+            value["facet_weights"].as_array().unwrap().len(),
+            4,
+            "weights cover the canonical facet set"
+        );
+    }
+
+    #[test]
+    fn a_non_canonical_profile_facet_is_rejected() {
+        assert_eq!(
+            ComparisonProfile::new(
+                CohortMode::FunctionalCohort,
+                vec![("custom_facet".to_owned(), vec!["token".to_owned()])],
+                vec![evidence("evidence:repository:snapshot")],
+            )
+            .unwrap_err()
+            .kind(),
+            ComparisonErrorKind::NonCanonicalFacet
+        );
+        // Curated facets are canonical only for curated mode and vice versa.
+        assert_eq!(
+            ComparisonProfile::new(
+                CohortMode::FunctionalCohort,
+                vec![("entry_overlap".to_owned(), vec!["token".to_owned()])],
+                vec![evidence("evidence:repository:snapshot")],
+            )
+            .unwrap_err()
+            .kind(),
+            ComparisonErrorKind::NonCanonicalFacet
+        );
+    }
+
+    #[test]
+    fn a_zero_overlap_candidate_is_demoted_rather_than_detailed_without_reasons() {
+        // A shared facet with fully disjoint tokens yields no selection reason.
+        let search = FakeSearch {
+            outcome: CandidateSearchOutcome::new(
+                EvidenceStatus::Complete,
+                vec![candidate(
+                    "disjoint",
+                    Some(9_000),
+                    vec![("problem_overlap", vec!["image_processing"])],
+                )],
+            )
+            .unwrap(),
+            calls: Cell::new(0),
+        };
+        let comparison = discover_cohort(&seed(), &search, &ComparisonPolicy::v1()).unwrap();
+        assert!(
+            comparison.detailed_candidates().is_empty(),
+            "a candidate without a cited selection reason must not be detailed"
+        );
+        assert_eq!(comparison.status(), EvidenceStatus::Insufficient);
+        let value = comparison.to_machine_value();
+        assert_eq!(
+            value["limitations"][0]["code"],
+            "candidate_similarity_insufficient"
+        );
     }
 
     #[test]

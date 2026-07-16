@@ -1378,6 +1378,10 @@ fn reviewed_invalid_fixtures_are_rejected() {
                 "project-comparison-v1-recursive-depth.json" => {
                     instance["search_depth"] = Value::String("one_depth".to_owned());
                 }
+                "project-comparison-v1-uncited-selection.json" => {
+                    instance["detailed_candidates"][0]["selection_reasons"] =
+                        serde_json::json!(["technical_similarity"]);
+                }
                 _ => panic!("invalid fixture lacks an isolation repair: {fixture_name}"),
             }
             let errors = validation_messages(&validator, &instance);
