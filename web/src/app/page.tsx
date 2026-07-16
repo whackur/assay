@@ -39,6 +39,12 @@ export default function HomePage() {
             <Link href="/evaluations/acme/in-progress">acme/in-progress</Link>{" "}
             <span className="muted">— in-flight analysis progress</span>
           </li>
+          <li>
+            <span className="muted">
+              Submit <code>github.com/acme/recently-analyzed</code> above to see
+              the refresh-cooldown state.
+            </span>
+          </li>
         </ul>
       </section>
     </div>

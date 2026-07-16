@@ -6,6 +6,7 @@ import type {
   Status,
 } from "@/lib/contract/types";
 import type { EvaluationRecord } from "@/lib/api/client";
+import type { EvaluatorProfileKind } from "@/lib/state/cooldown";
 
 // Contract-based development and demo fixtures. These conform to
 // schemas/project-evaluation/v1.json and schemas/project-evidence/v1.json.
@@ -244,6 +245,14 @@ const degradedEvaluation: ProjectEvaluation = {
   limitations: [{ code: "repository_code_not_executed", evidence_ids: [SNAPSHOT] }],
 };
 
+// A recently analyzed anonymous public result. A duplicate submission inside
+// the 14-day anonymous refresh cooldown cannot force a new run (spec 12.3).
+const recentRepo = source("acme", "recently-analyzed");
+const recentEvaluation: ProjectEvaluation = {
+  ...scoredEvaluation,
+  project: { source: recentRepo, revision: REVISION },
+};
+
 const inFlightRepo = source("acme", "in-progress");
 
 export const RECORDS: Record<string, EvaluationRecord> = {
@@ -273,6 +282,12 @@ export const RECORDS: Record<string, EvaluationRecord> = {
     evaluation: degradedEvaluation,
     evidence: [snapshotEvidence(degradedRepo), fileEvidence(degradedRepo, "src/index.ts", "b")],
   },
+  "acme/recently-analyzed": {
+    id: "acme/recently-analyzed",
+    state: "complete",
+    evaluation: recentEvaluation,
+    evidence: [snapshotEvidence(recentRepo), fileEvidence(recentRepo, "src/app.ts", "a")],
+  },
   "acme/in-progress": {
     id: "acme/in-progress",
     state: "in_flight",
@@ -291,3 +306,14 @@ export function findRecordId(target: HostedSource): string | null {
   const key = `${target.namespace}/${target.repository}`;
   return key in RECORDS ? key : null;
 }
+
+export interface CooldownFixture {
+  profile: EvaluatorProfileKind;
+  last_run_at: string;
+}
+
+// Last-run metadata that drives the refresh cooldown state for a matched cache
+// hit. Absent means no recent run to gate against.
+export const SUBMISSION_COOLDOWNS: Record<string, CooldownFixture> = {
+  "acme/recently-analyzed": { profile: "anonymous", last_run_at: "2026-07-14T00:00:00Z" },
+};
