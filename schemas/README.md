@@ -13,8 +13,12 @@ remain independent and do not generate a second public schema.
 | `project-evidence` | Complete | Citable facts or explicit availability envelopes without raw source or person scores |
 | `project-analysis` | Complete | Offline composition of one manifest and its evidence records |
 | `capabilities` | Complete | Exact implemented commands, formats, schemas, languages, and feature states |
-| `ai-judgment` | Reviewable skeleton | Bounded rubric ratings with required evidence citations |
+| `ai-judgment` | Complete | Bounded rubric ratings with required evidence citations |
 | `project-evaluation` | Reviewable skeleton | Dimensioned project-score envelope compiled from cited evidence |
+
+`ai-judgment/v1.json` is the implemented provider-independent qualitative
+judgment contract. `project-evaluation/v1.json` remains a reviewable contract
+skeleton until deterministic score compilation is implemented.
 
 Every instance declares `schema_version`. The `v1.json` schemas accept only
 `1.x.y` versions. A new major version requires a new schema artifact and an

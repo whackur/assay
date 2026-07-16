@@ -1,0 +1,15 @@
+[package]
+name = "assay-ai-evaluator"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+assay-domain = { path = "../assay-domain" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+
+[dev-dependencies]
+jsonschema = { version = "0.33", default-features = false }

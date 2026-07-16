@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/assay-ai-evaluator",
     "crates/assay-classifier",
     "crates/assay-cli",
     "crates/assay-domain",
