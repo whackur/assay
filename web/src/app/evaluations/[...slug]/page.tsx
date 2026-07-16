@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { fixtureApi } from "@/lib/api/client";
 import { ResultView } from "@/components/ResultView";
 import { ProgressPanel } from "@/components/ProgressPanel";
+import { isPublicResult } from "@/lib/state/result-state";
 
 export default async function EvaluationPage({
   params,
@@ -17,6 +18,9 @@ export default async function EvaluationPage({
   if (record.state === "in_flight") {
     return <ProgressPanel job={record.job} />;
   }
+
+  // The public route only serves published public results (OPI-013).
+  if (!isPublicResult(record.evaluation)) notFound();
 
   const comparison = await fixtureApi.getComparison(id);
   return (

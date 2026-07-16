@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { ProjectEvaluation } from "@/lib/contract/types";
-import { resultState } from "@/lib/state/result-state";
+import { isPublicResult, resultState } from "@/lib/state/result-state";
 
 function evaluation(overrides: Partial<ProjectEvaluation>): ProjectEvaluation {
   const base: ProjectEvaluation = {
@@ -72,6 +72,12 @@ test("provisional and insufficient release gate yield badges", () => {
   );
   assert.deepEqual(s.badges, ["provisional", "insufficient_evidence"]);
   assert.equal(s.releaseGateMet, false);
+});
+
+test("only a public result is publicly viewable", () => {
+  assert.equal(isPublicResult(evaluation({ visibility: "public" })), true);
+  assert.equal(isPublicResult(evaluation({ visibility: "private_preview" })), false);
+  assert.equal(isPublicResult(evaluation({ visibility: "private_local" })), false);
 });
 
 test("provider-unavailable diagnostic is detected", () => {

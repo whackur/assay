@@ -45,6 +45,13 @@ export function visibilityLabel(visibility: Visibility): string {
   return VISIBILITY_LABELS[visibility];
 }
 
+// A public, unauthenticated route may only serve a public result. Private
+// previews stay private until explicitly published (OPI-013); authenticated
+// access is IAM wiring scope, not this fixture app.
+export function isPublicResult(evaluation: ProjectEvaluation): boolean {
+  return evaluation.visibility === "public";
+}
+
 function hasCode(evaluation: ProjectEvaluation, codes: Set<string>): boolean {
   return [...evaluation.warnings, ...evaluation.limitations].some((d) =>
     codes.has(d.code),
