@@ -1,0 +1,423 @@
+{
+  "additional_candidates": [
+    {
+      "candidate": {
+        "revision": "fedcba9876543210fedcba9876543210fedcba98",
+        "source": {
+          "kind": "hosted",
+          "namespace": "other-org",
+          "provider": "github",
+          "repository": "rival-b"
+        }
+      },
+      "confidence": 0.6666,
+      "evidence_ids": [
+        "evidence:github:candidate-rival-b"
+      ],
+      "overall_similarity": {
+        "status": "complete",
+        "value": 0.3
+      }
+    }
+  ],
+  "comparison_version": "project-comparison-1",
+  "detailed_candidates": [
+    {
+      "candidate": {
+        "revision": "fedcba9876543210fedcba9876543210fedcba98",
+        "source": {
+          "kind": "hosted",
+          "namespace": "other-org",
+          "provider": "github",
+          "repository": "rival-e"
+        }
+      },
+      "confidence": 0.3333,
+      "differentiators": {
+        "candidate_only": [],
+        "seed_only": [
+          {
+            "evidence_ids": [
+              "evidence:repository:snapshot"
+            ],
+            "token": "cli"
+          },
+          {
+            "evidence_ids": [
+              "evidence:repository:snapshot"
+            ],
+            "token": "dependency_analysis"
+          },
+          {
+            "evidence_ids": [
+              "evidence:repository:snapshot"
+            ],
+            "token": "json_output"
+          },
+          {
+            "evidence_ids": [
+              "evidence:repository:snapshot"
+            ],
+            "token": "project_scoring"
+          }
+        ]
+      },
+      "evidence_ids": [
+        "evidence:github:candidate-rival-e",
+        "evidence:repository:snapshot"
+      ],
+      "facets": [
+        {
+          "facet": "feature_overlap",
+          "status": "unavailable",
+          "value": null
+        },
+        {
+          "facet": "problem_overlap",
+          "status": "unavailable",
+          "value": null
+        },
+        {
+          "facet": "technical_similarity",
+          "status": "complete",
+          "value": 1.0
+        }
+      ],
+      "overall_similarity": {
+        "status": "complete",
+        "value": 1.0
+      },
+      "popularity": {
+        "stars": 12
+      },
+      "selection_reasons": [
+        "technical_similarity"
+      ]
+    },
+    {
+      "candidate": {
+        "revision": "fedcba9876543210fedcba9876543210fedcba98",
+        "source": {
+          "kind": "hosted",
+          "namespace": "other-org",
+          "provider": "github",
+          "repository": "rival-a"
+        }
+      },
+      "confidence": 1.0,
+      "differentiators": {
+        "candidate_only": [
+          {
+            "evidence_ids": [
+              "evidence:github:candidate-rival-a"
+            ],
+            "token": "web_dashboard"
+          }
+        ],
+        "seed_only": [
+          {
+            "evidence_ids": [
+              "evidence:repository:snapshot"
+            ],
+            "token": "json_output"
+          }
+        ]
+      },
+      "evidence_ids": [
+        "evidence:github:candidate-rival-a",
+        "evidence:repository:snapshot"
+      ],
+      "facets": [
+        {
+          "facet": "feature_overlap",
+          "status": "complete",
+          "value": 0.3333
+        },
+        {
+          "facet": "problem_overlap",
+          "status": "complete",
+          "value": 1.0
+        },
+        {
+          "facet": "technical_similarity",
+          "status": "complete",
+          "value": 1.0
+        }
+      ],
+      "overall_similarity": {
+        "status": "complete",
+        "value": 0.7499
+      },
+      "popularity": {
+        "stars": 1200
+      },
+      "selection_reasons": [
+        "feature_overlap",
+        "problem_overlap",
+        "technical_similarity"
+      ]
+    },
+    {
+      "candidate": {
+        "revision": "fedcba9876543210fedcba9876543210fedcba98",
+        "source": {
+          "kind": "hosted",
+          "namespace": "other-org",
+          "provider": "github",
+          "repository": "rival-c"
+        }
+      },
+      "confidence": 0.3333,
+      "differentiators": {
+        "candidate_only": [],
+        "seed_only": [
+          {
+            "evidence_ids": [
+              "evidence:repository:snapshot"
+            ],
+            "token": "dependency_analysis"
+          },
+          {
+            "evidence_ids": [
+              "evidence:repository:snapshot"
+            ],
+            "token": "json_output"
+          },
+          {
+            "evidence_ids": [
+              "evidence:repository:snapshot"
+            ],
+            "token": "project_scoring"
+          },
+          {
+            "evidence_ids": [
+              "evidence:repository:snapshot"
+            ],
+            "token": "rust"
+          }
+        ]
+      },
+      "evidence_ids": [
+        "evidence:github:candidate-rival-c",
+        "evidence:repository:snapshot"
+      ],
+      "facets": [
+        {
+          "facet": "feature_overlap",
+          "status": "complete",
+          "value": 0.5
+        },
+        {
+          "facet": "problem_overlap",
+          "status": "unavailable",
+          "value": null
+        },
+        {
+          "facet": "technical_similarity",
+          "status": "unavailable",
+          "value": null
+        }
+      ],
+      "overall_similarity": {
+        "status": "complete",
+        "value": 0.5
+      },
+      "popularity": {
+        "stars": 5000
+      },
+      "selection_reasons": [
+        "feature_overlap"
+      ]
+    },
+    {
+      "candidate": {
+        "revision": "fedcba9876543210fedcba9876543210fedcba98",
+        "source": {
+          "kind": "hosted",
+          "namespace": "other-org",
+          "provider": "github",
+          "repository": "rival-d"
+        }
+      },
+      "confidence": 0.3333,
+      "differentiators": {
+        "candidate_only": [],
+        "seed_only": [
+          {
+            "evidence_ids": [
+              "evidence:repository:snapshot"
+            ],
+            "token": "cli"
+          },
+          {
+            "evidence_ids": [
+              "evidence:repository:snapshot"
+            ],
+            "token": "json_output"
+          },
+          {
+            "evidence_ids": [
+              "evidence:repository:snapshot"
+            ],
+            "token": "project_scoring"
+          },
+          {
+            "evidence_ids": [
+              "evidence:repository:snapshot"
+            ],
+            "token": "rust"
+          }
+        ]
+      },
+      "evidence_ids": [
+        "evidence:github:candidate-rival-d",
+        "evidence:repository:snapshot"
+      ],
+      "facets": [
+        {
+          "facet": "feature_overlap",
+          "status": "unavailable",
+          "value": null
+        },
+        {
+          "facet": "problem_overlap",
+          "status": "complete",
+          "value": 0.5
+        },
+        {
+          "facet": "technical_similarity",
+          "status": "unavailable",
+          "value": null
+        }
+      ],
+      "overall_similarity": {
+        "status": "complete",
+        "value": 0.5
+      },
+      "popularity": {
+        "stars": 80
+      },
+      "selection_reasons": [
+        "problem_overlap"
+      ]
+    },
+    {
+      "candidate": {
+        "revision": "fedcba9876543210fedcba9876543210fedcba98",
+        "source": {
+          "kind": "hosted",
+          "namespace": "other-org",
+          "provider": "github",
+          "repository": "rival-f"
+        }
+      },
+      "confidence": 0.3333,
+      "differentiators": {
+        "candidate_only": [],
+        "seed_only": [
+          {
+            "evidence_ids": [
+              "evidence:repository:snapshot"
+            ],
+            "token": "cli"
+          },
+          {
+            "evidence_ids": [
+              "evidence:repository:snapshot"
+            ],
+            "token": "dependency_analysis"
+          },
+          {
+            "evidence_ids": [
+              "evidence:repository:snapshot"
+            ],
+            "token": "project_scoring"
+          },
+          {
+            "evidence_ids": [
+              "evidence:repository:snapshot"
+            ],
+            "token": "rust"
+          }
+        ]
+      },
+      "evidence_ids": [
+        "evidence:github:candidate-rival-f",
+        "evidence:repository:snapshot"
+      ],
+      "facets": [
+        {
+          "facet": "feature_overlap",
+          "status": "complete",
+          "value": 0.5
+        },
+        {
+          "facet": "problem_overlap",
+          "status": "unavailable",
+          "value": null
+        },
+        {
+          "facet": "technical_similarity",
+          "status": "unavailable",
+          "value": null
+        }
+      ],
+      "overall_similarity": {
+        "status": "complete",
+        "value": 0.5
+      },
+      "popularity": {
+        "stars": 7
+      },
+      "selection_reasons": [
+        "feature_overlap"
+      ]
+    }
+  ],
+  "evidence_ids": [
+    "evidence:github:candidate-rival-a",
+    "evidence:github:candidate-rival-b",
+    "evidence:github:candidate-rival-c",
+    "evidence:github:candidate-rival-d",
+    "evidence:github:candidate-rival-e",
+    "evidence:github:candidate-rival-f",
+    "evidence:github:candidate-unrelated",
+    "evidence:repository:snapshot"
+  ],
+  "facet_weights": [
+    {
+      "facet": "feature_overlap",
+      "weight": 30
+    },
+    {
+      "facet": "problem_overlap",
+      "weight": 30
+    },
+    {
+      "facet": "technical_similarity",
+      "weight": 20
+    }
+  ],
+  "limitations": [
+    {
+      "code": "candidate_similarity_insufficient",
+      "evidence_ids": [
+        "evidence:github:candidate-unrelated"
+      ]
+    }
+  ],
+  "mode": "functional_cohort",
+  "schema_version": "1.0.0",
+  "search_depth": "two_depth",
+  "seed": {
+    "revision": "0123456789abcdef0123456789abcdef01234567",
+    "source": {
+      "kind": "hosted",
+      "namespace": "example-org",
+      "provider": "github",
+      "repository": "assay"
+    }
+  },
+  "status": "partial",
+  "warnings": []
+}

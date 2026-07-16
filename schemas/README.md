@@ -15,10 +15,15 @@ remain independent and do not generate a second public schema.
 | `capabilities` | Complete | Exact implemented commands, formats, schemas, languages, and feature states |
 | `ai-judgment` | Complete | Bounded rubric ratings with required evidence citations |
 | `project-evaluation` | Reviewable skeleton | Dimensioned project-score envelope compiled from cited evidence |
+| `project-comparison` | Complete | One-depth functional-cohort comparison with cited similarity evidence and differentiators |
 
 `ai-judgment/v1.json` is the implemented provider-independent qualitative
 judgment contract. `project-evaluation/v1.json` remains a reviewable contract
 skeleton until deterministic score compilation is implemented.
+`project-comparison/v1.json` is the implemented one-depth comparison contract:
+discovery stops at one search depth, a discovered candidate never seeds another
+pass, popularity is context only, and an unavailable facet is never a zero
+similarity.
 
 Every instance declares `schema_version`. The `v1.json` schemas accept only
 `1.x.y` versions. A new major version requires a new schema artifact and an

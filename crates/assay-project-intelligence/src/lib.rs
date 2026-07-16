@@ -15,12 +15,24 @@
 
 #![forbid(unsafe_code)]
 
+mod classification;
+mod comparison;
 mod contract;
 mod evidence;
 mod feature;
 mod machine;
 mod scoring;
 
+pub use classification::{
+    ClassificationError, ClassificationErrorKind, ClassificationOutcome, ClassificationPolicy,
+    MaturityObservation, MaturitySignal, TypeObservation, TypeSignal, classify_project,
+    criteria_applicability,
+};
+pub use comparison::{
+    Candidate, CandidateDescriptor, CandidateSearch, CandidateSearchError, CandidateSearchOutcome,
+    CohortComparison, CohortMode, CohortQuery, ComparisonError, ComparisonErrorKind,
+    ComparisonPolicy, ComparisonProfile, SearchDepth, SeedProject, discover_cohort,
+};
 pub use contract::validate_project_bundle_consistency;
 pub use evidence::{
     ClassificationAvailabilityReason, ClassificationCategoryRecord, ClassificationEvidenceFact,

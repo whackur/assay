@@ -87,7 +87,7 @@ impl ScoreDimension {
 }
 
 /// Classified project type, matching the public evaluation contract.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ProjectType {
     Application,
     LibrarySdkFramework,

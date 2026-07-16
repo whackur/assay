@@ -767,7 +767,7 @@ fn representative_invalid_contracts_are_rejected() {
 
 #[test]
 fn discovered_contract_files_have_exact_fixture_mapping_and_unique_json_keys() {
-    assert_eq!(contracts().len(), 6);
+    assert_eq!(contracts().len(), 7);
     assert!(
         parse_json_without_duplicate_keys(r#"{"schema_version":"1.0.0","schema_version":"1.0.1"}"#)
             .is_err(),
@@ -1374,6 +1374,9 @@ fn reviewed_invalid_fixtures_are_rejected() {
                 }
                 "project-analysis-v1-invalid-nested-manifest.json" => {
                     instance = golden("project-analysis");
+                }
+                "project-comparison-v1-recursive-depth.json" => {
+                    instance["search_depth"] = Value::String("one_depth".to_owned());
                 }
                 _ => panic!("invalid fixture lacks an isolation repair: {fixture_name}"),
             }
