@@ -14,4 +14,5 @@ serde_json = "1.0"
 
 [dev-dependencies]
 assay-test-fixtures = { path = "../../tests/support/assay-fixtures" }
+jsonschema = { version = "0.33", default-features = false }
 tempfile = "3.20"

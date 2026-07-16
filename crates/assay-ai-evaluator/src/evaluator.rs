@@ -1,6 +1,9 @@
 use std::{collections::BTreeSet, str::FromStr};
 
-use assay_domain::EvidenceId;
+use assay_domain::{
+    AnalysisVersion, ContentHash, DomainValueError, EvidenceId, EvidenceStatus,
+    RubricApplicability, RubricCriterionId, RubricJudgment, RubricJudgmentSet,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -435,6 +438,54 @@ impl ValidatedJudgmentSet {
             confidence: judgment.confidence,
             evidence_ids: &judgment.evidence_ids,
         })
+    }
+
+    /// Maps the validated result onto the shared domain judgment contract that
+    /// the deterministic score compiler consumes.
+    ///
+    /// Provider rationale is intentionally dropped; only bounded ratings and
+    /// citations cross into the compiler contract, so no provider prose or
+    /// provider-emitted score can reach a published score.
+    pub fn to_rubric_judgment_set(&self) -> Result<RubricJudgmentSet, DomainValueError> {
+        let judgments = self
+            .scoring_judgments()
+            .map(|judgment| {
+                RubricJudgment::new(
+                    RubricCriterionId::from_str(judgment.criterion_id())?,
+                    map_applicability(judgment.applicability()),
+                    judgment.rating(),
+                    judgment.rating_scale(),
+                    judgment.confidence(),
+                    judgment.evidence_ids().to_vec(),
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        RubricJudgmentSet::new(
+            AnalysisVersion::from_str(&self.evaluation_version)?,
+            AnalysisVersion::from_str(&self.rubric_version)?,
+            map_status(self.status),
+            ContentHash::from_str(&self.evidence_bundle_hash)?,
+            judgments,
+        )
+    }
+}
+
+const fn map_applicability(applicability: Applicability) -> RubricApplicability {
+    match applicability {
+        Applicability::Applicable => RubricApplicability::Applicable,
+        Applicability::PartiallyApplicable => RubricApplicability::PartiallyApplicable,
+        Applicability::NotApplicable => RubricApplicability::NotApplicable,
+    }
+}
+
+const fn map_status(status: EvaluationStatus) -> EvidenceStatus {
+    match status {
+        EvaluationStatus::Complete => EvidenceStatus::Complete,
+        EvaluationStatus::Partial => EvidenceStatus::Partial,
+        EvaluationStatus::Unavailable => EvidenceStatus::Unavailable,
+        EvaluationStatus::Unsupported => EvidenceStatus::Unsupported,
+        EvaluationStatus::Insufficient => EvidenceStatus::Insufficient,
+        EvaluationStatus::Pending => EvidenceStatus::Pending,
     }
 }
 

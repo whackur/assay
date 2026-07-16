@@ -17,7 +17,7 @@ pub struct DomainValueError {
 }
 
 impl DomainValueError {
-    fn new(value_kind: &'static str, reason: &'static str) -> Self {
+    pub(crate) fn new(value_kind: &'static str, reason: &'static str) -> Self {
         Self { value_kind, reason }
     }
 

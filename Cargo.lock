@@ -149,6 +149,7 @@ dependencies = [
  "assay-domain",
  "assay-git",
  "assay-test-fixtures",
+ "jsonschema",
  "serde_json",
  "sha2",
  "tempfile",

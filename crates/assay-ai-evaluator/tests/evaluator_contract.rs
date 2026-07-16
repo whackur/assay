@@ -602,3 +602,34 @@ fn blocks_prompt_injection_shapes_regardless_of_position() {
         );
     }
 }
+
+#[test]
+fn validated_judgments_map_onto_the_shared_domain_compiler_contract() {
+    let bundle = bundle();
+    let validated = evaluator()
+        .evaluate(&DeterministicFakeProvider::valid(), &bundle)
+        .expect("the deterministic provider must produce a valid judgment set");
+    let domain_set = validated
+        .to_rubric_judgment_set()
+        .expect("validated judgments must map onto the domain contract");
+
+    assert_eq!(
+        domain_set.evaluation_version().as_str(),
+        "project-intelligence-1"
+    );
+    assert_eq!(domain_set.rubric_version().as_str(), "project-rubric-1");
+    assert_eq!(
+        domain_set.evidence_bundle_hash().as_str(),
+        bundle.content_hash()
+    );
+    assert_eq!(domain_set.judgments().len(), validated.judgments().len());
+    // Every mapped citation stays within the bundle the provider was shown.
+    for judgment in domain_set.judgments() {
+        for evidence in judgment.evidence_ids() {
+            assert!(
+                bundle.items().iter().any(|item| item.id() == evidence),
+                "a mapped citation must remain inside the evidence bundle"
+            );
+        }
+    }
+}

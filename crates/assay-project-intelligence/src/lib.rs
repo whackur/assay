@@ -19,6 +19,7 @@ mod contract;
 mod evidence;
 mod feature;
 mod machine;
+mod scoring;
 
 pub use contract::validate_project_bundle_consistency;
 pub use evidence::{
@@ -31,6 +32,13 @@ pub use evidence::{
     assemble_project_evidence,
 };
 pub use machine::{MachineMappingError, build_project_analysis};
+pub use scoring::{
+    ASSAY_SCORE_DIMENSIONS, AssayScore, CitedStatement, CompiledEvaluation, CompilerPolicy,
+    ContributionSource, DeterministicContribution, DimensionScore, EvaluatorDescriptor,
+    EvaluatorProvider, PotentialContext, PotentialScore, ProjectClassification, ProjectMaturity,
+    ProjectType, ScoreCompileError, ScoreCompileErrorKind, ScoreCompilerInput, ScoreContribution,
+    ScoreDimension, Visibility,
+};
 
 /// Stable package identifier for diagnostics and capability reporting.
 pub const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");

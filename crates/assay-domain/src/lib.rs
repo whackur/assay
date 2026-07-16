@@ -5,8 +5,10 @@
 
 #![forbid(unsafe_code)]
 
+mod judgment;
 mod values;
 
+pub use judgment::{RubricApplicability, RubricCriterionId, RubricJudgment, RubricJudgmentSet};
 pub use values::{
     AnalysisManifest, AnalysisStatus, AnalysisVersion, ContentHash, DomainValueError, EvidenceId,
     EvidenceSource, EvidenceSourceKind, EvidenceStatus, Limitation, RepositorySource, RevisionId,
