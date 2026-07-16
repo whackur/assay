@@ -6,9 +6,11 @@ import { test } from "node:test";
 import { parseEvaluation } from "@/lib/contract/parse";
 
 // Fresh output produced by the Rust evaluator -> domain -> score-compiler
-// chain and regenerated on every `cargo test` run (see the Rust guard test
-// full_chain_evaluation_is_deterministic_and_matches_committed_fixture). This
-// is producer output rather than a reviewed golden.
+// chain. The Rust guard test
+// full_chain_evaluation_is_deterministic_and_matches_committed_fixture
+// compares this file on every `cargo test` run and only regenerates it when
+// ASSAY_BLESS_PRODUCED is set. This is producer output rather than a reviewed
+// golden.
 const producedDir = join(
   dirname(fileURLToPath(import.meta.url)),
   "../../../../tests/integration/produced",
