@@ -205,19 +205,29 @@ pub(crate) fn validate_untrusted_text(
         ));
     }
     let lower = value.to_ascii_lowercase();
-    const INJECTION_MARKERS: &[&str] = &[
+    const INJECTION_PHRASES: &[&str] = &[
         "ignore previous instruction",
         "ignore all previous",
+        "jailbreak",
+    ];
+    // Role labels signal injection only when they open the statement, not mid-prose.
+    const INJECTION_PREFIXES: &[&str] = &[
         "system message",
         "developer message",
-        "follow these instructions",
-        "jailbreak",
         "<system",
         "assistant:",
+        "system:",
+        "developer:",
     ];
-    if INJECTION_MARKERS
+    let opening = lower.trim_start_matches(|character: char| {
+        character.is_whitespace() || matches!(character, '>' | '#' | '-' | '*' | '"' | '\'' | '`')
+    });
+    if INJECTION_PHRASES
         .iter()
         .any(|marker| lower.contains(marker))
+        || INJECTION_PREFIXES
+            .iter()
+            .any(|marker| opening.starts_with(marker))
     {
         return Err(EvaluationError::new(EvaluationErrorKind::PromptInjection));
     }
