@@ -72,6 +72,8 @@
             "items": {
               "properties": {
                 "facets": {
+                  "minItems": 4,
+                  "maxItems": 4,
                   "allOf": [
                     { "contains": { "properties": { "facet": { "const": "problem_overlap" } }, "required": ["facet"] } },
                     { "contains": { "properties": { "facet": { "const": "feature_overlap" } }, "required": ["facet"] } },
@@ -96,11 +98,14 @@
             "items": {
               "properties": {
                 "facets": {
+                  "minItems": 5,
+                  "maxItems": 5,
                   "allOf": [
                     { "contains": { "properties": { "facet": { "const": "entry_overlap" } }, "required": ["facet"] } },
                     { "contains": { "properties": { "facet": { "const": "list_structure" } }, "required": ["facet"] } },
                     { "contains": { "properties": { "facet": { "const": "unique_coverage" } }, "required": ["facet"] } },
-                    { "contains": { "properties": { "facet": { "const": "editorial_quality" } }, "required": ["facet"] } }
+                    { "contains": { "properties": { "facet": { "const": "editorial_quality" } }, "required": ["facet"] } },
+                    { "contains": { "properties": { "facet": { "const": "maintenance_evidence" } }, "required": ["facet"] } }
                   ]
                 }
               }
@@ -129,7 +134,7 @@
     },
     "canonicalFacet": {
       "type": "string",
-      "description": "The closed similarity-facet vocabulary. Each mode enumerates its four canonical facets on every detailed candidate.",
+      "description": "The closed similarity-facet vocabulary. Each mode enumerates its full canonical facet set on every detailed candidate: four facets for functional_cohort and the five curated criteria of specification 7.3 for curated_list.",
       "enum": [
         "problem_overlap",
         "feature_overlap",
@@ -138,7 +143,8 @@
         "entry_overlap",
         "list_structure",
         "unique_coverage",
-        "editorial_quality"
+        "editorial_quality",
+        "maintenance_evidence"
       ]
     },
     "revision": {
@@ -335,7 +341,7 @@
         "facets": {
           "type": "array",
           "minItems": 4,
-          "maxItems": 4,
+          "maxItems": 5,
           "items": { "$ref": "#/$defs/facetSimilarity" }
         },
         "popularity": { "$ref": "#/$defs/popularity" },

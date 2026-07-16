@@ -48,19 +48,22 @@ impl CohortMode {
     ///
     /// The specification's similarity dimensions are contract fields, not
     /// seed-dependent extras: a facet without data is explicit `unavailable`.
-    pub const fn canonical_facets(self) -> [&'static str; 4] {
+    /// Curated comparison carries the five criteria of specification 7.3,
+    /// including maintenance evidence.
+    pub const fn canonical_facets(self) -> &'static [&'static str] {
         match self {
-            Self::FunctionalCohort => [
+            Self::FunctionalCohort => &[
                 "problem_overlap",
                 "feature_overlap",
                 "technical_similarity",
                 "structural_similarity",
             ],
-            Self::CuratedList => [
+            Self::CuratedList => &[
                 "entry_overlap",
                 "list_structure",
                 "unique_coverage",
                 "editorial_quality",
+                "maintenance_evidence",
             ],
         }
     }
@@ -356,7 +359,8 @@ impl ComparisonPolicy {
             "technical_similarity"
             | "structural_similarity"
             | "unique_coverage"
-            | "editorial_quality" => 20,
+            | "editorial_quality"
+            | "maintenance_evidence" => 20,
             _ => self.default_facet_weight,
         }
     }
@@ -510,8 +514,8 @@ pub fn discover_cohort(
         .profile
         .mode
         .canonical_facets()
-        .into_iter()
-        .map(|facet| (facet.to_owned(), policy.facet_weight(facet)))
+        .iter()
+        .map(|&facet| (facet.to_owned(), policy.facet_weight(facet)))
         .collect::<BTreeMap<_, _>>();
 
     let mut limitations: Vec<(String, Vec<EvidenceId>)> = Vec::new();
@@ -612,7 +616,7 @@ fn compare_candidate(
     // Every canonical facet is enumerated; a side without tokens for a facet
     // makes that facet explicitly unavailable, never a zero.
     let canonical = seed.profile.mode.canonical_facets();
-    for facet in canonical {
+    for &facet in canonical {
         let similarity = match (seed.profile.facets.get(facet), descriptor.facets.get(facet)) {
             (Some(seed_tokens), Some(candidate_tokens)) => {
                 Some(jaccard_basis_points(seed_tokens, candidate_tokens))
@@ -660,8 +664,11 @@ fn differentiators(
     seed: &SeedProject,
     descriptor: &CandidateDescriptor,
 ) -> (Vec<Differentiator>, Vec<Differentiator>) {
-    let seed_tokens = union_tokens(&seed.profile.facets);
-    let candidate_tokens = union_tokens(&descriptor.facets);
+    // Non-canonical candidate facets are ignored entirely so their tokens
+    // never leak into public differentiator output.
+    let canonical = seed.profile.mode.canonical_facets();
+    let seed_tokens = union_tokens(&seed.profile.facets, canonical);
+    let candidate_tokens = union_tokens(&descriptor.facets, canonical);
     let seed_only = seed_tokens
         .difference(&candidate_tokens)
         .map(|token| Differentiator {
@@ -679,8 +686,16 @@ fn differentiators(
     (seed_only, candidate_only)
 }
 
-fn union_tokens(facets: &BTreeMap<String, BTreeSet<String>>) -> BTreeSet<String> {
-    facets.values().flatten().cloned().collect()
+fn union_tokens(
+    facets: &BTreeMap<String, BTreeSet<String>>,
+    canonical: &[&str],
+) -> BTreeSet<String> {
+    canonical
+        .iter()
+        .filter_map(|facet| facets.get(*facet))
+        .flatten()
+        .cloned()
+        .collect()
 }
 
 fn jaccard_basis_points(left: &BTreeSet<String>, right: &BTreeSet<String>) -> u32 {
@@ -1155,6 +1170,104 @@ mod tests {
         assert_eq!(
             value["limitations"][0]["code"],
             "candidate_similarity_insufficient"
+        );
+    }
+
+    #[test]
+    fn curated_mode_enumerates_five_canonical_facets_including_maintenance_evidence() {
+        // Specification 7.3 lists five curated comparison criteria; the fifth
+        // is maintenance evidence.
+        let profile = ComparisonProfile::new(
+            CohortMode::CuratedList,
+            vec![("entry_overlap".to_owned(), vec!["rust".to_owned()])],
+            vec![evidence("evidence:repository:snapshot")],
+        )
+        .unwrap();
+        let curated_seed =
+            SeedProject::new(hosted("example-org", "awesome-seed"), revision(), profile);
+        let curated_candidate = CandidateDescriptor::new(
+            hosted("other-org", "awesome-rust"),
+            revision(),
+            true,
+            vec![("entry_overlap".to_owned(), vec!["rust".to_owned()])],
+            Some(100),
+            evidence("evidence:github:candidate-awesome"),
+        )
+        .unwrap();
+        let search = FakeSearch {
+            outcome: CandidateSearchOutcome::new(EvidenceStatus::Complete, vec![curated_candidate])
+                .unwrap(),
+            calls: Cell::new(0),
+        };
+        let value = discover_cohort(&curated_seed, &search, &ComparisonPolicy::v1())
+            .unwrap()
+            .to_machine_value();
+        let names = value["detailed_candidates"][0]["facets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|facet| facet["facet"].as_str().unwrap().to_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            names,
+            [
+                "editorial_quality",
+                "entry_overlap",
+                "list_structure",
+                "maintenance_evidence",
+                "unique_coverage",
+            ],
+            "curated comparisons enumerate all five specification criteria"
+        );
+        assert_eq!(value["facet_weights"].as_array().unwrap().len(), 5);
+        // maintenance_evidence is a canonical profile facet, not an error.
+        ComparisonProfile::new(
+            CohortMode::CuratedList,
+            vec![(
+                "maintenance_evidence".to_owned(),
+                vec!["recent_updates".to_owned()],
+            )],
+            vec![evidence("evidence:repository:snapshot")],
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn non_canonical_candidate_facet_tokens_never_reach_public_output() {
+        let search = FakeSearch {
+            outcome: CandidateSearchOutcome::new(
+                EvidenceStatus::Complete,
+                vec![candidate(
+                    "leaky",
+                    Some(5),
+                    vec![
+                        ("problem_overlap", vec!["scoring"]),
+                        ("custom_facet", vec!["leaked_token"]),
+                    ],
+                )],
+            )
+            .unwrap(),
+            calls: Cell::new(0),
+        };
+        let value = discover_cohort(&seed(), &search, &ComparisonPolicy::v1())
+            .unwrap()
+            .to_machine_value();
+        let serialized = serde_json::to_string(&value).unwrap();
+        assert!(
+            !serialized.contains("leaked_token"),
+            "a non-canonical candidate facet token must not reach public output"
+        );
+        assert!(
+            !serialized.contains("custom_facet"),
+            "a non-canonical candidate facet name must not reach public output"
+        );
+        assert_eq!(
+            value["detailed_candidates"][0]["facets"]
+                .as_array()
+                .unwrap()
+                .len(),
+            4,
+            "only canonical facets are enumerated"
         );
     }
 
