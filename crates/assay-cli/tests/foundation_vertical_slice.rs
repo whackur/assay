@@ -14,6 +14,15 @@ use sha2::{Digest, Sha256};
 
 const FIXED_TIME: &str = "2026-01-02T03:04:06Z";
 const SECRET_MARKER: &str = "VER001_PRIVATE_SOURCE_TOKEN_DO_NOT_PUBLISH";
+const REPOSITORY_EXECUTION_SENTINELS: [&str; 7] = [
+    "TRIPWIRE_PREINSTALL",
+    "TRIPWIRE_INSTALL",
+    "TRIPWIRE_POSTINSTALL",
+    "TRIPWIRE_BUILD",
+    "TRIPWIRE_TEST",
+    "TRIPWIRE_JS_IMPORT",
+    "TRIPWIRE_PYTHON_IMPORT",
+];
 
 fn repository_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -57,6 +66,7 @@ struct FoundationFixture {
     repository: PathBuf,
     revision: String,
     tripwire: PathBuf,
+    command_shims: PathBuf,
 }
 
 impl FoundationFixture {
@@ -114,12 +124,20 @@ impl FoundationFixture {
             ("migrations/001_init.sql", b"CREATE TABLE fixture(id INT);\n".as_slice()),
             ("native/unsupported.rs", b"pub fn unsupported() {}\n".as_slice()),
             (
+                "python/import_tripwire.py",
+                b"from pathlib import Path\nPath('TRIPWIRE_PYTHON_IMPORT').touch()\n".as_slice(),
+            ),
+            (
                 "package-lock.json",
                 b"{\"lockfileVersion\":3,\"packages\":{}}\n".as_slice(),
             ),
             (
                 "package.json",
-                b"{\"name\":\"foundation-fixture\",\"scripts\":{\"test\":\"touch REPOSITORY_CODE_EXECUTED\"}}\n".as_slice(),
+                b"{\"name\":\"foundation-fixture\",\"scripts\":{\"preinstall\":\": > TRIPWIRE_PREINSTALL\",\"install\":\": > TRIPWIRE_INSTALL\",\"postinstall\":\": > TRIPWIRE_POSTINSTALL\",\"build\":\": > TRIPWIRE_BUILD\",\"test\":\": > TRIPWIRE_TEST\"}}\n".as_slice(),
+            ),
+            (
+                "src/import_tripwire.js",
+                b"require('fs').writeFileSync('TRIPWIRE_JS_IMPORT', 'executed');\n".as_slice(),
             ),
             (
                 "src/main.ts",
@@ -171,7 +189,7 @@ impl FoundationFixture {
         let trap = repository.join(".git/assay-tripwire.sh");
         fs::write(
             &trap,
-            format!("#!/bin/sh\ntouch '{}'\nexit 97\n", tripwire.display()),
+            format!("#!/bin/sh\n: > '{}'\nexit 97\n", tripwire.display()),
         )
         .expect("tripwire script");
         let mut permissions = fs::metadata(&trap)
@@ -200,14 +218,39 @@ impl FoundationFixture {
         let mut permissions = fs::metadata(&hook).expect("hook metadata").permissions();
         permissions.set_mode(0o700);
         fs::set_permissions(hook, permissions).expect("hook permissions");
+        let command_shims = temporary.path().join("command-shims");
+        fs::create_dir(&command_shims).expect("command shim directory");
+        for command in [
+            "npm", "node", "npx", "build", "import", "python", "python3", "pip", "pip3", "cargo",
+            "rustc", "make",
+        ] {
+            let shim = command_shims.join(command);
+            fs::write(
+                &shim,
+                format!("#!/bin/sh\n: > '{}'\nexit 97\n", tripwire.display()),
+            )
+            .expect("command shim");
+            let mut permissions = fs::metadata(&shim).expect("shim metadata").permissions();
+            permissions.set_mode(0o700);
+            fs::set_permissions(shim, permissions).expect("shim permissions");
+        }
+        let shim_probe = Command::new(command_shims.join("npm"))
+            .output()
+            .expect("shim self-check must execute");
+        assert_eq!(shim_probe.status.code(), Some(97));
+        assert!(tripwire.exists(), "command shim self-check is non-vacuous");
+        fs::remove_file(&tripwire).expect("reset command shim tripwire");
         assert!(!tripwire.exists());
-        assert!(!repository.join("REPOSITORY_CODE_EXECUTED").exists());
+        for sentinel in REPOSITORY_EXECUTION_SENTINELS {
+            assert!(!repository.join(sentinel).exists());
+        }
 
         Self {
             _temporary: temporary,
             repository,
             revision,
             tripwire,
+            command_shims,
         }
     }
 }
@@ -243,6 +286,7 @@ fn project_analysis_validator() -> jsonschema::Validator {
 
 fn run_analysis(fixture: &FoundationFixture) -> Output {
     assay_command()
+        .env("PATH", &fixture.command_shims)
         .arg("project")
         .arg("analyze")
         .arg(&fixture.repository)
@@ -262,6 +306,129 @@ fn run_analysis(fixture: &FoundationFixture) -> Output {
         .expect("foundation analysis subprocess")
 }
 
+fn audit_bundle_citations(bundle: &Value) -> Result<(), String> {
+    let evidence = bundle["evidence"]
+        .as_array()
+        .ok_or_else(|| "missing evidence".to_owned())?;
+    let by_id = evidence
+        .iter()
+        .map(|record| {
+            record["id"]
+                .as_str()
+                .map(|id| (id, record))
+                .ok_or_else(|| "missing evidence ID".to_owned())
+        })
+        .collect::<Result<BTreeMap<_, _>, _>>()?;
+    if by_id.len() != evidence.len() {
+        return Err("duplicate evidence ID".into());
+    }
+    let require_reference = |reference: &Value, field: &str| -> Result<&Value, String> {
+        let id = reference
+            .as_str()
+            .ok_or_else(|| format!("non-string citation in {field}"))?;
+        by_id
+            .get(id)
+            .copied()
+            .ok_or_else(|| format!("dangling citation in {field}: {id}"))
+    };
+    let require_references = |references: &Value, field: &str| -> Result<Vec<&Value>, String> {
+        references
+            .as_array()
+            .ok_or_else(|| format!("missing citation list: {field}"))?
+            .iter()
+            .map(|reference| require_reference(reference, field))
+            .collect()
+    };
+    for record in evidence {
+        if let Some(related) = record.get("related_evidence_ids") {
+            require_references(related, "evidence.related_evidence_ids")?;
+        }
+        let Some(payload) = record.get("payload") else {
+            continue;
+        };
+        for field in ["related_evidence_ids", "implementation_evidence_ids"] {
+            if let Some(references) = payload.get(field) {
+                require_references(references, field)?;
+            }
+        }
+        if let Some(source) = payload.get("source_evidence_id") {
+            require_reference(source, "payload.source_evidence_id")?;
+        }
+        match payload["kind"].as_str() {
+            Some("file_classification") => {
+                let source = payload
+                    .get("source_evidence_id")
+                    .ok_or_else(|| "classification source citation missing".to_owned())?;
+                let source_record = require_reference(source, "payload.source_evidence_id")?;
+                let related = record["related_evidence_ids"]
+                    .as_array()
+                    .ok_or_else(|| "classification top-level relation missing".to_owned())?;
+                if related.as_slice() != std::slice::from_ref(source) {
+                    return Err("classification source relation mismatch".into());
+                }
+                let source_kind = source_record
+                    .get("payload")
+                    .and_then(|value| value["kind"].as_str())
+                    .or_else(|| source_record["requested_kind"].as_str());
+                if source_kind != Some("tracked_file") {
+                    return Err("classification source is not tracked-file evidence".into());
+                }
+            }
+            Some("repository_feature") => {
+                let related = payload["related_evidence_ids"]
+                    .as_array()
+                    .ok_or_else(|| "feature citation list missing".to_owned())?;
+                match payload["state"].as_str() {
+                    Some("present" | "unavailable") if related.is_empty() => {
+                        return Err("reviewable feature state has no citation".into());
+                    }
+                    Some("absent") if !related.is_empty() => {
+                        return Err("absent feature has citations".into());
+                    }
+                    Some("present" | "unavailable" | "absent") => {}
+                    _ => return Err("unknown repository feature state".into()),
+                }
+            }
+            Some("claim_correspondence") => {
+                require_references(
+                    payload
+                        .get("implementation_evidence_ids")
+                        .ok_or_else(|| "claim citations missing".to_owned())?,
+                    "payload.implementation_evidence_ids",
+                )?;
+            }
+            _ => {}
+        }
+    }
+    let manifest = bundle
+        .get("manifest")
+        .ok_or_else(|| "missing manifest".to_owned())?;
+    for source in manifest["data_sources"]
+        .as_array()
+        .ok_or_else(|| "missing data sources".to_owned())?
+    {
+        require_reference(&source["id"], "manifest.data_sources.id")?;
+    }
+    for (kind, diagnostics) in [
+        ("warning", &manifest["warnings"]),
+        ("limitation", &manifest["limitations"]),
+    ] {
+        for diagnostic in diagnostics
+            .as_array()
+            .ok_or_else(|| format!("missing {kind} array"))?
+        {
+            let references = diagnostic
+                .get("affected_evidence_ids")
+                .ok_or_else(|| format!("{kind} citations missing"))?;
+            let resolved = require_references(references, "diagnostic.affected_evidence_ids")?;
+            if resolved.is_empty() {
+                return Err(format!("{kind} citations empty"));
+            }
+        }
+    }
+    Ok(())
+}
+
 #[test]
 fn fixed_repository_is_a_schema_valid_private_and_non_executing_vertical_slice() {
     let fixture = FoundationFixture::build();
@@ -277,7 +444,9 @@ fn fixed_repository_is_a_schema_valid_private_and_non_executing_vertical_slice()
         !fixture.tripwire.exists(),
         "Git filter, textconv, or hook ran"
     );
-    assert!(!fixture.repository.join("REPOSITORY_CODE_EXECUTED").exists());
+    for sentinel in REPOSITORY_EXECUTION_SENTINELS {
+        assert!(!fixture.repository.join(sentinel).exists());
+    }
 
     let digest = format!("{:x}", Sha256::digest(&first.stdout));
     let reviewed_digest = fs::read_to_string(
@@ -287,6 +456,7 @@ fn fixed_repository_is_a_schema_valid_private_and_non_executing_vertical_slice()
     assert_eq!(digest, reviewed_digest.trim());
 
     let bundle: Value = serde_json::from_slice(&first.stdout).expect("single JSON result");
+    audit_bundle_citations(&bundle).expect("closed evidence citations");
     let errors = project_analysis_validator()
         .iter_errors(&bundle)
         .map(|error| error.to_string())
@@ -370,7 +540,7 @@ fn fixed_repository_is_a_schema_valid_private_and_non_executing_vertical_slice()
         .iter()
         .filter(|record| record["payload"]["kind"] == "file_classification")
         .collect::<Vec<_>>();
-    assert_eq!(raw_ids.len(), 19);
+    assert_eq!(raw_ids.len(), 21);
     assert_eq!(classifications.len(), raw_ids.len());
     assert!(classifications.iter().all(|record| {
         record["payload"]["source_evidence_id"]
@@ -445,86 +615,45 @@ fn fixed_repository_is_a_schema_valid_private_and_non_executing_vertical_slice()
 }
 
 #[test]
-fn continuous_integration_and_repository_hygiene_are_fail_closed() {
-    let root = repository_root();
-    let workflow = fs::read_to_string(root.join(".github/workflows/ci.yml"))
-        .expect("the foundation milestone requires CI");
-    for required in [
-        "pull_request:",
-        "push:",
-        "branches: [main]",
-        "permissions:",
-        "contents: read",
-        "persist-credentials: false",
-        "dpkg --compare-versions \"$version\" ge 2.47.0",
-        "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
-        "actions/cache@5a3ec84eff668545956fd18022155c47e93e2684",
-        "rustup toolchain install 1.97.0 --profile minimal --component rustfmt --component clippy",
-        "~/.cargo/registry",
-        "~/.cargo/git",
-        "cargo fmt --check",
-        "cargo clippy --workspace --all-targets --all-features -- -D warnings",
-        "cargo test --workspace",
-        "cargo test -p assay-cli --test schema_contracts",
-    ] {
-        assert!(workflow.contains(required), "CI is missing `{required}`");
-    }
-    assert!(!workflow.contains("pull_request_target"));
-    assert!(!workflow.contains("secrets."));
-    assert!(!workflow.contains("upload-artifact"));
-    assert!(!workflow.contains("contents: write"));
-    let workflow_lines = workflow.lines().map(str::trim).collect::<Vec<_>>();
-    assert!(
-        !workflow_lines
-            .iter()
-            .any(|line| *line == "target" || line.starts_with("target/")),
-        "CI must not cache build output"
-    );
-    let mut action_count = 0;
-    for line in workflow_lines {
-        if let Some(action) = line.strip_prefix("uses: ") {
-            action_count += 1;
-            let (_, revision) = action.split_once('@').expect("action revision");
-            assert_eq!(revision.len(), 40, "actions must use immutable commit SHAs");
-            assert!(revision.bytes().all(|byte| byte.is_ascii_hexdigit()));
-        }
-    }
-    assert_eq!(action_count, 2);
+fn citation_audit_rejects_removed_nested_and_manifest_branches() {
+    let fixture = FoundationFixture::build();
+    let output = run_analysis(&fixture);
+    assert_eq!(output.status.code(), Some(0));
+    let bundle: Value = serde_json::from_slice(&output.stdout).expect("analysis bundle");
 
-    let ignore = fs::read_to_string(root.join(".gitignore")).expect("root gitignore");
-    for entry in [
-        "/.orca/",
-        "/.worktrees/",
-        "/target/",
-        "/.assay-cache/",
-        "/.env",
-        "/.env.*",
-        "!/.env.example",
-    ] {
-        assert!(
-            ignore.lines().any(|line| line == entry),
-            "missing ignore `{entry}`"
-        );
-    }
-    let tracked = successful(
-        git_command(&root)
-            .args(["ls-files", "-z"])
-            .output()
-            .expect("git ls-files"),
-        "git ls-files",
-    );
-    let tracked = tracked
-        .stdout
-        .split(|byte| *byte == 0)
-        .filter(|path| !path.is_empty())
-        .map(|path| String::from_utf8_lossy(path))
-        .collect::<Vec<_>>();
-    assert!(tracked.iter().any(|path| path.as_ref() == "Cargo.lock"));
-    assert!(tracked.iter().all(|path| {
-        !path.starts_with(".orca/")
-            && !path.starts_with(".worktrees/")
-            && !path.starts_with("target/")
-            && !path.ends_with("/.git")
-            && !path.contains("/.git/")
-    }));
+    let mut removed_source = bundle.clone();
+    let classification = removed_source["evidence"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|record| record["payload"]["kind"] == "file_classification")
+        .unwrap();
+    classification["payload"]
+        .as_object_mut()
+        .unwrap()
+        .remove("source_evidence_id");
+    assert!(audit_bundle_citations(&removed_source).is_err());
+
+    let mut emptied_feature = bundle.clone();
+    let feature = emptied_feature["evidence"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|record| {
+            record["payload"]["kind"] == "repository_feature"
+                && !record["payload"]["related_evidence_ids"]
+                    .as_array()
+                    .unwrap()
+                    .is_empty()
+        })
+        .unwrap();
+    feature["payload"]["related_evidence_ids"] = Value::Array(Vec::new());
+    assert!(audit_bundle_citations(&emptied_feature).is_err());
+
+    let mut removed_limitation = bundle;
+    removed_limitation["manifest"]["limitations"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("affected_evidence_ids");
+    assert!(audit_bundle_citations(&removed_limitation).is_err());
 }

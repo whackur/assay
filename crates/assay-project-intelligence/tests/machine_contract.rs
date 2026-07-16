@@ -36,6 +36,37 @@ fn public_contract_validator_rejects_a_dangling_data_source() {
 }
 
 #[test]
+fn public_contract_validator_rejects_a_dangling_classification_payload_citation() {
+    let mut bundle = real_producer_bundle();
+    let classification = bundle["evidence"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|fact| fact["payload"]["kind"] == "file_classification")
+        .unwrap();
+    classification["payload"]["source_evidence_id"] =
+        Value::String("evidence:missing:tracked-file".into());
+    refresh_project_artifact(&mut bundle);
+
+    assert_eq!(
+        validate_project_bundle_consistency(&bundle),
+        Err("unknown_evidence_reference")
+    );
+}
+
+#[test]
+fn public_contract_validator_rejects_a_dangling_diagnostic_citation() {
+    let mut bundle = coherent_bundle();
+    bundle["manifest"]["limitations"][0]["affected_evidence_ids"][0] =
+        Value::String("evidence:missing:diagnostic-target".into());
+
+    assert_eq!(
+        validate_project_bundle_consistency(&bundle),
+        Err("unknown_evidence_reference")
+    );
+}
+
+#[test]
 fn public_contract_validator_rejects_a_present_feature_without_citations_even_with_a_new_id() {
     let mut bundle = bundle_with_present_feature();
     let id = repository_feature_id(&bundle, "readme", "present", &[]);

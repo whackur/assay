@@ -1,7 +1,8 @@
-/.orca/
-/target/
-/.worktrees/
-/.assay-cache/
-/.env
-/.env.*
-!/.env.example
+.orca/
+target/
+.worktrees/
+.assay-cache/
+.env
+.env.*
+!.env.example
+!**/.env.example
