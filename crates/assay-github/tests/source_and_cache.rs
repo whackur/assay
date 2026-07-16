@@ -181,6 +181,61 @@ fn blob_cache_keys_include_blob_analyzer_and_rule_versions() {
 }
 
 #[test]
+fn blob_cache_key_changes_when_the_rule_set_hash_changes() {
+    const OTHER_RULES: &str =
+        "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
+    let blob = GitHubObjectId::from_str(BLOB).unwrap();
+    let baseline = BlobAnalysisKey::new(
+        blob.clone(),
+        CacheVersion::parse("static-evidence-1").unwrap(),
+        RuleSetHash::from_str(RULES).unwrap(),
+    );
+    let rules_changed = BlobAnalysisKey::new(
+        blob,
+        CacheVersion::parse("static-evidence-1").unwrap(),
+        RuleSetHash::from_str(OTHER_RULES).unwrap(),
+    );
+    assert_ne!(baseline.digest(), rules_changed.digest());
+}
+
+#[test]
+fn cache_keys_are_domain_separated_and_resist_component_boundary_shifts() {
+    let blob = GitHubObjectId::from_str(BLOB).unwrap();
+    let blob_key = BlobAnalysisKey::new(
+        blob,
+        CacheVersion::parse("evidence-1").unwrap(),
+        RuleSetHash::from_str(RULES).unwrap(),
+    );
+    let evaluation_key = EvaluationKey::new(
+        ProviderRepositoryId::new(42).unwrap(),
+        RevisionId::from_str(REVISION).unwrap(),
+        CacheVersion::parse("evidence-1").unwrap(),
+        CacheVersion::parse("evaluation-1").unwrap(),
+        CacheVersion::parse("rubric-1").unwrap(),
+        CacheVersion::parse("profile-1").unwrap(),
+    );
+    assert_ne!(blob_key.digest(), evaluation_key.digest());
+
+    let shifted_left = EvaluationKey::new(
+        ProviderRepositoryId::new(42).unwrap(),
+        RevisionId::from_str(REVISION).unwrap(),
+        CacheVersion::parse("evidence-1").unwrap(),
+        CacheVersion::parse("evaluation-1").unwrap(),
+        CacheVersion::parse("ab").unwrap(),
+        CacheVersion::parse("c").unwrap(),
+    );
+    let shifted_right = EvaluationKey::new(
+        ProviderRepositoryId::new(42).unwrap(),
+        RevisionId::from_str(REVISION).unwrap(),
+        CacheVersion::parse("evidence-1").unwrap(),
+        CacheVersion::parse("evaluation-1").unwrap(),
+        CacheVersion::parse("a").unwrap(),
+        CacheVersion::parse("bc").unwrap(),
+    );
+    assert_ne!(shifted_left.digest(), shifted_right.digest());
+}
+
+#[test]
 fn cache_versions_and_provider_ids_reject_ambiguous_values() {
     assert!(ProviderRepositoryId::new(0).is_err());
     for value in ["", "Profile-1", "../profile", "profile 1", "a//b"] {

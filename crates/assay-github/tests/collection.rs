@@ -435,6 +435,225 @@ fn limits_are_positive_and_overlong_paths_are_explicitly_partial() {
 }
 
 #[test]
+fn redirect_status_is_not_followed_and_never_leaks_location() {
+    for status in [301_u16, 302, 307, 308] {
+        let mut http = FakeHttp::new(vec![response(
+            status,
+            &[("location", "https://attacker.example/private-source")],
+            r#"{"message":"moved"}"#,
+        )]);
+        let repository = CanonicalGitHubRepository::parse("owner/repository").unwrap();
+        let error = GitHubCollector::new(&mut http)
+            .resolve_revision(&repository, RevisionSelector::DefaultBranch)
+            .unwrap_err();
+        assert_eq!(error.kind(), CollectionErrorKind::HttpStatus);
+        assert!(!error.to_string().contains("attacker.example"));
+        assert!(!error.to_string().contains("private-source"));
+        assert_eq!(http.requests.len(), 1, "a redirect must not be followed");
+    }
+}
+
+#[test]
+fn duplicate_privacy_field_in_metadata_cannot_reopen_a_private_repository() {
+    let mut http = FakeHttp::new(vec![response(
+        200,
+        &rate_headers(),
+        r#"{"id":42,"name":"assay","owner":{"login":"owner"},"default_branch":"main","private":true,"private":false}"#,
+    )]);
+    let repository = CanonicalGitHubRepository::parse("owner/assay").unwrap();
+    let result = GitHubCollector::new(&mut http)
+        .resolve_revision(&repository, RevisionSelector::DefaultBranch);
+    match result {
+        Err(error) => assert!(matches!(
+            error.kind(),
+            CollectionErrorKind::NotPublic | CollectionErrorKind::InvalidProviderResponse
+        )),
+        Ok(_) => panic!("a duplicated privacy field must never resolve as public"),
+    }
+}
+
+#[test]
+fn oversized_revision_response_fails_closed_without_leaking_its_body() {
+    let padding = "leak".repeat(6_000);
+    let mut http = FakeHttp::new(vec![
+        response(
+            200,
+            &rate_headers(),
+            r#"{"id":42,"name":"assay","owner":{"login":"owner"},"default_branch":"main","private":false}"#,
+        ),
+        response(
+            200,
+            &rate_headers(),
+            &format!(r#"{{"sha":"{REVISION}","note":"{padding}"}}"#),
+        ),
+    ]);
+    let repository = CanonicalGitHubRepository::parse("owner/assay").unwrap();
+    let error = GitHubCollector::new(&mut http)
+        .resolve_revision(&repository, RevisionSelector::DefaultBranch)
+        .unwrap_err();
+    assert_eq!(error.kind(), CollectionErrorKind::ResponseLimit);
+    assert!(!error.to_string().contains("leak"));
+}
+
+#[test]
+fn malformed_rate_headers_are_unknown_and_never_read_as_unlimited() {
+    let mut http = FakeHttp::new(vec![
+        response(
+            200,
+            &[
+                ("x-ratelimit-limit", "sixty"),
+                ("x-ratelimit-remaining", "-1"),
+                ("x-ratelimit-reset", ""),
+            ],
+            r#"{"id":42,"name":"assay","owner":{"login":"owner"},"default_branch":"main","private":false}"#,
+        ),
+        response(
+            200,
+            &[("x-ratelimit-remaining", "0x10")],
+            &format!(r#"{{"sha":"{REVISION}"}}"#),
+        ),
+    ]);
+    let repository = CanonicalGitHubRepository::parse("owner/assay").unwrap();
+    let resolved = GitHubCollector::new(&mut http)
+        .resolve_revision(&repository, RevisionSelector::DefaultBranch)
+        .unwrap();
+    assert_eq!(resolved.rate_limit(), &RateLimitState::Unknown);
+}
+
+#[test]
+fn http_date_retry_after_does_not_fabricate_a_numeric_delay() {
+    let mut http = FakeHttp::new(vec![response(
+        429,
+        &[("retry-after", "Wed, 21 Oct 2015 07:28:00 GMT")],
+        r#"{"message":"secondary limit"}"#,
+    )]);
+    let repository = CanonicalGitHubRepository::parse("owner/repository").unwrap();
+    let error = GitHubCollector::new(&mut http)
+        .resolve_revision(&repository, RevisionSelector::DefaultBranch)
+        .unwrap_err();
+    assert_eq!(
+        error.rate_limit(),
+        Some(&RateLimitState::SecondaryLimited {
+            retry_after_seconds: None,
+        })
+    );
+}
+
+#[test]
+fn a_successful_resolution_still_reports_an_exhausted_budget() {
+    let mut http = FakeHttp::new(vec![
+        response(
+            200,
+            &rate_headers(),
+            r#"{"id":42,"name":"assay","owner":{"login":"owner"},"default_branch":"main","private":false}"#,
+        ),
+        response(
+            200,
+            &[
+                ("x-ratelimit-limit", "60"),
+                ("x-ratelimit-remaining", "0"),
+                ("x-ratelimit-reset", "2000000000"),
+            ],
+            &format!(r#"{{"sha":"{REVISION}"}}"#),
+        ),
+    ]);
+    let repository = CanonicalGitHubRepository::parse("owner/assay").unwrap();
+    let resolved = GitHubCollector::new(&mut http)
+        .resolve_revision(&repository, RevisionSelector::DefaultBranch)
+        .unwrap();
+    assert_eq!(
+        resolved.rate_limit(),
+        &RateLimitState::Exhausted {
+            limit: Some(60),
+            reset_at_unix_seconds: Some(2_000_000_000),
+            retry_after_seconds: None,
+        }
+    );
+}
+
+#[test]
+fn a_lying_large_content_length_rejects_before_the_body_is_read() {
+    let body = format!(
+        r#"{{"sha":"{REVISION}","truncated":false,"tree":[{{"path":"private/secret-source.rs","mode":"100644","type":"blob","sha":"{BLOB_A}","size":120}}]}}"#
+    );
+    let mut http = FakeHttp::new(vec![response(
+        200,
+        &[("content-length", "100000000")],
+        &body,
+    )]);
+    let mut sink = RecordingSink::default();
+    let error = GitHubCollector::new(&mut http)
+        .stream_tree(
+            &CanonicalGitHubRepository::parse("owner/repository").unwrap(),
+            &RevisionId::from_str(REVISION).unwrap(),
+            &FakeBlobCache,
+            CacheVersion::parse("static-evidence-1").unwrap(),
+            RuleSetHash::from_str(RULES).unwrap(),
+            TreeCollectionLimits::new(10, 1_024, 256, 10).unwrap(),
+            &mut sink,
+        )
+        .unwrap_err();
+    assert_eq!(error.kind(), CollectionErrorKind::ResponseLimit);
+    assert!(!error.to_string().contains("secret-source"));
+    assert!(sink.0.is_empty());
+}
+
+#[test]
+fn an_invalid_blob_object_id_fails_closed_rather_than_being_dropped() {
+    let body = format!(
+        r#"{{"sha":"{REVISION}","truncated":false,"tree":[{{"path":"src/private-secret.ts","mode":"100644","type":"blob","sha":"not-a-real-object-id","size":10}}]}}"#
+    );
+    let mut http = FakeHttp::new(vec![response(200, &rate_headers(), &body)]);
+    let mut sink = RecordingSink::default();
+    let error = GitHubCollector::new(&mut http)
+        .stream_tree(
+            &CanonicalGitHubRepository::parse("owner/repository").unwrap(),
+            &RevisionId::from_str(REVISION).unwrap(),
+            &FakeBlobCache,
+            CacheVersion::parse("static-evidence-1").unwrap(),
+            RuleSetHash::from_str(RULES).unwrap(),
+            TreeCollectionLimits::default(),
+            &mut sink,
+        )
+        .unwrap_err();
+    assert_eq!(error.kind(), CollectionErrorKind::InvalidProviderResponse);
+    assert!(!error.to_string().contains("private-secret"));
+    assert!(sink.0.is_empty());
+}
+
+#[test]
+fn path_traversal_entries_are_partial_and_never_reach_the_sink() {
+    let body = format!(
+        r#"{{"sha":"{REVISION}","truncated":false,"tree":[
+          {{"path":"../escape.ts","mode":"100644","type":"blob","sha":"{BLOB_B}","size":10}},
+          {{"path":"/absolute.ts","mode":"100644","type":"blob","sha":"{BLOB_B}","size":10}},
+          {{"path":"nested/./relative.ts","mode":"100644","type":"blob","sha":"{BLOB_B}","size":10}}
+        ]}}"#
+    );
+    let mut http = FakeHttp::new(vec![response(200, &rate_headers(), &body)]);
+    let mut sink = RecordingSink::default();
+    let summary = GitHubCollector::new(&mut http)
+        .stream_tree(
+            &CanonicalGitHubRepository::parse("owner/repository").unwrap(),
+            &RevisionId::from_str(REVISION).unwrap(),
+            &FakeBlobCache,
+            CacheVersion::parse("static-evidence-1").unwrap(),
+            RuleSetHash::from_str(RULES).unwrap(),
+            TreeCollectionLimits::default(),
+            &mut sink,
+        )
+        .unwrap();
+    assert_eq!(summary.status(), CollectionStatus::Partial);
+    assert_eq!(summary.observed_blobs(), 3);
+    assert!(
+        summary
+            .partial_reasons()
+            .contains(&TreePartialReason::PathLimit)
+    );
+    assert!(sink.0.is_empty(), "unsafe paths must not be streamed");
+}
+
+#[test]
 fn trailing_tree_payload_is_rejected_without_echoing_it() {
     let body = format!("{} source-content", tree_body(false));
     let mut http = FakeHttp::new(vec![response(200, &rate_headers(), &body)]);
