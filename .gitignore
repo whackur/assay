@@ -1,2 +1,7 @@
-.orca/
+/.orca/
 /target/
+/.worktrees/
+/.assay-cache/
+/.env
+/.env.*
+!/.env.example

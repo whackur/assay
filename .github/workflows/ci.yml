@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: Rust and schema contracts
+    runs-on: ubuntu-24.04
+    env:
+      CARGO_TERM_COLOR: never
+    steps:
+      - name: Check out the repository
+        # actions/checkout v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Verify the Git adapter baseline
+        shell: bash
+        run: |
+          git version --build-options
+          version="$(git version | awk '{print $3}')"
+          dpkg --compare-versions "$version" ge 2.47.0
+
+      - name: Install the pinned Rust toolchain
+        run: rustup toolchain install 1.97.0 --profile minimal --component rustfmt --component clippy
+
+      - name: Restore Cargo dependency cache
+        # actions/cache v4.2.3
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Lint without warnings
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+      - name: Run workspace tests
+        run: cargo test --workspace
+
+      - name: Validate public schemas and goldens
+        run: cargo test -p assay-cli --test schema_contracts
