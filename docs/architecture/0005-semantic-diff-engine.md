@@ -1,4 +1,4 @@
-# ADR 0004: Keep the Native Tree-sitter Adapter as the First Semantic-Diff Engine
+# ADR 0005: Keep the Native Tree-sitter Adapter as the First Semantic-Diff Engine
 
 - Status: Accepted
 - Date: 2026-07-16
