@@ -514,7 +514,6 @@ pub struct CompilerPolicy {
     forecast_policy_version: &'static str,
     forecast_horizon: &'static str,
     partial_weight_basis_points: u32,
-    gap_confidence_basis_points: u32,
     provisional_confidence_basis_points: u32,
 }
 
@@ -545,7 +544,6 @@ impl CompilerPolicy {
             forecast_policy_version: "project-potential-forecast-1",
             forecast_horizon: "P1Y",
             partial_weight_basis_points: 5_000,
-            gap_confidence_basis_points: 5_000,
             provisional_confidence_basis_points: 6_000,
         }
     }
@@ -568,10 +566,6 @@ impl CompilerPolicy {
 
     fn partial_weight(&self) -> f64 {
         f64::from(self.partial_weight_basis_points) / 10_000.0
-    }
-
-    fn gap_penalty(&self) -> f64 {
-        f64::from(self.gap_confidence_basis_points) / 10_000.0
     }
 
     fn provisional_penalty(&self) -> f64 {
@@ -607,7 +601,6 @@ impl CompilerPolicy {
         }
         for value in [
             self.partial_weight_basis_points,
-            self.gap_confidence_basis_points,
             self.provisional_confidence_basis_points,
         ] {
             field(&(u64::from(value)).to_be_bytes());
@@ -977,25 +970,13 @@ impl ScoreCompilerInput {
             value_sum += weight * contribution.normalized_value.unwrap_or(0.0);
             confidence_sum += weight * contribution.confidence;
         }
-        let value = value_sum / weight_sum * 100.0;
-        let mut confidence = confidence_sum / weight_sum;
-        let has_gap = contributions.iter().any(|contribution| {
-            contribution.applicability != RubricApplicability::NotApplicable
-                && contribution.normalized_value.is_none()
-        });
-        if has_gap {
-            confidence *= self.policy.gap_penalty();
-        }
-        let status = if has_gap {
-            EvidenceStatus::Partial
-        } else {
-            EvidenceStatus::Complete
-        };
+        // The input contract gives every non-not_applicable contribution a
+        // value, so a scoreable dimension has no per-contribution gap state.
         DimensionScore {
             dimension,
-            status,
-            value: Some(value),
-            confidence,
+            status: EvidenceStatus::Complete,
+            value: Some(value_sum / weight_sum * 100.0),
+            confidence: confidence_sum / weight_sum,
             version: version.to_owned(),
             evidence_ids,
             contributions,
