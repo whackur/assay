@@ -45,6 +45,26 @@
       "items": { "$ref": "#/$defs/auditEvent" }
     }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "lifecycle": { "enum": ["active", "deleted"] } } },
+      "then": {
+        "properties": {
+          "stages": { "items": { "$ref": "#/$defs/retainedSnapshotByStatus" } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "lifecycle": { "const": "purged" } } },
+      "then": {
+        "properties": {
+          "stages": {
+            "items": { "properties": { "result_snapshot": { "type": "null" } } }
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "schemaVersion": { "type": "string", "pattern": "^1\\.[0-9]+\\.[0-9]+$" },
     "versionIdentifier": {
@@ -113,7 +133,6 @@
           "then": {
             "properties": {
               "reason": { "type": "null" },
-              "result_snapshot": { "type": "string" },
               "automatic_retries_exhausted": { "const": false }
             }
           }
@@ -123,7 +142,6 @@
           "then": {
             "properties": {
               "reason": { "type": "string" },
-              "result_snapshot": { "type": "string" },
               "automatic_retries_exhausted": { "const": false }
             }
           }
@@ -149,6 +167,10 @@
           }
         }
       ]
+    },
+    "retainedSnapshotByStatus": {
+      "if": { "properties": { "status": { "enum": ["complete", "partial"] } } },
+      "then": { "properties": { "result_snapshot": { "type": "string" } } }
     },
     "auditEvent": {
       "type": "object",

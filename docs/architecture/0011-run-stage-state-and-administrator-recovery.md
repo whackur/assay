@@ -6,11 +6,14 @@ Accepted.
 
 ## Context
 
-The analysis pipeline runs the named stages of the product interview
-(specification 14 job stages and requirements OPI-012, PWS-009): source
+The analysis pipeline runs the named stages from the product interview
+(interview chapter 8, and requirements OPI-012 and PWS-009): source
 verification, revision pinning, file and history analysis, project-type
 determination, CI and dependency evidence, similar-project discovery, AI rubric
-evaluation, score compilation, and result publication.
+evaluation, score compilation, and result publication. Specification chapter 14
+adds infrastructure job stages around these — cache join, quota reservation,
+snapshot storage, and the publish-or-retain branch — which are outside this
+partial-failure state machine.
 
 The product requires that a partial stage failure never fails the whole run.
 Completed stages and their immutable snapshots must be preserved while only

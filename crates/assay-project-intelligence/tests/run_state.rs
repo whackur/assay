@@ -374,6 +374,30 @@ fn machine_value_reproduces_the_reviewed_golden_and_validates() {
 }
 
 #[test]
+fn a_purged_run_machine_value_validates_against_the_schema() {
+    let admin = Administrator::assume();
+    let mut run = representative_run();
+    run.purge(&admin, "2026-07-16T09:30:00Z").unwrap();
+
+    let value = run.to_machine_value();
+    assert_eq!(value["lifecycle"], "purged");
+    // A purged run keeps completed and partial stage statuses for audit, yet its
+    // result content is removed, so every result_snapshot is null.
+    for stage in value["stages"].as_array().unwrap() {
+        assert_eq!(stage["result_snapshot"], Value::Null);
+    }
+    let validator = run_state_schema();
+    let errors: Vec<String> = validator
+        .iter_errors(&value)
+        .map(|error| error.to_string())
+        .collect();
+    assert!(
+        errors.is_empty(),
+        "purged run failed run-state schema: {errors:#?}"
+    );
+}
+
+#[test]
 fn machine_value_is_byte_deterministic() {
     let first = serde_json::to_vec(&representative_run().to_machine_value()).unwrap();
     let second = serde_json::to_vec(&representative_run().to_machine_value()).unwrap();
