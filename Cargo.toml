@@ -6,6 +6,7 @@ members = [
     "crates/assay-domain",
     "crates/assay-git",
     "crates/assay-github",
+    "crates/assay-identity",
     "crates/assay-project-intelligence",
     "crates/assay-semantic-diff",
     "tests/support/assay-fixtures",

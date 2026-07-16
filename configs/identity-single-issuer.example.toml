@@ -1,0 +1,57 @@
+# Example single-issuer OIDC deployment for Assay identity.
+#
+# This file is an example only. It contains NO credentials. Load the client
+# secret from a secret manager or a mounted secret file at deployment time; it
+# never belongs in configuration committed to a repository.
+#
+# Assay treats the upstream service as a generic OIDC issuer. The issuer URL,
+# audience, client id, redirect allowlist, and any trusted admin claim are all
+# deployment values. No provider domain, private claim convention, or role enum
+# is compiled into Assay.
+
+[oidc]
+# The single upstream issuer. Compared exactly against the `iss` claim and used
+# for OIDC discovery and JWKS. Any standards-compatible issuer URL works here.
+issuer_url = "https://hakhub.net"
+
+# The Assay client registered with the issuer.
+client_id = "assay-web"
+
+# The Assay-specific audience. A token issued only for another audience (for
+# example the upstream site's own web client) is rejected.
+expected_audience = "assay-api"
+
+# Loaded at runtime from a secret manager or mounted file, never from here.
+client_secret_file = "/run/secrets/assay_oidc_client_secret"
+
+# Exact redirect allowlist. A callback redirect must match one of these exactly.
+redirect_allowlist = ["https://assay.hakhub.net/api/v1/auth/oidc/callback"]
+
+# Requested scopes. Keep this minimal; a stable subject is enough to key an
+# account, so email is not required.
+scopes = ["openid", "profile"]
+
+# Allowed asymmetric signing algorithms. Symmetric HMAC and `none` are never
+# accepted. Restrict this to what the issuer actually publishes in its JWKS.
+allowed_algorithms = ["RS256"]
+
+# Signature-time leeway in seconds for small clock skew.
+clock_leeway_seconds = 60
+
+# Single-issuer profile: membership is only through the configured issuer and
+# Assay offers no independent registration. Assay still issues its own opaque
+# session and never reuses an upstream browser token from localStorage, a URL,
+# a shared cookie, or a token minted only for the upstream audience.
+single_issuer_no_local_registration = true
+
+# Explicit, versioned mapping of a trusted upstream claim to the Assay
+# Administrator role. Without an entry here, no external role grants Assay
+# administration. Every applied mapping is auditable. Assay compares claim
+# values as opaque strings and never queries the upstream user database or
+# imports its role enum.
+[oidc.admin_mapping]
+version = "hakhub-admin-map-1"
+
+[[oidc.admin_mapping.trusted_admin_claims]]
+claim_name = "hakhub_role"
+value = "admin"
