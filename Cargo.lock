@@ -132,6 +132,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "assay-github"
+version = "0.1.0"
+dependencies = [
+ "assay-domain",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "assay-project-intelligence"
 version = "0.1.0"
 dependencies = [

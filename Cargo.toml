@@ -5,6 +5,7 @@ members = [
     "crates/assay-cli",
     "crates/assay-domain",
     "crates/assay-git",
+    "crates/assay-github",
     "crates/assay-project-intelligence",
     "tests/support/assay-fixtures",
 ]
