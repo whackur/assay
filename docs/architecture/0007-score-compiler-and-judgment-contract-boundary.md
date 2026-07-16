@@ -1,4 +1,4 @@
-# ADR 0006: Place the Score Compiler and the Judgment Contract Boundary
+# ADR 0007: Place the Score Compiler and the Judgment Contract Boundary
 
 - Status: Accepted
 - Date: 2026-07-16
