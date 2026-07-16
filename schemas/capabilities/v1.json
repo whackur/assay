@@ -19,7 +19,7 @@
     "commands": {
       "type": "array",
       "uniqueItems": true,
-      "items": { "type": "string", "enum": ["project analyze", "capabilities"] }
+      "items": { "type": "string", "enum": ["project analyze", "capabilities", "serve", "history"] }
     },
     "formats": { "type": "array", "const": ["json"] },
     "schemas": {
@@ -44,7 +44,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "enum": ["ai_evaluation", "attribute_resolution", "file_classification", "github_collection", "local_git_snapshot", "project_scores", "repository_code_execution", "semantic_diff"]
+            "enum": ["ai_evaluation", "attribute_resolution", "file_classification", "github_collection", "local_git_snapshot", "local_private_history", "loopback_dashboard", "project_scores", "remote_private_fetch", "repository_code_execution", "semantic_diff"]
           },
           "status": { "type": "string", "enum": ["implemented", "not_implemented", "prohibited"] }
         }

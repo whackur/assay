@@ -14,6 +14,10 @@ use assay_git::{
     CollectionError, CollectionErrorKind, CollectionLimits, GitCliAdapter, RepositorySnapshotPort,
     SnapshotRequest,
 };
+use assay_local::{
+    ConsentState, GithubTokenEnvVar, LocalAdministrator, LocalHistoryStore, LocalReport,
+    LoopbackListener, run as serve_run, serve_next,
+};
 use assay_project_intelligence::{
     ClassifiedSnapshotFile, assemble_project_evidence, build_project_analysis,
     validate_project_bundle_consistency,
@@ -42,6 +46,10 @@ pub struct Cli {
 enum Command {
     /// Analyze project-level repository evidence without computing scores.
     Project(ProjectCommand),
+    /// Serve the local dashboard on the loopback interface only.
+    Serve(ServeArgs),
+    /// Administer immutable local analysis history.
+    History(HistoryCommand),
     /// Report only capabilities implemented by this binary.
     Capabilities(CapabilitiesArgs),
 }
@@ -83,6 +91,53 @@ struct AnalyzeArgs {
     no_color: bool,
     #[arg(long)]
     non_interactive: bool,
+    /// Name of an environment variable holding a least-privilege GitHub PAT.
+    /// The token value is never read into an argument, log, result, or record.
+    #[arg(long, value_name = "VAR")]
+    github_token_env: Option<String>,
+    /// Append the analysis to an immutable local history directory.
+    #[arg(long, value_name = "DIR")]
+    record_history: Option<PathBuf>,
+}
+
+#[derive(Debug, Args)]
+struct ServeArgs {
+    #[arg(long, value_name = "DIR")]
+    history: PathBuf,
+    #[arg(long, default_value_t = 7878)]
+    port: u16,
+    #[arg(long)]
+    no_color: bool,
+    /// Serve a single request then exit. Intended for smoke tests.
+    #[arg(long, hide = true)]
+    once: bool,
+}
+
+#[derive(Debug, Args)]
+struct HistoryCommand {
+    #[command(subcommand)]
+    command: HistorySubcommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum HistorySubcommand {
+    /// Soft-delete a record. Local-operator action.
+    Delete(HistoryRecordArgs),
+    /// Restore a soft-deleted record. Local-operator action.
+    Restore(HistoryRecordArgs),
+    /// Purge a record irrecoverably. Local-operator action.
+    Purge(HistoryRecordArgs),
+}
+
+#[derive(Debug, Args)]
+struct HistoryRecordArgs {
+    id: String,
+    #[arg(long, value_name = "DIR")]
+    history: PathBuf,
+    #[arg(long, default_value = "-")]
+    output: PathBuf,
+    #[arg(long)]
+    no_color: bool,
 }
 
 #[derive(Debug, Args)]
@@ -97,14 +152,17 @@ struct CapabilitiesArgs {
 
 /// Executes parsed CLI delivery with explicit output streams.
 pub fn execute(cli: Cli, stdout: &mut dyn Write, stderr: &mut dyn Write) -> i32 {
-    match run(cli) {
-        Ok((output, destination)) => match write_output(&output, &destination, stdout) {
-            Ok(()) => 0,
-            Err(code) => {
-                let _ = writeln!(stderr, "error: output_failed code={code}");
-                12
+    match run(cli, stderr) {
+        Ok(Outcome::Emit { bytes, destination }) => {
+            match write_output(&bytes, &destination, stdout) {
+                Ok(()) => 0,
+                Err(code) => {
+                    let _ = writeln!(stderr, "error: output_failed code={code}");
+                    12
+                }
             }
-        },
+        }
+        Ok(Outcome::Served) => 0,
         Err(error) => {
             let _ = writeln!(stderr, "error: {}", error.message);
             error.exit_code
@@ -117,26 +175,48 @@ struct RunError {
     message: String,
 }
 
-fn run(cli: Cli) -> Result<(Vec<u8>, PathBuf), RunError> {
+enum Outcome {
+    Emit {
+        bytes: Vec<u8>,
+        destination: PathBuf,
+    },
+    Served,
+}
+
+fn emit(bytes: Vec<u8>, destination: PathBuf) -> Outcome {
+    Outcome::Emit { bytes, destination }
+}
+
+fn run(cli: Cli, stderr: &mut dyn Write) -> Result<Outcome, RunError> {
     match cli.command {
         Command::Capabilities(arguments) => {
             let value = capabilities();
             validate("capabilities", &value)?;
-            Ok((json_bytes(&value)?, arguments.output))
+            Ok(emit(json_bytes(&value)?, arguments.output))
         }
         Command::Project(ProjectCommand {
             command: ProjectSubcommand::Analyze(arguments),
         }) => analyze(arguments),
+        Command::Serve(arguments) => serve(arguments, stderr),
+        Command::History(HistoryCommand { command }) => history(command),
     }
 }
 
-fn analyze(arguments: AnalyzeArgs) -> Result<(Vec<u8>, PathBuf), RunError> {
+fn analyze(arguments: AnalyzeArgs) -> Result<Outcome, RunError> {
     let _delivery_contract = (
         arguments.evaluator,
         arguments.format,
         arguments.no_color,
         arguments.non_interactive,
     );
+    // Validate the token variable *name* eagerly; the value is never read here.
+    // An already-cloned local repository is analyzed without credentials.
+    if let Some(name) = &arguments.github_token_env {
+        GithubTokenEnvVar::parse(name).map_err(|_| RunError {
+            exit_code: 2,
+            message: "invalid_input field=github_token_env".into(),
+        })?;
+    }
     let git = trusted_git().ok_or_else(|| RunError {
         exit_code: 10,
         message: "collection_failed stage=configure_adapter kind=executable_missing".into(),
@@ -187,7 +267,84 @@ fn analyze(arguments: AnalyzeArgs) -> Result<(Vec<u8>, PathBuf), RunError> {
         })?;
     validate("project-analysis", &value)?;
     validate_project_bundle_consistency(&value).map_err(|_| bundle_error())?;
-    Ok((json_bytes(&value)?, arguments.output))
+    if let Some(directory) = &arguments.record_history {
+        record_local_history(directory, value.clone(), &generated_at)?;
+    }
+    Ok(emit(json_bytes(&value)?, arguments.output))
+}
+
+fn record_local_history(
+    directory: &Path,
+    analysis: Value,
+    generated_at: &str,
+) -> Result<(), RunError> {
+    let report = LocalReport::from_analysis(analysis, &ConsentState::default(), generated_at)
+        .map_err(|_| RunError {
+            exit_code: 13,
+            message: "history_record_invalid".into(),
+        })?;
+    let store = LocalHistoryStore::open(directory).map_err(|_| history_write_error())?;
+    store
+        .append(report.to_value(), generated_at)
+        .map_err(|_| history_write_error())?;
+    Ok(())
+}
+
+fn history_write_error() -> RunError {
+    RunError {
+        exit_code: 13,
+        message: "history_write_failed".into(),
+    }
+}
+
+fn serve(arguments: ServeArgs, stderr: &mut dyn Write) -> Result<Outcome, RunError> {
+    let _no_color = arguments.no_color;
+    let store = LocalHistoryStore::open(&arguments.history).map_err(|_| history_write_error())?;
+    let listener = LoopbackListener::bind(arguments.port).map_err(|_| RunError {
+        exit_code: 14,
+        message: "serve_bind_failed".into(),
+    })?;
+    if let Ok(address) = listener.local_addr() {
+        let _ = writeln!(stderr, "listening on http://{address}");
+    }
+    let served = if arguments.once {
+        serve_next(&listener, &store)
+    } else {
+        serve_run(&listener, &store)
+    };
+    served.map_err(|_| RunError {
+        exit_code: 14,
+        message: "serve_failed".into(),
+    })?;
+    Ok(Outcome::Served)
+}
+
+fn history(command: HistorySubcommand) -> Result<Outcome, RunError> {
+    let (action, arguments) = match command {
+        HistorySubcommand::Delete(arguments) => ("soft_delete", arguments),
+        HistorySubcommand::Restore(arguments) => ("restore", arguments),
+        HistorySubcommand::Purge(arguments) => ("purge", arguments),
+    };
+    let _no_color = arguments.no_color;
+    let store = LocalHistoryStore::open(&arguments.history).map_err(|_| history_write_error())?;
+    let operator = LocalAdministrator::assume_local_operator();
+    let at = current_time()?;
+    let result = match action {
+        "soft_delete" => store.soft_delete(&arguments.id, &operator, &at),
+        "restore" => store.restore(&arguments.id, &operator, &at),
+        _ => store.purge(&arguments.id, &operator, &at),
+    };
+    result.map_err(|_| RunError {
+        exit_code: 13,
+        message: "history_operation_failed".into(),
+    })?;
+    let value = json!({
+        "schema_version": "1.0.0",
+        "action": action,
+        "id": arguments.id,
+        "status": "ok"
+    });
+    Ok(emit(json_bytes(&value)?, arguments.output))
 }
 
 fn collection_limits() -> Result<CollectionLimits, RunError> {
@@ -229,7 +386,7 @@ fn capabilities() -> Value {
     json!({
         "schema_version": "1.0.0",
         "tool": { "name": "assay", "version": env!("CARGO_PKG_VERSION") },
-        "commands": ["capabilities", "project analyze"],
+        "commands": ["capabilities", "history", "project analyze", "serve"],
         "formats": ["json"],
         "schemas": [
             { "name": "analysis-manifest", "version": "1.0.0" },
@@ -244,7 +401,10 @@ fn capabilities() -> Value {
             { "id": "file_classification", "status": "implemented" },
             { "id": "github_collection", "status": "not_implemented" },
             { "id": "local_git_snapshot", "status": "implemented" },
+            { "id": "local_private_history", "status": "implemented" },
+            { "id": "loopback_dashboard", "status": "implemented" },
             { "id": "project_scores", "status": "not_implemented" },
+            { "id": "remote_private_fetch", "status": "not_implemented" },
             { "id": "repository_code_execution", "status": "prohibited" },
             { "id": "semantic_diff", "status": "not_implemented" }
         ]

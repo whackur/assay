@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 assay-classifier = { path = "../assay-classifier" }
 assay-git = { path = "../assay-git" }
+assay-local = { path = "../assay-local" }
 assay-project-intelligence = { path = "../assay-project-intelligence" }
 clap = { version = "4.5", features = ["derive"] }
 jsonschema = { version = "0.33", default-features = false }
