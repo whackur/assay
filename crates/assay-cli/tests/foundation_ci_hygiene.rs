@@ -120,6 +120,20 @@ jobs:
     Ok(())
 }
 
+fn is_sensitive_data_directory(component: &str) -> bool {
+    component
+        .to_ascii_lowercase()
+        .trim_start_matches('.')
+        .split(['.', '-', '_'])
+        .filter(|token| !token.is_empty())
+        .any(|token| {
+            matches!(
+                token,
+                "auth" | "credential" | "credentials" | "token" | "tokens" | "secret" | "secrets"
+            )
+        })
+}
+
 fn audit_tracked_paths(paths: &[&str]) -> Result<(), String> {
     for path in paths {
         if path.is_empty() || path.starts_with('/') || path.contains('\\') {
@@ -192,34 +206,9 @@ fn audit_tracked_paths(paths: &[&str]) -> Result<(), String> {
         let source_extension = extension.is_some_and(|extension| {
             matches!(extension, "rs" | "ts" | "tsx" | "js" | "jsx" | "py")
         });
-        let sensitive_directory_index = normalized_components[..normalized_components.len() - 1]
+        let sensitive_directory_index = components[..components.len() - 1]
             .iter()
-            .position(|component| {
-                matches!(
-                    component.as_str(),
-                    "auth"
-                        | "auth-data"
-                        | "auth-cache"
-                        | "credential"
-                        | "credentials"
-                        | "credential-data"
-                        | "credentials-data"
-                        | "credential-cache"
-                        | "credentials-cache"
-                        | "token"
-                        | "tokens"
-                        | "token-data"
-                        | "tokens-data"
-                        | "token-cache"
-                        | "tokens-cache"
-                        | "secret"
-                        | "secrets"
-                        | "secret-data"
-                        | "secrets-data"
-                        | "secret-cache"
-                        | "secrets-cache"
-                )
-            });
+            .position(|component| is_sensitive_data_directory(component));
         if let Some(sensitive_index) = sensitive_directory_index {
             let source_artifact = source_extension
                 && normalized_components[..sensitive_index]
@@ -414,12 +403,34 @@ fn tracked_path_audit_rejects_sensitive_mutations_without_blocking_public_exampl
         "private-data/run.json",
         "private_datasets/run.json",
         "credentials/provider.json",
+        ".credentials/provider.json",
+        "credential-store/provider.json",
+        ".credential_store/provider.json",
+        "credentials_cache/provider.json",
+        "aws-credentials/provider.json",
         "auth/session.rs",
         "Auth/session.json",
+        ".auth/session.json",
+        "auth_store/session.json",
+        ".auth-cache/session.json",
         "secrets/examples/value.json",
         "tokens/cache.json",
+        ".tokens/cache.json",
+        "token-store/cache.json",
+        "api-tokens/cache.json",
+        "oauth_token_cache/state.json",
         "TOKENS_DATA/cache.json",
         "secrets/value.json",
+        ".secrets/value.json",
+        "secret_storage/value.json",
+        "client_secrets/value.json",
+        "live-secrets/value.json",
+        "live.secrets/value.json",
+        "production.credentials/provider.json",
+        "credential-backup/provider.json",
+        "token-secrets/value.json",
+        ".secret-vault/value.json",
+        "credential-store/examples/provider.json",
         "configs/auth/session.json",
         "data/credentials/provider.json",
         "cache/secrets/value.json",
@@ -450,10 +461,16 @@ fn tracked_path_audit_rejects_sensitive_mutations_without_blocking_public_exampl
         "tests/fixtures/public-key.example",
         "src/token.rs",
         "crates/assay-identity/src/auth/session.rs",
+        "crates/assay-identity/src/api_tokens/policy.rs",
         "web/src/auth/session.ts",
         "docs/auth/session.md",
+        "docs/client-secrets/example.md",
         "examples/credentials/provider.json",
+        "examples/aws_credentials/provider.json",
         "tests/fixtures/public/tokens/example.json",
+        "tests/fixtures/public/oauth-token-cache/state.json",
+        "tokenizer/model.json",
+        "authentication/session.json",
         "docs/credentials.md",
     ])
     .expect("explicit public examples and ordinary source names stay allowed");
