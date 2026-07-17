@@ -59,12 +59,33 @@ pub enum ExternalTransmission {
     Consented,
 }
 
-/// A rendered section: status plus reason plus the single allowed next action.
+/// The transmission *surface* one consent acknowledgement covers (ADR 0012).
+///
+/// `BundleOnly` acknowledges that only bounded, derived evidence facts reach
+/// the external provider (the API-key family). `WorktreeSnapshot` acknowledges
+/// by name that an agentic provider may read and transmit any file of the
+/// analyzed revision — a strictly broader acknowledgement that is required
+/// even for a public-only repository, because the provider vendor receives
+/// the content either way. The report contract presents the two surfaces as
+/// distinct acknowledgements; one never implies the other.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TransmissionSurface {
+    BundleOnly,
+    WorktreeSnapshot,
+}
+
+/// A rendered section: status plus reason plus the single allowed next action,
+/// plus the acknowledged transmission surface once consent exists.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 pub struct SectionReport {
     pub state: SectionState,
     pub reason: SectionReason,
     pub next_action: NextAction,
+    /// The surface the governing consent acknowledged; absent while the
+    /// section is still awaiting consent.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acknowledged_surface: Option<TransmissionSurface>,
 }
 
 /// An identifier for the external provider a user consented to.
@@ -84,19 +105,38 @@ impl ExternalProvider {
 }
 
 /// Explicit informed consent for one feature. Constructing a grant requires
-/// naming the provider and describing the transmitted-evidence scope, so a
-/// grant cannot exist without an acknowledged transmission.
+/// naming the provider, the transmission surface, and a transmitted-evidence
+/// description, so a grant cannot exist without an acknowledged transmission.
+/// The formalized [`TransmissionSurface`] carries the machine-checked scope;
+/// the free-text description remains for human display only.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ConsentGrant {
     provider: ExternalProvider,
+    surface: TransmissionSurface,
     evidence_scope: String,
 }
 
 impl ConsentGrant {
-    /// Records acknowledged consent for `provider` and `evidence_scope`.
+    /// Records acknowledged bundle-facts consent for `provider`: only the
+    /// bounded evidence bundle may reach the provider (the API-key family).
     pub fn acknowledge(provider: ExternalProvider, evidence_scope: impl Into<String>) -> Self {
         Self {
             provider,
+            surface: TransmissionSurface::BundleOnly,
+            evidence_scope: evidence_scope.into(),
+        }
+    }
+
+    /// Records acknowledged whole-snapshot consent for an agentic `provider`:
+    /// the agent may read and transmit any file of the analyzed revision, not
+    /// merely the bundle facts. Required even for public-only repositories.
+    pub fn acknowledge_worktree_snapshot(
+        provider: ExternalProvider,
+        evidence_scope: impl Into<String>,
+    ) -> Self {
+        Self {
+            provider,
+            surface: TransmissionSurface::WorktreeSnapshot,
             evidence_scope: evidence_scope.into(),
         }
     }
@@ -104,6 +144,11 @@ impl ConsentGrant {
     /// Returns the acknowledged provider.
     pub fn provider(&self) -> &ExternalProvider {
         &self.provider
+    }
+
+    /// Returns the transmission surface this grant acknowledged by name.
+    pub const fn acknowledged_surface(&self) -> TransmissionSurface {
+        self.surface
     }
 
     /// Returns the acknowledged transmitted-evidence description.
@@ -139,18 +184,22 @@ impl ConsentState {
 
     /// Renders a feature section. Without consent the section is disabled and
     /// offers only `grant_consent`. With consent but no wired provider it is
-    /// `unavailable` because no external provider runs in the local slice.
+    /// `unavailable` because no external provider runs in the local slice; the
+    /// section then reports the exact surface the consent acknowledged, so
+    /// bundle-facts and full-snapshot consent stay distinct acknowledgements.
     pub fn section(&self, feature: PrivateFeature) -> SectionReport {
         match self.grant(feature) {
             None => SectionReport {
                 state: SectionState::Disabled,
                 reason: SectionReason::UserConsentRequired,
                 next_action: NextAction::GrantConsent,
+                acknowledged_surface: None,
             },
-            Some(_) => SectionReport {
+            Some(grant) => SectionReport {
                 state: SectionState::Unavailable,
                 reason: SectionReason::ProviderUnavailable,
                 next_action: NextAction::ContactOperator,
+                acknowledged_surface: Some(grant.acknowledged_surface()),
             },
         }
     }
@@ -204,5 +253,51 @@ mod tests {
             state.section(PrivateFeature::CompetitorDiscovery).state,
             SectionState::Disabled
         );
+    }
+
+    #[test]
+    fn bundle_consent_acknowledges_only_the_bundle_surface() {
+        let grant = ConsentGrant::acknowledge(
+            ExternalProvider::new("openai_api"),
+            "classified evidence facts only",
+        );
+        assert_eq!(
+            grant.acknowledged_surface(),
+            TransmissionSurface::BundleOnly
+        );
+        let state = ConsentState::default().granting(PrivateFeature::AiEvaluation, grant);
+        let section = state.section(PrivateFeature::AiEvaluation);
+        assert_eq!(
+            section.acknowledged_surface,
+            Some(TransmissionSurface::BundleOnly)
+        );
+    }
+
+    #[test]
+    fn agentic_consent_acknowledges_the_worktree_snapshot_surface_by_name() {
+        let grant = ConsentGrant::acknowledge_worktree_snapshot(
+            ExternalProvider::new("codex_cli"),
+            "this agent may read and transmit any file of the analyzed revision",
+        );
+        assert_eq!(
+            grant.acknowledged_surface(),
+            TransmissionSurface::WorktreeSnapshot
+        );
+        let state = ConsentState::default().granting(PrivateFeature::AiEvaluation, grant);
+        let section = state.section(PrivateFeature::AiEvaluation);
+        assert_eq!(
+            section.acknowledged_surface,
+            Some(TransmissionSurface::WorktreeSnapshot)
+        );
+        // The two surfaces stay distinct acknowledgements in serialized form.
+        let value = serde_json::to_value(section).unwrap();
+        assert_eq!(value["acknowledged_surface"], "worktree_snapshot");
+    }
+
+    #[test]
+    fn sections_without_consent_serialize_without_a_surface_key() {
+        let section = ConsentState::default().section(PrivateFeature::AiEvaluation);
+        let value = serde_json::to_value(section).unwrap();
+        assert!(value.get("acknowledged_surface").is_none());
     }
 }

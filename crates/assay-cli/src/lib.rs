@@ -2,8 +2,10 @@
 
 #![forbid(unsafe_code)]
 
+pub mod evaluators;
+
 use std::{
-    ffi::OsStr,
+    ffi::{OsStr, OsString},
     fs,
     io::Write,
     path::{Path, PathBuf},
@@ -70,9 +72,29 @@ enum OutputFormat {
     Json,
 }
 
+/// Selectable evaluator IDs from the static registry (ADR 0012). The
+/// deterministic default performs no AI evaluation; the AI evaluator IDs are
+/// selectable so the interface is stable, but without an explicit
+/// [`assay_local::ConsentGrant`] no external provider is ever constructed and
+/// the evaluation section stays `disabled` with `user_consent_required`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 enum Evaluator {
     Deterministic,
+    #[value(name = "openai-api-1")]
+    OpenaiApi1,
+    #[value(name = "codex-cli-1")]
+    CodexCli1,
+}
+
+impl Evaluator {
+    /// Returns the stable registry identifier for this selection.
+    const fn id(self) -> &'static str {
+        match self {
+            Self::Deterministic => "deterministic",
+            Self::OpenaiApi1 => "openai-api-1",
+            Self::CodexCli1 => "codex-cli-1",
+        }
+    }
 }
 
 #[derive(Debug, Args)]
@@ -204,11 +226,17 @@ fn run(cli: Cli, stderr: &mut dyn Write) -> Result<Outcome, RunError> {
 
 fn analyze(arguments: AnalyzeArgs) -> Result<Outcome, RunError> {
     let _delivery_contract = (
-        arguments.evaluator,
         arguments.format,
         arguments.no_color,
         arguments.non_interactive,
     );
+    // Consent gating runs before provider construction (ADR 0012). The local
+    // slice exposes no consent-granting surface yet, so no matching
+    // `ConsentGrant` can exist, no external provider is ever constructed, and
+    // deterministic evidence is returned for every evaluator selection; the
+    // recorded report keeps its `ai_evaluation` section `disabled` with
+    // `user_consent_required`.
+    let consent = evaluation_consent(arguments.evaluator);
     // Validate the token variable *name* eagerly; the value is never read here.
     // An already-cloned local repository is analyzed without credentials.
     if let Some(name) = &arguments.github_token_env {
@@ -268,18 +296,29 @@ fn analyze(arguments: AnalyzeArgs) -> Result<Outcome, RunError> {
     validate("project-analysis", &value)?;
     validate_project_bundle_consistency(&value).map_err(|_| bundle_error())?;
     if let Some(directory) = &arguments.record_history {
-        record_local_history(directory, value.clone(), &generated_at)?;
+        record_local_history(directory, value.clone(), &consent, &generated_at)?;
     }
     Ok(emit(json_bytes(&value)?, arguments.output))
+}
+
+/// Returns the consent posture governing one analysis run. Every selectable
+/// evaluator ID starts from the no-grant default: `deterministic` performs no
+/// AI evaluation, and the AI evaluator IDs (see
+/// [`evaluators::EVALUATOR_REGISTRY`]) require an explicit informed grant
+/// that no local surface can produce yet, so they stay consent-gated.
+fn evaluation_consent(evaluator: Evaluator) -> ConsentState {
+    let _selected = evaluator.id();
+    ConsentState::default()
 }
 
 fn record_local_history(
     directory: &Path,
     analysis: Value,
+    consent: &ConsentState,
     generated_at: &str,
 ) -> Result<(), RunError> {
-    let report = LocalReport::from_analysis(analysis, &ConsentState::default(), generated_at)
-        .map_err(|_| RunError {
+    let report =
+        LocalReport::from_analysis(analysis, consent, generated_at).map_err(|_| RunError {
             exit_code: 13,
             message: "history_record_invalid".into(),
         })?;
@@ -396,7 +435,7 @@ fn capabilities() -> Value {
         ],
         "languages": ["javascript", "python", "tsx", "typescript"],
         "features": [
-            { "id": "ai_evaluation", "status": "not_implemented" },
+            ai_evaluation_capability(),
             { "id": "attribute_resolution", "status": "not_implemented" },
             { "id": "file_classification", "status": "implemented" },
             { "id": "github_collection", "status": "not_implemented" },
@@ -408,6 +447,33 @@ fn capabilities() -> Value {
             { "id": "repository_code_execution", "status": "prohibited" },
             { "id": "semantic_diff", "status": "not_implemented" }
         ]
+    })
+}
+
+/// Reports the `ai_evaluation` feature honestly from the static evaluator
+/// registry (ADR 0012): every registered AI evaluator ID is listed with its
+/// family and its per-binary status, and the feature claims `implemented`
+/// only when at least one AI evaluator can actually run end to end. The
+/// deterministic default performs no AI evaluation, so it never appears here.
+fn ai_evaluation_capability() -> Value {
+    let evaluators = evaluators::EVALUATOR_REGISTRY
+        .iter()
+        .filter(|descriptor| descriptor.family() != evaluators::EvaluatorFamily::Deterministic)
+        .map(|descriptor| {
+            json!({
+                "id": descriptor.id(),
+                "family": descriptor.family().code(),
+                "status": if descriptor.is_implemented() { "implemented" } else { "not_implemented" }
+            })
+        })
+        .collect::<Vec<_>>();
+    let implemented = evaluators
+        .iter()
+        .any(|evaluator| evaluator["status"] == "implemented");
+    json!({
+        "id": "ai_evaluation",
+        "status": if implemented { "implemented" } else { "not_implemented" },
+        "evaluators": evaluators
     })
 }
 
@@ -434,11 +500,61 @@ fn invalid_clock() -> RunError {
     }
 }
 
+/// Environment variable that names one trusted, absolute Git executable.
+///
+/// This is a trusted deployment or startup configuration input per ADR 0002
+/// rule 1. It is never derived from repository content and lets operators use
+/// a non-default install location on any platform.
+const GIT_EXECUTABLE_ENV: &str = "ASSAY_GIT_EXECUTABLE";
+
+/// Resolves the Git executable from trusted deployment configuration or a
+/// trusted startup environment, never from repository content (ADR 0002).
 fn trusted_git() -> Option<PathBuf> {
+    resolve_trusted_git(std::env::var_os(GIT_EXECUTABLE_ENV))
+}
+
+/// Pure resolution used by [`trusted_git`], split out so the precedence and
+/// absolute-path contract can be tested without mutating the process
+/// environment. An explicit override is authoritative; the adapter still
+/// probes it and reports an explicit error if it is not a compatible Git.
+fn resolve_trusted_git(override_value: Option<OsString>) -> Option<PathBuf> {
+    if let Some(value) = override_value
+        && !value.is_empty()
+    {
+        return Some(PathBuf::from(value));
+    }
+    default_git_candidates()
+        .into_iter()
+        .find(|path| path.is_file())
+}
+
+/// Well-known absolute install locations for a supported Git on Unix.
+#[cfg(unix)]
+fn default_git_candidates() -> Vec<PathBuf> {
     ["/usr/bin/git", "/usr/local/bin/git"]
         .into_iter()
         .map(PathBuf::from)
-        .find(|path| path.is_file())
+        .collect()
+}
+
+/// Well-known absolute install locations for Git for Windows, derived from the
+/// trusted `Program Files` startup environment with fixed fallbacks. Custom
+/// installs are supported through [`GIT_EXECUTABLE_ENV`].
+#[cfg(windows)]
+fn default_git_candidates() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    for key in ["ProgramW6432", "ProgramFiles", "ProgramFiles(x86)"] {
+        if let Some(base) = std::env::var_os(key)
+            && !base.is_empty()
+        {
+            let base = PathBuf::from(base);
+            candidates.push(base.join(r"Git\cmd\git.exe"));
+            candidates.push(base.join(r"Git\bin\git.exe"));
+        }
+    }
+    candidates.push(PathBuf::from(r"C:\Program Files\Git\cmd\git.exe"));
+    candidates.push(PathBuf::from(r"C:\Program Files\Git\bin\git.exe"));
+    candidates
 }
 
 fn collection_or_not_found(error: CollectionError) -> RunError {
@@ -571,3 +687,82 @@ fn schema_validator(contract: &str) -> Result<Validator, ()> {
 }
 
 type BTreeSchemas = std::collections::BTreeMap<&'static str, Value>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn explicit_override_is_authoritative_over_defaults() {
+        // Use the running test binary as a stand-in absolute executable so the
+        // assertion holds on every platform without a real Git install.
+        let executable = std::env::current_exe().expect("test binary path");
+        let resolved = resolve_trusted_git(Some(executable.clone().into_os_string()));
+        assert_eq!(resolved, Some(executable));
+    }
+
+    #[test]
+    fn empty_override_falls_back_to_platform_defaults() {
+        assert_eq!(
+            resolve_trusted_git(Some(OsString::new())),
+            resolve_trusted_git(None)
+        );
+    }
+
+    #[test]
+    fn selectable_evaluators_match_the_static_registry_exactly() {
+        use clap::ValueEnum;
+
+        let selectable = Evaluator::value_variants()
+            .iter()
+            .map(|evaluator| evaluator.id())
+            .collect::<Vec<_>>();
+        let registered = evaluators::EVALUATOR_REGISTRY
+            .iter()
+            .map(evaluators::EvaluatorDescriptor::id)
+            .collect::<Vec<_>>();
+        assert_eq!(selectable, registered);
+        // The clap value names are the stable registry IDs themselves.
+        for evaluator in Evaluator::value_variants() {
+            let rendered = evaluator
+                .to_possible_value()
+                .expect("every evaluator is selectable")
+                .get_name()
+                .to_owned();
+            assert_eq!(rendered, evaluator.id());
+        }
+    }
+
+    #[test]
+    fn ai_evaluation_capability_never_claims_an_unrunnable_evaluator() {
+        let feature = ai_evaluation_capability();
+        assert_eq!(feature["id"], "ai_evaluation");
+        let evaluators = feature["evaluators"].as_array().unwrap();
+        assert!(!evaluators.is_empty());
+        // The feature may claim implemented only when some AI evaluator can
+        // actually run end to end through this binary.
+        let any_implemented = evaluators
+            .iter()
+            .any(|evaluator| evaluator["status"] == "implemented");
+        assert_eq!(
+            feature["status"] == "implemented",
+            any_implemented,
+            "feature status must derive from the per-evaluator statuses"
+        );
+        // The deterministic selection performs no AI evaluation.
+        assert!(
+            evaluators
+                .iter()
+                .all(|evaluator| evaluator["id"] != "deterministic")
+        );
+    }
+
+    #[test]
+    fn default_candidates_are_absolute_paths() {
+        // The adapter rejects any non-absolute executable as untrusted, so every
+        // default candidate must be absolute (ADR 0002 rule 1).
+        let candidates = default_git_candidates();
+        assert!(!candidates.is_empty());
+        assert!(candidates.iter().all(|path| path.is_absolute()));
+    }
+}

@@ -3,7 +3,7 @@ use std::str::FromStr;
 use assay_ai_evaluator::{
     DeterministicFakeProvider, EvaluationErrorKind, EvaluationProvider, Evaluator, EvidenceBundle,
     EvidenceDescriptor, EvidenceKind, EvidenceScope, ExternalTransmission, ProviderError,
-    ProviderExecutionBoundary, ProviderRequest, QualitativeRubric,
+    ProviderExecutionBoundary, ProviderRequest, QualitativeRubric, TransmissionSurface,
 };
 use assay_domain::EvidenceId;
 use serde_json::{Value, json};
@@ -82,6 +82,10 @@ impl EvaluationProvider for FailingProvider {
         ProviderExecutionBoundary::Local
     }
 
+    fn transmission_surface(&self) -> TransmissionSurface {
+        TransmissionSurface::BundleOnly
+    }
+
     fn evaluate(&self, _request: &ProviderRequest<'_>) -> Result<Vec<u8>, ProviderError> {
         Err(ProviderError)
     }
@@ -96,6 +100,10 @@ impl EvaluationProvider for ExternalEchoProvider {
 
     fn execution_boundary(&self) -> ProviderExecutionBoundary {
         ProviderExecutionBoundary::External
+    }
+
+    fn transmission_surface(&self) -> TransmissionSurface {
+        TransmissionSurface::BundleOnly
     }
 
     fn evaluate(&self, request: &ProviderRequest<'_>) -> Result<Vec<u8>, ProviderError> {
@@ -339,6 +347,10 @@ fn provider_request_separates_fixed_instructions_from_delimited_evidence() {
             ProviderExecutionBoundary::Local
         }
 
+        fn transmission_surface(&self) -> TransmissionSurface {
+            TransmissionSurface::BundleOnly
+        }
+
         fn evaluate(&self, request: &ProviderRequest<'_>) -> Result<Vec<u8>, ProviderError> {
             assert!(!request.system_instructions().contains("README describes"));
             let payload: Value = serde_json::from_str(request.canonical_payload()).unwrap();
@@ -514,6 +526,98 @@ fn external_provider_cannot_read_private_local_evidence_without_consent() {
         .evaluate(&ExternalEchoProvider, &bundle)
         .unwrap_err();
     assert_eq!(error.kind(), EvaluationErrorKind::PrivacyMismatch);
+}
+
+#[test]
+fn snapshot_surface_provider_requires_snapshot_consent_even_for_public_repos() {
+    struct SnapshotSurfaceProvider;
+
+    impl EvaluationProvider for SnapshotSurfaceProvider {
+        fn provider_id(&self) -> &'static str {
+            "snapshot-surface-test-provider"
+        }
+
+        fn execution_boundary(&self) -> ProviderExecutionBoundary {
+            ProviderExecutionBoundary::External
+        }
+
+        fn transmission_surface(&self) -> TransmissionSurface {
+            TransmissionSurface::WorktreeSnapshot
+        }
+
+        fn evaluate(&self, request: &ProviderRequest<'_>) -> Result<Vec<u8>, ProviderError> {
+            DeterministicFakeProvider::valid().evaluate(request)
+        }
+    }
+
+    let items = || {
+        vec![
+            EvidenceDescriptor::new(
+                evidence_id("evidence:repository:snapshot"),
+                EvidenceKind::RepositoryFact,
+                "The source revision is immutable.",
+            )
+            .unwrap(),
+        ]
+    };
+
+    // Public-only consent that acknowledged only the bundle facts is not
+    // sufficient for a provider that can transmit the whole snapshot.
+    let bundle_only = EvidenceBundle::new(
+        EvidenceScope::PublicOnly,
+        ExternalTransmission::PublicOnly,
+        items(),
+    )
+    .unwrap();
+    let error = evaluator()
+        .evaluate(&SnapshotSurfaceProvider, &bundle_only)
+        .unwrap_err();
+    assert_eq!(error.kind(), EvaluationErrorKind::PrivacyMismatch);
+
+    // Consent that acknowledged the worktree-snapshot surface by name passes.
+    let snapshot_acknowledged = EvidenceBundle::with_acknowledged_surface(
+        EvidenceScope::PublicOnly,
+        ExternalTransmission::PublicOnly,
+        TransmissionSurface::WorktreeSnapshot,
+        items(),
+    )
+    .unwrap();
+    let result = evaluator()
+        .evaluate(&SnapshotSurfaceProvider, &snapshot_acknowledged)
+        .unwrap();
+    assert_eq!(result.judgments().len(), 4);
+}
+
+#[test]
+fn acknowledged_surface_does_not_change_the_bundle_content_hash() {
+    let items = || {
+        vec![
+            EvidenceDescriptor::new(
+                evidence_id("evidence:repository:snapshot"),
+                EvidenceKind::RepositoryFact,
+                "The source revision is immutable.",
+            )
+            .unwrap(),
+        ]
+    };
+    let bundle_only = EvidenceBundle::new(
+        EvidenceScope::PublicOnly,
+        ExternalTransmission::PublicOnly,
+        items(),
+    )
+    .unwrap();
+    let snapshot_acknowledged = EvidenceBundle::with_acknowledged_surface(
+        EvidenceScope::PublicOnly,
+        ExternalTransmission::PublicOnly,
+        TransmissionSurface::WorktreeSnapshot,
+        items(),
+    )
+    .unwrap();
+    // The surface gates transmission; judgments bind to evidence content.
+    assert_eq!(
+        bundle_only.content_hash(),
+        snapshot_acknowledged.content_hash()
+    );
 }
 
 #[test]

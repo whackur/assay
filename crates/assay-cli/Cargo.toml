@@ -10,6 +10,7 @@ name = "assay"
 path = "src/main.rs"
 
 [dependencies]
+assay-ai-evaluator = { path = "../assay-ai-evaluator" }
 assay-classifier = { path = "../assay-classifier" }
 assay-git = { path = "../assay-git" }
 assay-local = { path = "../assay-local" }
@@ -25,6 +26,5 @@ jsonschema = { version = "0.33", default-features = false }
 serde = "1.0"
 serde_json = "1.0"
 sha2 = "0.10"
-assay-ai-evaluator = { path = "../assay-ai-evaluator" }
 assay-domain = { path = "../assay-domain" }
 assay-test-fixtures = { path = "../../tests/support/assay-fixtures" }

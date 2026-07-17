@@ -10,7 +10,7 @@ use serde_json::json;
 use crate::{
     AI_JUDGMENT_SCHEMA_VERSION, EvaluationError, EvaluationErrorKind, EvidenceBundle,
     EvidenceDescriptor, EvidenceScope, ExternalTransmission, PROMPT_VERSION, ProviderError,
-    QualitativeCriterion, QualitativeRubric,
+    QualitativeCriterion, QualitativeRubric, TransmissionSurface,
     bundle::{TextPolicy, id_set, validate_untrusted_text},
 };
 
@@ -138,6 +138,10 @@ pub trait EvaluationProvider {
     /// Declares whether evidence stays local or crosses a provider boundary.
     fn execution_boundary(&self) -> ProviderExecutionBoundary;
 
+    /// Declares the widest content surface this provider can transmit: the
+    /// bounded bundle alone, or the whole analyzed worktree snapshot.
+    fn transmission_surface(&self) -> TransmissionSurface;
+
     /// Returns untrusted structured bytes. The evaluator validates all fields.
     fn evaluate(&self, request: &ProviderRequest<'_>) -> Result<Vec<u8>, ProviderError>;
 }
@@ -191,6 +195,10 @@ impl EvaluationProvider for DeterministicFakeProvider {
 
     fn execution_boundary(&self) -> ProviderExecutionBoundary {
         ProviderExecutionBoundary::Local
+    }
+
+    fn transmission_surface(&self) -> TransmissionSurface {
+        TransmissionSurface::BundleOnly
     }
 
     fn evaluate(&self, request: &ProviderRequest<'_>) -> Result<Vec<u8>, ProviderError> {
@@ -507,7 +515,11 @@ impl Evaluator {
         provider: &P,
         bundle: &EvidenceBundle,
     ) -> Result<ValidatedJudgmentSet, EvaluationError> {
-        enforce_transmission_boundary(provider.execution_boundary(), bundle)?;
+        enforce_transmission_boundary(
+            provider.execution_boundary(),
+            provider.transmission_surface(),
+            bundle,
+        )?;
         let request = ProviderRequest::new(self.rubric, bundle)?;
         let bytes = provider
             .evaluate(&request)
@@ -665,10 +677,22 @@ impl Evaluator {
 }
 
 /// Rejects any provider boundary that would move evidence past its consent.
+///
+/// An external provider transmitting the `WorktreeSnapshot` surface requires a
+/// consent that acknowledged that surface by name, even for a public-only
+/// repository, because the provider vendor receives the whole analyzed tree
+/// rather than only the bounded bundle facts (ADR 0012).
 pub(crate) fn enforce_transmission_boundary(
     boundary: ProviderExecutionBoundary,
+    surface: TransmissionSurface,
     bundle: &EvidenceBundle,
 ) -> Result<(), EvaluationError> {
+    if boundary == ProviderExecutionBoundary::External
+        && surface == TransmissionSurface::WorktreeSnapshot
+        && bundle.acknowledged_surface() != TransmissionSurface::WorktreeSnapshot
+    {
+        return Err(EvaluationError::new(EvaluationErrorKind::PrivacyMismatch));
+    }
     match (boundary, bundle.transmission()) {
         (ProviderExecutionBoundary::Local, ExternalTransmission::NotUsed) => Ok(()),
         (ProviderExecutionBoundary::External, ExternalTransmission::PublicOnly)

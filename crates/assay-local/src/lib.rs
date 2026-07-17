@@ -19,7 +19,7 @@ mod transport;
 
 pub use consent::{
     ConsentGrant, ConsentState, ExternalProvider, ExternalTransmission, NextAction, PrivateFeature,
-    SectionReason, SectionReport, SectionState,
+    SectionReason, SectionReport, SectionState, TransmissionSurface,
 };
 pub use history::{
     HistoryError, LocalAdministrator, LocalHistoryStore, RecordStatus, StoredRecord,

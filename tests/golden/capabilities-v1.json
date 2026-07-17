@@ -11,7 +11,14 @@
   ],
   "languages": ["javascript", "python", "tsx", "typescript"],
   "features": [
-    { "id": "ai_evaluation", "status": "not_implemented" },
+    {
+      "id": "ai_evaluation",
+      "status": "not_implemented",
+      "evaluators": [
+        { "id": "openai-api-1", "family": "api_key", "status": "not_implemented" },
+        { "id": "codex-cli-1", "family": "agentic", "status": "not_implemented" }
+      ]
+    },
     { "id": "attribute_resolution", "status": "not_implemented" },
     { "id": "file_classification", "status": "implemented" },
     { "id": "github_collection", "status": "not_implemented" },

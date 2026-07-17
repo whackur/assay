@@ -46,7 +46,21 @@
             "type": "string",
             "enum": ["ai_evaluation", "attribute_resolution", "file_classification", "github_collection", "local_git_snapshot", "local_private_history", "loopback_dashboard", "project_scores", "remote_private_fetch", "repository_code_execution", "semantic_diff"]
           },
-          "status": { "type": "string", "enum": ["implemented", "not_implemented", "prohibited"] }
+          "status": { "type": "string", "enum": ["implemented", "not_implemented", "prohibited"] },
+          "evaluators": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "family", "status"],
+              "properties": {
+                "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+                "family": { "type": "string", "enum": ["api_key", "agentic"] },
+                "status": { "type": "string", "enum": ["implemented", "not_implemented"] }
+              }
+            }
+          }
         }
       }
     }

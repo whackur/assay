@@ -55,6 +55,20 @@ pub enum ExternalTransmission {
     ConsentedPrivate,
 }
 
+/// The transmission *surface* a consent acknowledgement covers (ADR 0012).
+///
+/// `BundleOnly` is the API-key family surface: only the bounded evidence
+/// bundle can reach an external provider. `WorktreeSnapshot` is the agentic
+/// family surface: the agent may read and transmit any file of the analyzed
+/// revision, so consent must acknowledge this broader surface by name even
+/// for public repositories.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TransmissionSurface {
+    BundleOnly,
+    WorktreeSnapshot,
+}
+
 /// One citable, bounded statement derived from deterministic evidence.
 #[derive(Clone, Eq, PartialEq)]
 pub struct EvidenceDescriptor {
@@ -111,15 +125,35 @@ impl std::fmt::Debug for EvidenceDescriptor {
 pub struct EvidenceBundle {
     scope: EvidenceScope,
     transmission: ExternalTransmission,
+    acknowledged_surface: TransmissionSurface,
     items: Vec<EvidenceDescriptor>,
     content_hash: String,
 }
 
 impl EvidenceBundle {
-    /// Validates privacy and canonicalizes items by evidence ID.
+    /// Validates privacy and canonicalizes items by evidence ID. The governing
+    /// consent acknowledges only the bounded bundle surface, so no provider
+    /// that transmits a whole worktree snapshot can pass boundary enforcement.
     pub fn new(
         scope: EvidenceScope,
         transmission: ExternalTransmission,
+        items: Vec<EvidenceDescriptor>,
+    ) -> Result<Self, EvaluationError> {
+        Self::with_acknowledged_surface(scope, transmission, TransmissionSurface::BundleOnly, items)
+    }
+
+    /// Validates privacy and canonicalizes items, recording the transmission
+    /// surface the governing consent acknowledged. `WorktreeSnapshot` states
+    /// that the provider may read and transmit any file of the analyzed
+    /// revision, not merely the bundle facts.
+    ///
+    /// The surface gates transmission before any provider is called; it is not
+    /// part of the evidence content identity a judgment binds to, so it does
+    /// not enter the bundle content hash.
+    pub fn with_acknowledged_surface(
+        scope: EvidenceScope,
+        transmission: ExternalTransmission,
+        acknowledged_surface: TransmissionSurface,
         mut items: Vec<EvidenceDescriptor>,
     ) -> Result<Self, EvaluationError> {
         if items.is_empty() {
@@ -144,6 +178,7 @@ impl EvidenceBundle {
         Ok(Self {
             scope,
             transmission,
+            acknowledged_surface,
             items,
             content_hash,
         })
@@ -157,6 +192,11 @@ impl EvidenceBundle {
     /// Returns the external-transmission policy.
     pub const fn transmission(&self) -> ExternalTransmission {
         self.transmission
+    }
+
+    /// Returns the transmission surface the governing consent acknowledged.
+    pub const fn acknowledged_surface(&self) -> TransmissionSurface {
+        self.acknowledged_surface
     }
 
     /// Returns evidence in canonical identifier order.
@@ -180,6 +220,7 @@ impl std::fmt::Debug for EvidenceBundle {
             .debug_struct("EvidenceBundle")
             .field("scope", &self.scope)
             .field("transmission", &self.transmission)
+            .field("acknowledged_surface", &self.acknowledged_surface)
             .field("item_count", &self.items.len())
             .field("content_hash", &self.content_hash)
             .finish()

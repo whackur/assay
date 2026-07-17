@@ -354,6 +354,11 @@ create an unacceptable correctness and security burden. It is rejected.
 - The public schema and domain ports must not expose CLI-specific concepts.
 - Distribution planning must either declare Git as a prerequisite or revisit
   an embedded adapter before claiming a self-contained binary.
+- The CLI resolves the trusted executable (rule 1) from the operator-set
+  `ASSAY_GIT_EXECUTABLE` variable first, then from platform default absolute
+  install locations (`/usr/bin/git` and `/usr/local/bin/git` on Unix; the
+  `Program Files` Git for Windows locations on Windows). Both inputs are
+  trusted startup configuration and are never derived from repository content.
 
 Reopen this decision when any of the following is true:
 

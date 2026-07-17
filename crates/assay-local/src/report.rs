@@ -161,6 +161,33 @@ mod tests {
     }
 
     #[test]
+    fn granted_snapshot_consent_surfaces_in_the_report_section() {
+        use crate::consent::{ConsentGrant, ExternalProvider, PrivateFeature};
+
+        let consent = ConsentState::default().granting(
+            PrivateFeature::AiEvaluation,
+            ConsentGrant::acknowledge_worktree_snapshot(
+                ExternalProvider::new("codex_cli"),
+                "this agent may read and transmit any file of the analyzed revision",
+            ),
+        );
+        let report = LocalReport::from_analysis(local_analysis(), &consent, "2026-07-16T00:00:00Z")
+            .expect("build report");
+        let value = report.to_value();
+        // Bundle-facts and full-snapshot consent stay distinct acknowledgements.
+        assert_eq!(
+            value["sections"]["ai_evaluation"]["acknowledged_surface"],
+            "worktree_snapshot"
+        );
+        assert!(
+            value["sections"]["competitor_discovery"]
+                .get("acknowledged_surface")
+                .is_none()
+        );
+        assert_eq!(value["privacy"]["external_transmission"], "consented");
+    }
+
+    #[test]
     fn rejects_hosted_source() {
         let analysis = json!({
             "manifest": { "source_snapshot": { "source": {

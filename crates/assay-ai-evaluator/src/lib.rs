@@ -3,21 +3,40 @@
 //! Provider output and provider prose are untrusted until [`Evaluator`]
 //! validates their schema-shaped fields, rubric membership, bounded ratings,
 //! and citations against the exact [`EvidenceBundle`]. The validated scoring
-//! view intentionally excludes provider rationale. The crate defines the
-//! credential and HTTP transport ports used by [`OpenAiEvaluator`] but performs
-//! no network, filesystem, process, credential, or score-compilation I/O; the
-//! concrete secret store and HTTP client are injected from outside the crate.
+//! view intentionally excludes provider rationale. Two provider families plug
+//! into the same boundary (ADR 0012): API-key HTTP adapters built on the
+//! shared [`ApiKeyEvaluator`] machinery over the injected [`SecretStore`] and
+//! [`HttpTransport`] ports, and agentic CLI adapters built on the injected
+//! [`SnapshotWorkspace`] and [`AgentRunner`] ports. The crate performs no
+//! network, filesystem, process, credential, or score-compilation I/O; every
+//! concrete secret store, HTTP client, snapshot materializer, and process
+//! runner is injected from outside the crate, and every provider's untrusted
+//! bytes pass through the one [`Evaluator`] validation path.
 
 #![forbid(unsafe_code)]
 
+mod agentic;
+mod api;
 mod bundle;
 mod error;
 mod evaluator;
 mod openai;
 mod rubric;
 
+pub use agentic::{
+    AGENT_INSTRUCTIONS, AgentIdentity, AgentRun, AgentRunError, AgentRunner, AgenticConfig,
+    AgenticEvaluator, AgenticProvenance, AgenticSnapshot, ControlInputs, PreparedWorkspace,
+    SnapshotWorkspace, WorkspaceError,
+};
+pub use api::{
+    ApiKeyEvaluator, ApiProviderProfile, AuthorizationScheme, EvaluationSnapshot, HttpTransport,
+    OutboundRequest, ProviderReply, ProviderSecret, ProviderTelemetry, SamplingConfig, SecretError,
+    SecretName, SecretStore, SnapshotOutcome, SnapshotProvenance, TransportError,
+    TransportResponse, Usage,
+};
 pub use bundle::{
     EvidenceBundle, EvidenceDescriptor, EvidenceKind, EvidenceScope, ExternalTransmission,
+    TransmissionSurface,
 };
 pub use error::{EvaluationError, EvaluationErrorKind, ProviderError};
 pub use evaluator::{
@@ -25,11 +44,7 @@ pub use evaluator::{
     ProviderExecutionBoundary, ProviderRequest, ScoringJudgment, ValidatedJudgment,
     ValidatedJudgmentSet,
 };
-pub use openai::{
-    EvaluationSnapshot, HttpTransport, OpenAiConfig, OpenAiEvaluator, OutboundRequest,
-    ProviderSecret, ProviderTelemetry, SamplingConfig, SecretError, SecretName, SecretStore,
-    SnapshotOutcome, SnapshotProvenance, TransportError, TransportResponse, Usage,
-};
+pub use openai::{OpenAiConfig, OpenAiEvaluator, OpenAiProfile};
 pub use rubric::{QualitativeCriterion, QualitativeRubric};
 
 /// Stable public schema version produced by validated evaluator results.
