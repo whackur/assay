@@ -1,20 +1,24 @@
-name: assay
+name: assay-prod
 
 services:
   web:
+    image: ${ASSAY_IMAGE:-ghcr.io/whackur/assay-web:latest}
     build:
       context: .
       dockerfile: Dockerfile
       target: web-runtime
     environment:
+      ASSAY_DATA_DIR: /app/data
       HOSTNAME: 0.0.0.0
       NEXT_TELEMETRY_DISABLED: "1"
       NODE_ENV: production
       PORT: 3000
     init: true
     ports:
-      - "${ASSAY_WEB_PORT:-3000}:3000"
+      - "127.0.0.1:${ASSAY_WEB_PORT:-3001}:3000"
     restart: unless-stopped
+    volumes:
+      - assay-web-data:/app/data
     healthcheck:
       test:
         - CMD
@@ -27,3 +31,6 @@ services:
       timeout: 5s
       start_period: 10s
       retries: 3
+
+volumes:
+  assay-web-data:

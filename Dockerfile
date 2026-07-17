@@ -21,11 +21,16 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
+# Admin credentials, sessions, and catalog-visibility state live here; mount a
+# volume at this path so first-run setup survives container recreation.
+ENV ASSAY_DATA_DIR=/app/data
 
 WORKDIR /app
 
 RUN groupadd --system --gid 1001 nodejs \
-  && useradd --system --uid 1001 --gid nodejs nextjs
+  && useradd --system --uid 1001 --gid nodejs nextjs \
+  && mkdir -p /app/data \
+  && chown nextjs:nodejs /app/data
 
 COPY --from=web-builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=web-builder --chown=nextjs:nodejs /app/.next/standalone ./
