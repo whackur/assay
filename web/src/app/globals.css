@@ -86,7 +86,7 @@ code {
 /* ---------- Shell ---------- */
 
 .shell {
-  max-width: 1080px;
+  max-width: 1280px;
   margin-inline: auto;
   padding-inline: clamp(1rem, 4vw, 2.5rem);
 }
@@ -838,6 +838,54 @@ dl.meta dd {
 
 .notice strong {
   color: var(--color-ink);
+}
+
+/* ---------- HakHub teaser — single external touchpoint after the score ---------- */
+
+.hakhub-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2xs) var(--space-md);
+  margin-top: var(--space-md);
+  padding-top: var(--space-sm);
+  border-top: var(--rule-hairline);
+  max-width: 44rem;
+}
+
+.hakhub-cta-text {
+  flex: 1 1 16rem;
+}
+
+.hakhub-cta-heading {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 560;
+  color: var(--color-ink);
+}
+
+.hakhub-cta-lede {
+  margin-top: var(--space-3xs);
+  font-size: var(--text-sm);
+  color: var(--color-ink-2);
+}
+
+.hakhub-cta-link {
+  display: inline-block;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  padding: 0.55rem 1.1rem;
+  border: 1px solid var(--color-rule-strong);
+  border-radius: var(--radius-input);
+  color: var(--color-ink);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color var(--dur-short) var(--ease-out);
+}
+
+.hakhub-cta-link:hover {
+  background: var(--color-paper-2);
+  color: var(--color-accent);
 }
 
 /* ---------- Progress ---------- */

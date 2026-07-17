@@ -83,6 +83,23 @@ export function ResultView({
           separate forward-looking indicator.
         </p>
         <ScoreViews scores={evaluation.scores} />
+        <aside className="hakhub-cta" aria-label="HakHub teaser">
+          <div className="hakhub-cta-text">
+            <p className="hakhub-cta-heading">Want more from your score?</p>
+            <p className="hakhub-cta-lede">
+              See how projects like this one stack up across the wider
+              ecosystem.
+            </p>
+          </div>
+          <a
+            className="hakhub-cta-link"
+            href="https://hakhub.net/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Explore HakHub
+          </a>
+        </aside>
       </section>
 
       <section className="report-section" aria-labelledby="report-evidence">
