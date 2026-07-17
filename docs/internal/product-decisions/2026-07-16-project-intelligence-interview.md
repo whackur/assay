@@ -4,7 +4,7 @@
 - 상태: 제품 구성 확정
 - 적용 대상: Project Intelligence, 공개 카탈로그, 인증 사용자 분석, 로컬 비공개
   저장소 분석
-- 관련 handoff: `docs/internal/handoffs/next-implementation-handoff.md`
+- 관련 handoff: `docs/internal/handoffs/2026-07-16-mvp-integration-status.md`
 
 ## 1. 제품 정의
 
