@@ -116,16 +116,17 @@ export function CatalogBrowser({
         insufficient results are not treated as a zero.
       </p>
 
-      <section aria-labelledby="recently-assayed">
+      <section className="subsection" aria-labelledby="recently-assayed">
         <h2 id="recently-assayed">Recently Assayed</h2>
         <CatalogList entries={recent} />
       </section>
 
-      <section aria-labelledby="top-assays">
-        <h2 id="top-assays">Top Assays</h2>
-        <p className="muted">
-          Ranked by released Assay Score with evaluation version, engine,
-          confidence, and provisional state.
+      <section className="subsection" aria-labelledby="top-assays">
+        <h2 id="top-assays">Leaderboard</h2>
+        <p className="lede">
+          Ranked by released Assay Score, with evaluation version, engine,
+          confidence, and provisional state in plain sight. Unreleased scores
+          do not rank — nobody gets a free zero.
         </p>
         <CatalogList entries={top} ranked emptyLabel="No released scores match the current filters." />
       </section>

@@ -2,6 +2,9 @@
 /.next
 /out
 /build
+
+# First-run admin state (credentials, sessions, catalog visibility)
+/data
 next-env.d.ts
 *.tsbuildinfo
 .DS_Store

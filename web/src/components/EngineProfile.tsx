@@ -7,18 +7,24 @@ const BADGE_LABELS: Record<ResultBadge, string> = {
   insufficient_evidence: "Insufficient evidence",
 };
 
+const BADGE_TONE: Record<ResultBadge, string> = {
+  provisional: "chip warn",
+  stale: "chip warn",
+  insufficient_evidence: "chip",
+};
+
 export function EngineProfile({ evaluation }: { evaluation: ProjectEvaluation }) {
   const state = resultState(evaluation);
   const { classification, evaluator } = evaluation;
 
   return (
-    <div className="card stack">
-      <div className="tag-row">
-        <span className="badge">{state.profileLabel}</span>
-        <span className="badge">{state.visibilityLabel}</span>
-        <span className="badge">{state.engineLabel}</span>
+    <div className="stack" style={{ marginTop: "var(--space-sm)" }}>
+      <div className="chip-row">
+        <span className="chip">{state.profileLabel}</span>
+        <span className="chip">{state.visibilityLabel}</span>
+        <span className="chip accent">{state.engineLabel}</span>
         {state.badges.map((badge) => (
-          <span key={badge} className={`badge ${badge}`}>
+          <span key={badge} className={BADGE_TONE[badge]}>
             {BADGE_LABELS[badge]}
           </span>
         ))}
@@ -35,17 +41,13 @@ export function EngineProfile({ evaluation }: { evaluation: ProjectEvaluation })
         <dd>{classification.primary_type ?? "unclassified"}</dd>
         <dt>Maturity</dt>
         <dd>{classification.maturity ?? "unknown"}</dd>
+        {classification.tags.length > 0 && (
+          <>
+            <dt>Tags</dt>
+            <dd>{classification.tags.join(", ")}</dd>
+          </>
+        )}
       </dl>
-
-      {classification.tags.length > 0 && (
-        <div className="tag-row">
-          {classification.tags.map((tag) => (
-            <span key={tag} className="badge">
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

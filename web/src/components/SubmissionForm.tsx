@@ -57,24 +57,28 @@ export function SubmissionForm() {
   return (
     <form className="submit-form" onSubmit={onSubmit} noValidate>
       <label htmlFor={inputId}>GitHub repository URL</label>
-      <input
-        id={inputId}
-        name="repository"
-        type="text"
-        inputMode="url"
-        autoComplete="off"
-        placeholder="https://github.com/owner/repository"
-        value={value}
-        onChange={(event) => setValue(event.target.value)}
-        aria-describedby={describedBy || undefined}
-        aria-invalid={submitError !== null || preview?.ok === false}
-      />
+      <div className="submit-row">
+        <input
+          id={inputId}
+          name="repository"
+          type="text"
+          inputMode="url"
+          autoComplete="off"
+          placeholder="https://github.com/owner/repository"
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          aria-describedby={describedBy || undefined}
+          aria-invalid={submitError !== null || preview?.ok === false}
+        />
+        <button type="submit" disabled={pending}>
+          {pending ? "Submitting…" : "Assay it"}
+        </button>
+      </div>
 
       <div id={previewId} aria-live="polite">
         {preview?.ok && (
-          <p className="muted">
-            Canonical repository:{" "}
-            <strong>
+          <p className="canonical-preview">
+            canonical: <strong>
               {preview.source.namespace}/{preview.source.repository}
             </strong>{" "}
             on {preview.source.provider}
@@ -93,7 +97,7 @@ export function SubmissionForm() {
 
       <div aria-live="polite">
         {cooldown && (
-          <div id={cooldownId} className="notice" role="status">
+          <div id={cooldownId} className="notice" role="status" style={{ marginTop: "var(--space-sm)" }}>
             This repository was already analyzed on the{" "}
             {cooldown.cooldown.profile} profile. A refresh is on cooldown; the
             next eligible analysis is in {cooldown.cooldown.remainingLabel} (
@@ -103,10 +107,6 @@ export function SubmissionForm() {
           </div>
         )}
       </div>
-
-      <button type="submit" disabled={pending}>
-        {pending ? "Submitting…" : "Analyze repository"}
-      </button>
     </form>
   );
 }

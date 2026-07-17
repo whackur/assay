@@ -23,41 +23,52 @@ export function ProgressPanel({ job }: { job: JobState }) {
   }, [startedAt]);
 
   return (
-    <div className="stack">
-      <h1>Analyzing {job.canonical.namespace}/{job.canonical.repository}</h1>
-      <p className="muted">
-        <a href={job.canonical_url}>{job.canonical_url}</a> · {job.profile} profile
-      </p>
+    <div>
+      <header className="report-masthead">
+        <h1>
+          Analyzing {job.canonical.namespace}/{job.canonical.repository}
+        </h1>
+        <p className="report-source">
+          <a href={job.canonical_url}>{job.canonical_url}</a> · {job.profile}{" "}
+          profile · revision {job.revision.slice(0, 12)}
+        </p>
+      </header>
 
-      <div className="card stack">
-        <div>
-          <span className="muted">Elapsed</span>
-          <div className="elapsed" aria-live="polite">
-            {formatElapsed(elapsedMs)}
-          </div>
+      <div className="report-section">
+        <p className="stage-note">elapsed</p>
+        <div className="progress-elapsed" aria-live="polite">
+          {formatElapsed(elapsedMs)}
         </div>
+      </div>
 
+      <div className="report-section">
         <ol className="stage-list">
           {ANALYSIS_STAGES.map((stage) => {
             const done = isStageComplete(stage, job.stage);
             const current = stage === job.stage;
             const cls = done ? "done" : current ? "current" : "pending";
             return (
-              <li key={stage} className={`stage-item ${cls}`} aria-current={current ? "step" : undefined}>
+              <li
+                key={stage}
+                className={`stage-item ${cls}`}
+                aria-current={current ? "step" : undefined}
+              >
                 <span className="stage-dot" aria-hidden="true" />
                 <span className="stage-name">{stageLabel(stage)}</span>
-                {current && <span className="muted"> — in progress</span>}
+                {current && <span className="stage-note">in progress</span>}
               </li>
             );
           })}
         </ol>
       </div>
 
-      <p className="muted">
-        Completed stages are preserved. Failed stages are reported as partial or
-        unavailable. There is no retry action for anonymous submissions.
-      </p>
-      <ProjectNotice />
+      <div className="report-section stack">
+        <p className="muted" style={{ fontSize: "var(--text-sm)" }}>
+          Completed stages are preserved. Failed stages are reported as partial
+          or unavailable. There is no retry action for anonymous submissions.
+        </p>
+        <ProjectNotice />
+      </div>
     </div>
   );
 }

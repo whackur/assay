@@ -15,43 +15,37 @@ const BADGE_LABELS: Record<CatalogEntry["badges"][number], string> = {
 export function FeaturedCard({ entry }: { entry: CatalogEntry }) {
   const summary = scoreSummary(entry.score);
   return (
-    <article className="card stack featured-card" aria-labelledby={`featured-${entry.id}`}>
-      <div className="tag-row">
-        <span className="badge featured-tag">Featured</span>
-        {entry.featuredLabel && <span className="badge">{entry.featuredLabel}</span>}
+    <article className="featured-card" aria-labelledby={`featured-${entry.id}`}>
+      <div className="chip-row">
+        <span className="chip accent">Featured</span>
+        {entry.badges.map((badge) => (
+          <span key={badge} className="chip warn">
+            {BADGE_LABELS[badge]}
+          </span>
+        ))}
       </div>
 
       <h3 id={`featured-${entry.id}`} className="featured-name">
         <Link href={`/evaluations/${entry.id}`}>{entry.name}</Link>
       </h3>
-      <p>{entry.description}</p>
+      <p className="featured-desc">{entry.description}</p>
 
       <dl className="meta">
-        <dt>Type</dt>
-        <dd>{entry.primaryType ?? "unclassified"}</dd>
-        <dt>Maturity</dt>
-        <dd>{entry.maturity ?? "unknown"}</dd>
-        <dt>Engine</dt>
-        <dd>{entry.engineLabel}</dd>
         <dt>Assay Score</dt>
         <dd>
           {summary.released
             ? `${summary.valueText} · confidence ${summary.confidencePercent}% (${summary.confidenceBand})`
             : summary.statusLabel}
         </dd>
+        <dt>Type</dt>
+        <dd>{entry.primaryType ?? "unclassified"}</dd>
+        <dt>Maturity</dt>
+        <dd>{entry.maturity ?? "unknown"}</dd>
+        <dt>Engine</dt>
+        <dd>{entry.engineLabel}</dd>
       </dl>
 
-      {entry.badges.length > 0 && (
-        <div className="tag-row">
-          {entry.badges.map((badge) => (
-            <span key={badge} className={`badge ${badge}`}>
-              {BADGE_LABELS[badge]}
-            </span>
-          ))}
-        </div>
-      )}
-
-      <p>
+      <p className="featured-more">
         <Link href={`/evaluations/${entry.id}`}>Read the full evaluation</Link>
       </p>
     </article>

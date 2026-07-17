@@ -1,0 +1,96 @@
+/* Hallmark · macrostructure: Workbench · genre: editorial (provocative front door) · theme: custom
+ * vibe: "the assay bench — near-black bench, molten-copper verdicts, paper specimens"
+ * bench oklch(17.5% 0.012 50) · accent oklch(72% 0.17 45) electric-copper
+ * display: Fraunces · body: IBM Plex Sans · outlier: IBM Plex Mono
+ * axes: dark paper-band / roman-serif display / warm accent
+ * design-system: design.md · designed-as-app
+ */
+
+:root {
+  /* Color — the dark laboratory bench. One electric accent, used ruthlessly. */
+  --color-paper: oklch(17.5% 0.012 50);
+  --color-paper-2: oklch(21.5% 0.014 50);
+  --color-paper-3: oklch(26% 0.016 50);
+  --color-ink: oklch(93% 0.012 85);
+  --color-ink-2: oklch(69% 0.015 70);
+  --color-rule: oklch(31% 0.015 55);
+  --color-rule-strong: oklch(45% 0.02 60);
+  --color-accent: oklch(72% 0.17 45);
+  --color-accent-deep: oklch(78% 0.17 50);
+  --color-accent-ink: oklch(16% 0.02 45);
+  --color-accent-wash: oklch(32% 0.07 45);
+  --color-focus: oklch(76% 0.12 250);
+
+  /* Status — reserved, always paired with a text label, never color-alone. */
+  --color-ok: oklch(76% 0.13 155);
+  --color-warn: oklch(80% 0.13 85);
+  --color-bad: oklch(70% 0.17 25);
+
+  /* Data marks — single-hue magnitude bars for dimension scores. */
+  --color-bar-track: oklch(27% 0.014 50);
+  --color-bar-fill: oklch(82% 0.03 70);
+  --color-bar-hero: oklch(72% 0.17 45);
+
+  /* Type — Fraunces display, IBM Plex Sans body, IBM Plex Mono data. */
+  --font-display: var(--font-fraunces), "Iowan Old Style", Georgia, serif;
+  --font-body: var(--font-plex-sans), "Segoe UI", system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "Cascadia Mono", Menlo,
+    monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: clamp(1.9rem, 3.4vw, 2.5rem);
+  --text-display: clamp(2.9rem, 7.5vw, 5.4rem);
+
+  /* Space — 4-pt scale. */
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs: 0.75rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2rem;
+  --space-xl: 3rem;
+  --space-2xl: 4.5rem;
+  --space-3xl: 6.5rem;
+
+  /* Motion — exponential ease-out only; motion is rationed. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-short: 180ms;
+
+  /* Shape — near-flat: verdicts are stamped things, not bubbles. */
+  --radius-sm: 3px;
+  --radius-input: 4px;
+
+  --rule-hairline: 1px solid var(--color-rule);
+
+  color-scheme: dark;
+}
+
+/* The specimen sheet: a paper document lying on the dark bench. Everything
+ * rendered inside a .sheet re-reads the token set in its paper voice. */
+.sheet {
+  --color-paper: oklch(96.5% 0.008 85);
+  --color-paper-2: oklch(93.5% 0.01 85);
+  --color-paper-3: oklch(90.5% 0.012 82);
+  --color-ink: oklch(24% 0.015 55);
+  --color-ink-2: oklch(45% 0.015 55);
+  --color-rule: oklch(85% 0.014 80);
+  --color-rule-strong: oklch(62% 0.02 70);
+  --color-accent: oklch(50% 0.11 40);
+  --color-accent-deep: oklch(42% 0.1 40);
+  --color-accent-ink: oklch(97% 0.008 85);
+  --color-accent-wash: oklch(92% 0.025 55);
+  --color-focus: oklch(45% 0.12 250);
+  --color-ok: oklch(46% 0.09 155);
+  --color-warn: oklch(50% 0.1 75);
+  --color-bad: oklch(46% 0.14 25);
+  --color-bar-track: oklch(90.5% 0.012 82);
+  --color-bar-fill: oklch(36% 0.03 50);
+  --color-bar-hero: oklch(50% 0.11 40);
+
+  color-scheme: light;
+}

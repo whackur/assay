@@ -1,0 +1,9 @@
+{
+  "scanned": "2026-07-17",
+  "framework": "Next.js 16 (app router)",
+  "fonts": "system-ui only before redesign; now next/font Fraunces + IBM Plex Sans/Mono",
+  "palette": "hex custom properties (light+dark) before redesign; now OKLCH tokens.css, single light theme",
+  "motion": "no motion library — motion-cut project",
+  "spacing": "ad-hoc rem before redesign; now 4-pt named scale",
+  "tests": "node:test via tsx, src/**/*.test.ts"
+}

@@ -4,7 +4,7 @@ import type {
   ProjectEvidence,
 } from "@/lib/contract/types";
 import { resultState } from "@/lib/state/result-state";
-import { ScoreCards } from "@/components/ScoreCards";
+import { ScoreViews } from "@/components/ScoreViews";
 import { EngineProfile } from "@/components/EngineProfile";
 import { EvidenceExplorer } from "@/components/EvidenceExplorer";
 import { SimilarProjects } from "@/components/SimilarProjects";
@@ -36,15 +36,17 @@ export function ResultView({
   const { introduction } = evaluation;
 
   return (
-    <div className="stack">
-      <h1>{name}</h1>
-      {url && (
-        <p className="muted">
-          <a href={url}>{url}</a>
-        </p>
-      )}
-
-      <EngineProfile evaluation={evaluation} />
+    <article>
+      <header className="report-masthead">
+        <h1>{name}</h1>
+        {url && (
+          <p className="report-source">
+            <a href={url}>{url}</a> · revision{" "}
+            {evaluation.project.revision.slice(0, 12)}
+          </p>
+        )}
+        <EngineProfile evaluation={evaluation} />
+      </header>
 
       {(state.isPartial || state.providerUnavailable || !state.releaseGateMet) && (
         <p className="notice" role="status">
@@ -59,9 +61,9 @@ export function ResultView({
       )}
 
       {introduction.status === "complete" && (
-        <section>
-          <h2>Introduction</h2>
-          <ul>
+        <section className="report-section" aria-labelledby="report-intro">
+          <h2 id="report-intro">Introduction</h2>
+          <ul className="intro-list">
             {introduction.factual_statements.map((s, i) => (
               <li key={`fact-${i}`}>{s.text}</li>
             ))}
@@ -74,17 +76,21 @@ export function ResultView({
         </section>
       )}
 
-      <section>
-        <h2>Dimension scores</h2>
-        <p className="muted">
+      <section className="report-section" aria-labelledby="report-scores">
+        <h2 id="report-scores">Scores</h2>
+        <p className="lede">
           The Assay Score never replaces its dimensions, and Potential is a
           separate forward-looking indicator.
         </p>
-        <ScoreCards scores={evaluation.scores} />
+        <ScoreViews scores={evaluation.scores} />
       </section>
 
-      <section>
-        <h2>Evidence</h2>
+      <section className="report-section" aria-labelledby="report-evidence">
+        <h2 id="report-evidence">Evidence</h2>
+        <p className="lede">
+          Every record below is graded, revision-pinned, and citable by the
+          scores above.
+        </p>
         <EvidenceExplorer evidence={evidence} />
       </section>
 
@@ -93,9 +99,9 @@ export function ResultView({
       <BadgeShare evaluation={evaluation} />
 
       {(evaluation.warnings.length > 0 || evaluation.limitations.length > 0) && (
-        <section>
-          <h2>Warnings and limitations</h2>
-          <ul>
+        <section className="report-section" aria-labelledby="report-limits">
+          <h2 id="report-limits">Warnings and limitations</h2>
+          <ul className="intro-list">
             {evaluation.warnings.map((w) => (
               <li key={`w-${w.code}`}>
                 <code>{w.code}</code>
@@ -110,7 +116,9 @@ export function ResultView({
         </section>
       )}
 
-      <ProjectNotice />
-    </div>
+      <div className="report-section">
+        <ProjectNotice />
+      </div>
+    </article>
   );
 }

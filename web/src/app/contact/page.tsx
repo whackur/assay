@@ -11,19 +11,21 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   return (
-    <div className="stack">
+    <div className="auth-card">
       <h1>Contact and report an issue</h1>
-      <p>
-        Assay does not offer reactions, comments, bookmarks, follows, project
-        claims, or a formal appeal workflow yet. It also has no user-facing
-        score editing or retry.
-      </p>
-      <p>
-        To raise a factual or provenance concern about an evaluation, contact
-        the operator through the channel configured for this deployment. An
-        administrator reviews reports and may correct a rule, request a manual
-        re-analysis, or hide a result.
-      </p>
+      <div className="stack" style={{ marginTop: "var(--space-md)" }}>
+        <p>
+          Assay does not offer reactions, comments, bookmarks, follows, project
+          claims, or a formal appeal workflow yet. It also has no user-facing
+          score editing or retry.
+        </p>
+        <p>
+          To raise a factual or provenance concern about an evaluation, contact
+          the operator through the channel configured for this deployment. An
+          administrator reviews reports and may correct a rule, request a manual
+          re-analysis, or hide a result.
+        </p>
+      </div>
     </div>
   );
 }

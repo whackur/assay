@@ -6,17 +6,30 @@ import { scoreSummary } from "@/lib/catalog/catalog";
 // specification 13 and interview 9 require to expose evaluation version,
 // engine, confidence, and provisional state alongside the score.
 
-function CatalogRow({ entry, ranked }: { entry: CatalogEntry; ranked: boolean }) {
+function CatalogRow({
+  entry,
+  ranked,
+  rank,
+}: {
+  entry: CatalogEntry;
+  ranked: boolean;
+  rank: number;
+}) {
   const summary = scoreSummary(entry.score);
   return (
     <li className="catalog-row">
+      {ranked && (
+        <span className="catalog-rank" aria-hidden="true">
+          {rank}
+        </span>
+      )}
       <div className="catalog-row-main">
         <Link href={`/evaluations/${entry.id}`}>{entry.name}</Link>
         <p className="muted catalog-desc">{entry.description}</p>
-        <div className="tag-row">
-          {entry.primaryType && <span className="badge">{entry.primaryType}</span>}
+        <div className="chip-row">
+          {entry.primaryType && <span className="chip">{entry.primaryType}</span>}
           {entry.tags.map((tag) => (
-            <span key={tag} className="badge">
+            <span key={tag} className="chip">
               {tag}
             </span>
           ))}
@@ -55,8 +68,8 @@ export function CatalogList({
   }
   return (
     <ol className="catalog-list">
-      {entries.map((entry) => (
-        <CatalogRow key={entry.id} entry={entry} ranked={ranked} />
+      {entries.map((entry, index) => (
+        <CatalogRow key={entry.id} entry={entry} ranked={ranked} rank={index + 1} />
       ))}
     </ol>
   );

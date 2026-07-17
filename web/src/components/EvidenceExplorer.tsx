@@ -8,9 +8,9 @@ function gradeLabel(grade: ProjectEvidence["grade"]): string {
 export function EvidenceExplorer({ evidence }: { evidence: ProjectEvidence[] }) {
   const groups = groupEvidence(evidence);
   return (
-    <div className="stack">
+    <div>
       {groups.map((group) => (
-        <details key={group.kind} className="evidence-group card" open>
+        <details key={group.kind} className="evidence-group" open>
           <summary>
             {group.label} ({group.items.length})
           </summary>
@@ -21,7 +21,7 @@ export function EvidenceExplorer({ evidence }: { evidence: ProjectEvidence[] }) 
                 <br />
                 <span className="evidence-id">{item.id}</span>
               </span>
-              <span className="muted">
+              <span className="evidence-status">
                 {item.status} · {gradeLabel(item.grade)}
               </span>
             </div>

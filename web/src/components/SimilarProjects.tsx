@@ -27,17 +27,17 @@ function facetLabel(token: string): string {
 
 function DetailedCandidateCard({ candidate }: { candidate: DetailedCandidate }) {
   return (
-    <li className="card stack">
+    <li className="featured-card">
       <h3 className="featured-name">{candidateName(candidate.candidate.source)}</h3>
-      <p>
+      <p className="featured-desc">
         {similarityText(candidate.overall_similarity)} · confidence{" "}
         {Math.round(candidate.confidence * 100)}%
       </p>
 
-      <div>
+      <p className="featured-desc">
         <span className="muted">Selected because of </span>
         {candidate.selection_reasons.map(facetLabel).join(", ")}
-      </div>
+      </p>
 
       <dl className="meta">
         {candidate.facets.map((facet) => (
@@ -50,7 +50,7 @@ function DetailedCandidateCard({ candidate }: { candidate: DetailedCandidate }) 
 
       {(candidate.differentiators.seed_only.length > 0 ||
         candidate.differentiators.candidate_only.length > 0) && (
-        <div className="stack">
+        <div className="stack" style={{ fontSize: "var(--text-sm)" }}>
           {candidate.differentiators.seed_only.length > 0 && (
             <p className="muted">
               This project only:{" "}
@@ -67,7 +67,10 @@ function DetailedCandidateCard({ candidate }: { candidate: DetailedCandidate }) 
       )}
 
       <p className="muted catalog-score-meta">
-        Adoption context: {candidate.popularity.stars === null ? "unknown" : `${candidate.popularity.stars} stars`}
+        Adoption context:{" "}
+        {candidate.popularity.stars === null
+          ? "unknown"
+          : `${candidate.popularity.stars} stars`}
       </p>
     </li>
   );
@@ -77,7 +80,7 @@ function CompactCandidateRow({ candidate }: { candidate: CompactCandidate }) {
   return (
     <li className="catalog-row">
       <span>{candidateName(candidate.candidate.source)}</span>
-      <span className="muted">
+      <span className="muted" style={{ fontSize: "var(--text-sm)" }}>
         {similarityText(candidate.overall_similarity)} · confidence{" "}
         {Math.round(candidate.confidence * 100)}%
       </span>
@@ -87,9 +90,9 @@ function CompactCandidateRow({ candidate }: { candidate: CompactCandidate }) {
 
 export function SimilarProjects({ comparison }: { comparison: ProjectComparison }) {
   return (
-    <section aria-labelledby="similar-projects">
+    <section className="report-section" aria-labelledby="similar-projects">
       <h2 id="similar-projects">Similar projects</h2>
-      <p className="muted">
+      <p className="lede">
         A one-depth functional cohort. Similarity measures comparability, not
         quality, and never implies misconduct. Popularity is context only.
       </p>
@@ -97,7 +100,7 @@ export function SimilarProjects({ comparison }: { comparison: ProjectComparison 
       {comparison.detailed_candidates.length === 0 ? (
         <p className="muted">No sufficiently similar projects were found.</p>
       ) : (
-        <ol className="catalog-list">
+        <ol className="catalog-list featured-grid" style={{ listStyle: "none", padding: 0 }}>
           {comparison.detailed_candidates.map((candidate) => (
             <DetailedCandidateCard
               key={candidateName(candidate.candidate.source)}
@@ -108,9 +111,11 @@ export function SimilarProjects({ comparison }: { comparison: ProjectComparison 
       )}
 
       {comparison.additional_candidates.length > 0 && (
-        <details className="card">
-          <summary>Additional candidates ({comparison.additional_candidates.length})</summary>
-          <ul className="catalog-list">
+        <details className="evidence-group" style={{ marginTop: "var(--space-sm)" }}>
+          <summary>
+            Additional candidates ({comparison.additional_candidates.length})
+          </summary>
+          <ul className="catalog-list" style={{ padding: "0 var(--space-sm)" }}>
             {comparison.additional_candidates.map((candidate) => (
               <CompactCandidateRow
                 key={candidateName(candidate.candidate.source)}
