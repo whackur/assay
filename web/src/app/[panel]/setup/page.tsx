@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { constantTimeEquals } from "@/lib/admin/auth";
 import { resolvePanel, type PanelContext } from "@/lib/admin/panel";
+import { ssoEnabled } from "@/lib/admin/sso";
 import { SetupForm } from "@/components/admin/SetupForm";
 
 // First-run setup, gated twice: the secret /panel-<slug> path AND the
 // one-time setup token printed to the server console at boot. Without both,
 // the page is the app's ordinary 404. Once an admin exists the token is
-// consumed and this page permanently redirects to sign-in.
+// consumed and this page permanently redirects to sign-in. In SSO mode there
+// is no local admin account to create, so setup is a plain 404 outright.
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +34,7 @@ export async function generateMetadata({
   searchParams,
 }: PageProps): Promise<Metadata> {
   const { panel } = await params;
+  if (ssoEnabled()) notFound();
   const context = await resolvePanel(panel);
   if (!context) notFound();
   if (!context.configured && !validSetupToken(context, (await searchParams).token)) {
@@ -46,6 +49,7 @@ export async function generateMetadata({
 
 export default async function SetupPage({ params, searchParams }: PageProps) {
   const { panel } = await params;
+  if (ssoEnabled()) notFound();
   const context = await resolvePanel(panel);
   if (!context) notFound();
 

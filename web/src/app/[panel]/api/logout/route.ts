@@ -3,7 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { defaultDataDir, removeSession } from "@/lib/admin/store";
 import { clearSessionCookie, requestSessionId } from "@/lib/admin/guard";
 import { resolvePanel } from "@/lib/admin/panel";
+import { ssoEnabled } from "@/lib/admin/sso";
 
+// In SSO mode sign-out belongs to the identity provider (the cookie lives on
+// the shared parent domain), so this endpoint is a plain 404 there.
 // Logout deletes the server-side session record and clears the cookie. Plain
 // HTML form post from the dashboard, so it works without client JavaScript.
 // Lives under the secret /panel-<slug> path like every other admin surface.
@@ -17,6 +20,7 @@ export async function POST(
   { params }: RouteContext,
 ): Promise<NextResponse> {
   const { panel } = await params;
+  if (ssoEnabled()) notFound();
   const context = await resolvePanel(panel);
   if (!context) notFound();
 

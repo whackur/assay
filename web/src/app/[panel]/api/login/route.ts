@@ -4,9 +4,11 @@ import { hashPassword, verifyPassword } from "@/lib/admin/auth";
 import { createSession, defaultDataDir, getAdmin } from "@/lib/admin/store";
 import { setSessionCookie } from "@/lib/admin/guard";
 import { resolvePanel } from "@/lib/admin/panel";
+import { ssoEnabled } from "@/lib/admin/sso";
 
 // Admin sign-in, reachable only under the secret /panel-<slug> path; a wrong
-// slug is a plain 404 before any credential handling happens.
+// slug is a plain 404 before any credential handling happens. In SSO mode
+// local credentials do not exist, so the endpoint is a plain 404 as well.
 
 // A fixed dummy hash keeps the work factor constant when the username does not
 // match, so login timing does not reveal whether an account name exists.
@@ -21,6 +23,7 @@ export async function POST(
   { params }: RouteContext,
 ): Promise<NextResponse> {
   const { panel } = await params;
+  if (ssoEnabled()) notFound();
   if (!(await resolvePanel(panel))) notFound();
 
   const dir = defaultDataDir();

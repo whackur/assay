@@ -9,7 +9,10 @@ import {
 import { claimAdmin, createSession, defaultDataDir } from "@/lib/admin/store";
 import { setSessionCookie } from "@/lib/admin/guard";
 import { resolvePanel } from "@/lib/admin/panel";
+import { ssoEnabled } from "@/lib/admin/sso";
 
+// In SSO mode there is no local admin account to create; the endpoint is a
+// plain 404 before any token handling happens.
 // First-run admin creation, gated twice: the secret /panel-<slug> path AND the
 // one-time setup token from the server console banner. A wrong slug or a
 // missing/invalid token is a plain 404 (notFound() is supported in Next 16
@@ -26,6 +29,7 @@ export async function POST(
   { params }: RouteContext,
 ): Promise<NextResponse> {
   const { panel } = await params;
+  if (ssoEnabled()) notFound();
   const context = await resolvePanel(panel);
   if (!context) notFound();
 

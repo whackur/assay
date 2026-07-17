@@ -8,6 +8,7 @@ import {
   hiddenEntryIds,
   loadOrInitState,
 } from "@/lib/admin/store";
+import { ssoEnabled, ssoLoginRedirect } from "@/lib/admin/sso";
 import { publicCatalogEntries } from "@/lib/catalog/fixtures";
 import { scoreSummary } from "@/lib/catalog/catalog";
 
@@ -38,8 +39,17 @@ export default async function AdminPage({ params }: PageProps) {
   const context = await resolvePanel(panel);
   if (!context) notFound();
 
+  const sso = ssoEnabled();
   const sessionId = await getAdminSessionId();
   if (!sessionId) {
+    if (sso) {
+      // SSO mode has no local sign-in page. Hand off to the IdP when a login
+      // URL is configured; otherwise the page is indistinguishable from a
+      // wrong slug.
+      const target = ssoLoginRedirect(context.basePath);
+      if (target) redirect(target);
+      notFound();
+    }
     redirect(`${context.basePath}/login`);
   }
 
@@ -56,11 +66,13 @@ export default async function AdminPage({ params }: PageProps) {
       <div className="admin-bar">
         <h1>Administration</h1>
         <span className="chip">deployment operations</span>
-        <form method="post" action={`${context.basePath}/api/logout`}>
-          <button type="submit" className="quiet">
-            Sign out
-          </button>
-        </form>
+        {!sso && (
+          <form method="post" action={`${context.basePath}/api/logout`}>
+            <button type="submit" className="quiet">
+              Sign out
+            </button>
+          </form>
+        )}
       </div>
 
       <section className="admin-section" aria-labelledby="admin-deployment">
@@ -68,11 +80,23 @@ export default async function AdminPage({ params }: PageProps) {
         <dl className="meta">
           <dt>Administrator</dt>
           <dd>
-            {admin?.username} <span className="muted">(created {admin?.createdAt.slice(0, 10)})</span>
+            {sso ? (
+              <>
+                External identity provider{" "}
+                <span className="muted">(SSO mode; local accounts disabled)</span>
+              </>
+            ) : (
+              <>
+                {admin?.username}{" "}
+                <span className="muted">(created {admin?.createdAt.slice(0, 10)})</span>
+              </>
+            )}
           </dd>
           <dt>Setup state</dt>
           <dd className="status-ok">
-            Configured — the one-time setup token has been consumed
+            {sso
+              ? "SSO — admin access is granted by the identity provider's role claim"
+              : "Configured — the one-time setup token has been consumed"}
           </dd>
           <dt>Admin path</dt>
           <dd>
@@ -81,8 +105,12 @@ export default async function AdminPage({ params }: PageProps) {
               (secret per-deployment path; recover it from the data directory)
             </span>
           </dd>
-          <dt>Live sessions</dt>
-          <dd>{liveSessions}</dd>
+          {!sso && (
+            <>
+              <dt>Live sessions</dt>
+              <dd>{liveSessions}</dd>
+            </>
+          )}
           <dt>Data directory</dt>
           <dd>
             <code>{dir}</code>

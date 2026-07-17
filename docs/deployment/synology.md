@@ -115,6 +115,36 @@ sudo -n env \
 
 Then repeat the health and loopback smoke checks.
 
+## Admin authentication modes
+
+The admin area always lives under the secret per-deployment path
+`/panel-<slug>` (stored server-side in `<data dir>/admin.json`). How the
+operator authenticates behind that path is selected by environment:
+
+- **Standalone (default).** No configuration required. First boot prints a
+  one-time setup URL to the server console; the operator creates a local
+  username/password admin, and sessions are stored in `admin.json`. This is
+  what a fresh `git clone` gets.
+- **SSO.** Set `ASSAY_SSO_JWKS_URL` to trust an external identity provider
+  (e.g. hakhub.net) instead. The admin identity is an RS256 JWT read from a
+  cookie the IdP sets on the shared parent domain (`domain=.hakhub.net`, so it
+  arrives on `assay.hakhub.net`). The token is verified server-side against
+  the JWKS with a pinned issuer, and its `roles` claim must contain the admin
+  role. Local setup, login, and logout are plain 404s; `admin.json`
+  credentials and sessions are ignored for auth (the file still supplies the
+  panel slug). Unauthenticated admin pages redirect to `ASSAY_SSO_LOGIN_URL`
+  with a `returnUrl` query parameter when it is set, and otherwise render the
+  same 404 as a wrong slug; admin API routes return `401` JSON.
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `ASSAY_SSO_JWKS_URL` | enables SSO mode | unset (standalone) | JWKS endpoint of the identity provider |
+| `ASSAY_SSO_ISSUER` | yes, in SSO mode | — | Expected `iss` claim; without it all SSO logins are refused (fail closed) |
+| `ASSAY_SSO_AUDIENCE` | no | unset | Expected `aud` claim; verified only when set |
+| `ASSAY_SSO_COOKIE` | no | `access_token` | Cookie name carrying the JWT |
+| `ASSAY_SSO_ADMIN_ROLE` | no | `admin` | Role (in the token's `roles` array) that grants admin access |
+| `ASSAY_SSO_LOGIN_URL` | no | unset | IdP sign-in page for unauthenticated admin page redirects |
+
 ## Known risks
 
 - The preview uses fixture-backed behavior; hosted API, worker, database,

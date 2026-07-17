@@ -1,6 +1,7 @@
 import path from "node:path";
 import { defaultDataDir, getBootstrap } from "@/lib/admin/store";
 import { PANEL_PREFIX } from "@/lib/admin/panel";
+import { ssoEnabled } from "@/lib/admin/sso";
 
 // First-boot console banner (Jenkins initialAdminPassword pattern). While no
 // administrator exists, every server start prints the one-time setup URL —
@@ -10,6 +11,20 @@ import { PANEL_PREFIX } from "@/lib/admin/panel";
 
 export async function printFirstRunBannerIfNeeded(): Promise<void> {
   const dir = defaultDataDir();
+  // In SSO mode there is no local setup flow (the setup URL below would 404),
+  // but the operator still needs the secret panel path, which only lives in
+  // the store. Print that and stop.
+  if (ssoEnabled()) {
+    try {
+      const bootstrap = await getBootstrap(dir);
+      console.log(
+        `[assay] SSO mode: admin area is at /${PANEL_PREFIX}${bootstrap.adminSlug} (local setup/login disabled).`,
+      );
+    } catch (error) {
+      console.error(`[assay] Could not read the admin store in ${dir}:`, error);
+    }
+    return;
+  }
   let bootstrap;
   try {
     bootstrap = await getBootstrap(dir);
