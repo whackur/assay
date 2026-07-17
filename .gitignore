@@ -1,4 +1,6 @@
 .orca/
+.atl/
+.playwright-mcp/
 target/
 .worktrees/
 .assay-cache/
