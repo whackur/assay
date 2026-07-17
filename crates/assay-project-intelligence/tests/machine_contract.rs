@@ -7,7 +7,7 @@ use assay_project_intelligence::{
     ClassifiedSnapshotFile, assemble_project_evidence, build_project_analysis,
     validate_project_bundle_consistency,
 };
-use assay_test_fixtures::{RepositoryFixture, RepositoryScenario};
+use assay_test_fixtures::{RepositoryFixture, RepositoryScenario, trusted_git_executable};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -301,11 +301,7 @@ fn real_producer_bundle() -> Value {
 }
 
 fn trusted_git() -> PathBuf {
-    ["/usr/bin/git", "/usr/local/bin/git"]
-        .into_iter()
-        .map(PathBuf::from)
-        .find(|path| path.is_file())
-        .expect("tests require a deployment-trusted Git executable")
+    trusted_git_executable().expect("tests require a deployment-trusted Git executable")
 }
 
 fn feature<'a>(bundle: &'a Value, name: &str) -> &'a Value {

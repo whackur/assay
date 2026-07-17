@@ -345,9 +345,15 @@ fn full_chain_evaluation_is_deterministic_and_matches_committed_fixture() {
 
 // Spawns `serve --once`, issues one GET, and returns the raw HTTP response.
 fn serve_once_get(history: &std::path::Path, path: &str) -> String {
-    let mut child = Command::new(binary())
-        .env_clear()
-        .env("ASSAY_TEST_FIXED_TIME", FIXED_TIME)
+    let mut command = Command::new(binary());
+    command.env_clear().env("ASSAY_TEST_FIXED_TIME", FIXED_TIME);
+    // Windows sockets fail to initialize without `SystemRoot`, so preserve it
+    // after clearing the environment. It carries no repository-derived input.
+    #[cfg(windows)]
+    if let Some(root) = std::env::var_os("SystemRoot") {
+        command.env("SystemRoot", root);
+    }
+    let mut child = command
         .arg("serve")
         .arg("--history")
         .arg(history)

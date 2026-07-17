@@ -20,6 +20,12 @@ fn fixed_command() -> Command {
     command
         .env_clear()
         .env("ASSAY_TEST_FIXED_TIME", "2026-01-02T03:04:06Z");
+    // Windows sockets fail to initialize without `SystemRoot`, so preserve it
+    // after clearing the environment. It carries no repository-derived input.
+    #[cfg(windows)]
+    if let Some(root) = std::env::var_os("SystemRoot") {
+        command.env("SystemRoot", root);
+    }
     command
 }
 

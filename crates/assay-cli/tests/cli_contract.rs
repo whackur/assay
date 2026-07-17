@@ -4,12 +4,16 @@ use std::{
     process::{Command, Stdio},
 };
 
-use assay_test_fixtures::{RepositoryFixture, RepositoryScenario};
+use assay_test_fixtures::{RepositoryFixture, RepositoryScenario, trusted_git_executable};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 fn binary() -> &'static str {
     env!("CARGO_BIN_EXE_assay")
+}
+
+fn trusted_git() -> std::path::PathBuf {
+    trusted_git_executable().expect("tests require a deployment-trusted Git executable")
 }
 
 fn fixed_command() -> Command {
@@ -41,6 +45,50 @@ fn capabilities_are_exact_schema_valid_and_do_not_claim_future_features() {
     expected.push(b'\n');
     assert_eq!(output.stdout, expected);
     assert!(!output.stdout.windows(2).any(|bytes| bytes == b"\x1b["));
+}
+
+#[test]
+fn ai_evaluator_selection_stays_consent_gated_and_deterministic() {
+    // ADR 0012: consent gating runs before provider construction. Without a
+    // consent grant no external provider is constructed, so selecting a
+    // registered AI evaluator ID returns the same deterministic evidence as
+    // the default and exits zero.
+    let fixture = RepositoryFixture::build(RepositoryScenario::TypeScriptProject)
+        .expect("fixture must build");
+    let run = |evaluator: &str| {
+        fixed_command()
+            .arg("project")
+            .arg("analyze")
+            .arg(fixture.path())
+            .args([
+                "--revision",
+                "HEAD",
+                "--evaluator",
+                evaluator,
+                "--format",
+                "json",
+                "--output",
+                "-",
+                "--no-color",
+                "--non-interactive",
+            ])
+            .output()
+            .expect("analysis subprocess must start")
+    };
+    let deterministic = run("deterministic");
+    assert!(deterministic.status.success());
+    for evaluator in ["openai-api-1", "codex-cli-1"] {
+        let gated = run(evaluator);
+        assert!(
+            gated.status.success(),
+            "{evaluator}: {}",
+            String::from_utf8_lossy(&gated.stderr)
+        );
+        assert_eq!(gated.stdout, deterministic.stdout);
+    }
+    // An unregistered evaluator ID is rejected as invalid input.
+    let unknown = run("unregistered-evaluator");
+    assert!(!unknown.status.success());
 }
 
 #[test]
@@ -346,7 +394,7 @@ fn gitlink_and_non_utf8_paths_survive_the_cli_contract() {
 fn overlong_git_path_becomes_citable_partial_evidence_without_path_disclosure() {
     let temporary = tempfile::tempdir().unwrap();
     let repository = temporary.path().join("long-path.git");
-    let init = Command::new("/usr/bin/git")
+    let init = Command::new(trusted_git())
         .args(["init", "--bare", "--quiet"])
         .arg(&repository)
         .status()
@@ -362,7 +410,7 @@ fn overlong_git_path_becomes_citable_partial_evidence_without_path_disclosure() 
     let stream = format!(
         "blob\nmark :1\ndata 2\nx\nblob\nmark :2\ndata 2\ny\nblob\nmark :3\ndata 2\nz\ncommit refs/heads/main\nmark :4\nauthor Fixture <fixture@example.invalid> 981173106 +0000\ncommitter Fixture <fixture@example.invalid> 981173106 +0000\ndata 4\nlong\nM 100644 :1 {matching_path}\nM 100644 :2 {unrelated_path}\nM 100644 :3 README.md\n\ndone\n"
     );
-    let mut importer = Command::new("/usr/bin/git")
+    let mut importer = Command::new(trusted_git())
         .current_dir(&repository)
         .args(["fast-import", "--quiet"])
         .stdin(Stdio::piped())
@@ -376,7 +424,7 @@ fn overlong_git_path_becomes_citable_partial_evidence_without_path_disclosure() 
         .unwrap();
     assert!(importer.wait().unwrap().success());
     assert!(
-        Command::new("/usr/bin/git")
+        Command::new(trusted_git())
             .current_dir(&repository)
             .args(["symbolic-ref", "HEAD", "refs/heads/main"])
             .status()
@@ -531,7 +579,7 @@ fn overlong_git_path_becomes_citable_partial_evidence_without_path_disclosure() 
 #[test]
 fn post_revision_collection_failure_is_exit_ten_not_not_found() {
     let fixture = RepositoryFixture::build(RepositoryScenario::TypeScriptProject).unwrap();
-    let output = Command::new("/usr/bin/git")
+    let output = Command::new(trusted_git())
         .current_dir(fixture.path())
         .args(["rev-parse", "HEAD^{tree}"])
         .output()

@@ -1,10 +1,10 @@
 use std::{
     ffi::OsStr,
-    fs,
     path::{Path, PathBuf},
-    process::Command,
     str::FromStr,
 };
+#[cfg(unix)]
+use std::{fs, process::Command};
 
 use assay_classifier::{
     BuiltInPolicy, ClassificationDecision, ClassificationPolicy, FileClassificationInput,
@@ -20,14 +20,10 @@ use assay_project_intelligence::{
     PortablePathEncoding, RawEvidenceIssue, RawEvidenceKind, TrackedFileEvidence,
     assemble_project_evidence, build_project_analysis,
 };
-use assay_test_fixtures::{RepositoryFixture, RepositoryScenario};
+use assay_test_fixtures::{RepositoryFixture, RepositoryScenario, trusted_git_executable};
 
 fn trusted_git() -> PathBuf {
-    ["/usr/bin/git", "/usr/local/bin/git"]
-        .into_iter()
-        .map(PathBuf::from)
-        .find(|path| path.is_file())
-        .expect("tests require a deployment-trusted Git executable")
+    trusted_git_executable().expect("tests require a deployment-trusted Git executable")
 }
 
 #[test]
@@ -846,6 +842,7 @@ fn edge_snapshot() -> RepositorySnapshot {
     )
 }
 
+#[cfg(unix)]
 fn git<const N: usize>(directory: &Path, arguments: [&str; N]) {
     let status = Command::new(trusted_git())
         .current_dir(directory)
@@ -857,6 +854,7 @@ fn git<const N: usize>(directory: &Path, arguments: [&str; N]) {
     assert!(status.success());
 }
 
+#[cfg(unix)]
 fn git_output<const N: usize>(directory: &Path, arguments: [&str; N]) -> String {
     let output = Command::new(trusted_git())
         .current_dir(directory)

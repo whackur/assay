@@ -13,16 +13,11 @@ use assay_git::{
     GitObjectFormat, HistoryIssue, ObjectIssue, ParentDeltaIssue, RepositorySnapshotPort,
     SnapshotRequest,
 };
-use assay_test_fixtures::{RepositoryFixture, RepositoryScenario};
+use assay_test_fixtures::{RepositoryFixture, RepositoryScenario, trusted_git_executable};
 
 fn trusted_git() -> PathBuf {
-    for candidate in ["/usr/bin/git", "/usr/local/bin/git"] {
-        let path = PathBuf::from(candidate);
-        if path.is_file() {
-            return path;
-        }
-    }
-    panic!("the Git adapter integration tests require a trusted absolute Git executable");
+    trusted_git_executable()
+        .expect("the Git adapter integration tests require a trusted absolute Git executable")
 }
 
 fn source() -> RepositorySource {
@@ -606,14 +601,17 @@ fn treats_a_revision_beginning_with_dash_as_an_operand() {
 
 #[test]
 fn reports_missing_and_incompatible_git_without_executable_paths() {
-    let missing = GitCliAdapter::from_trusted_executable(
-        PathBuf::from("/definitely/missing/assay-git"),
-        CollectionLimits::default(),
-    )
-    .expect_err("a missing executable must fail capability probing");
+    // The path must be absolute on every platform so the failure is the
+    // capability probe, not the trusted-executable shape check.
+    #[cfg(windows)]
+    let missing_path = PathBuf::from(r"C:\definitely\missing\assay-git");
+    #[cfg(not(windows))]
+    let missing_path = PathBuf::from("/definitely/missing/assay-git");
+    let missing = GitCliAdapter::from_trusted_executable(missing_path, CollectionLimits::default())
+        .expect_err("a missing executable must fail capability probing");
     assert_eq!(missing.stage(), CollectionStage::ProbeCapabilities);
     assert_eq!(missing.kind(), CollectionErrorKind::ExecutableMissing);
-    assert!(!format!("{missing:?}").contains("/definitely"));
+    assert!(!format!("{missing:?}").contains("definitely"));
 }
 
 fn entry<'a>(
