@@ -409,7 +409,7 @@ fn repository_feature_id(bundle: &Value, feature: &str, state: &str, related: &[
         "{identity_scope}\0{revision}\0{feature}\0{state}\0{}",
         related.join("\0")
     );
-    let digest = format!("{:x}", Sha256::digest(input.as_bytes()));
+    let digest = hex::encode(Sha256::digest(input.as_bytes()));
     format!("evidence:repository-feature:v1-{}", &digest[..24])
 }
 
@@ -419,5 +419,5 @@ fn refresh_project_artifact(bundle: &mut Value) {
     let bytes = serde_json::to_vec(evidence).unwrap();
     bundle["manifest"]["artifacts"][0]["record_count"] = Value::from(evidence.len());
     bundle["manifest"]["artifacts"][0]["content_hash"] =
-        Value::String(format!("sha256:{:x}", Sha256::digest(bytes)));
+        Value::String(format!("sha256:{}", hex::encode(Sha256::digest(bytes))));
 }

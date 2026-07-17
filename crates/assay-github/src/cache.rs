@@ -336,6 +336,6 @@ fn length_prefixed(components: &[String]) -> String {
 
 fn sha256_content_hash(bytes: &[u8]) -> ContentHash {
     let digest = Sha256::digest(bytes);
-    ContentHash::from_str(&format!("sha256:{digest:x}"))
+    ContentHash::from_str(&format!("sha256:{}", hex::encode(digest)))
         .expect("SHA-256 always produces a valid domain content hash")
 }

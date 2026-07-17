@@ -151,8 +151,8 @@ impl GitCliAdapter {
             digest.update((bytes.len() as u64).to_be_bytes());
             digest.update(bytes);
         }
-        let hash =
-            ContentHash::from_str(&format!("sha256:{:x}", digest.finalize())).map_err(|_| {
+        let hash = ContentHash::from_str(&format!("sha256:{}", hex::encode(digest.finalize())))
+            .map_err(|_| {
                 CollectionError::new(
                     CollectionStage::DeriveRepositoryIdentity,
                     CollectionErrorKind::MalformedOutput,

@@ -25,7 +25,7 @@ use assay_project_intelligence::{
     validate_project_bundle_consistency,
 };
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use jsonschema::{Draft, Resource, Validator};
+use jsonschema::{Draft, Registry, Resource, Validator};
 use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 use time::{OffsetDateTime, UtcOffset, format_description::well_known::Rfc3339};
@@ -673,15 +673,20 @@ fn schema_validator(contract: &str) -> Result<Validator, ()> {
         .values()
         .map(|schema| {
             let id = schema["$id"].as_str().ok_or(())?.to_owned();
-            let resource = Resource::from_contents(schema.clone()).map_err(|_| ())?;
+            let resource = Resource::from_contents(schema.clone());
             Ok((id, resource))
         })
         .collect::<Result<Vec<_>, ()>>()?;
+    let registry = Registry::new()
+        .extend(resources)
+        .map_err(|_| ())?
+        .prepare()
+        .map_err(|_| ())?;
     let root = parsed.get(contract).ok_or(())?;
     jsonschema::options()
         .with_draft(Draft::Draft202012)
         .should_validate_formats(true)
-        .with_resources(resources.into_iter())
+        .with_registry(&registry)
         .build(root)
         .map_err(|_| ())
 }

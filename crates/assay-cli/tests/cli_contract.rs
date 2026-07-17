@@ -125,7 +125,7 @@ fn project_analyze_is_repeatable_private_local_and_has_a_reviewed_digest() {
     assert!(first.stderr.is_empty());
     assert_eq!(first.stdout, second.stdout);
     assert_eq!(first.stdout.last(), Some(&b'\n'));
-    let digest = format!("{:x}", Sha256::digest(&first.stdout));
+    let digest = hex::encode(Sha256::digest(&first.stdout));
     assert_eq!(
         digest,
         include_str!("../../../tests/golden/cli/project-analyze-v1.sha256").trim()

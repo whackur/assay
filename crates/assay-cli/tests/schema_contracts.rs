@@ -1,7 +1,7 @@
 use std::{fmt, fs, path::PathBuf};
 
 use assay_project_intelligence::validate_project_bundle_consistency;
-use jsonschema::{Draft, Resource, Validator};
+use jsonschema::{Draft, Registry, Resource, Validator};
 use serde::{
     Deserialize, Deserializer,
     de::{self, MapAccess, SeqAccess, Visitor},
@@ -231,13 +231,17 @@ fn validator(contract: &str) -> Validator {
             .as_str()
             .expect("every public schema must declare an ID")
             .to_owned();
-        let resource = Resource::from_contents(schema)
-            .expect("a bundled public schema must be a valid resource");
+        let resource = Resource::from_contents(schema);
         (id, resource)
     });
+    let registry = Registry::new()
+        .extend(resources)
+        .expect("public schema URIs must be valid")
+        .prepare()
+        .expect("public schema registry must build");
     jsonschema::options()
         .with_draft(Draft::Draft202012)
-        .with_resources(resources)
+        .with_registry(&registry)
         .should_validate_formats(true)
         .build(&schema)
         .unwrap_or_else(|error| panic!("invalid {contract} schema: {error}"))
@@ -264,7 +268,7 @@ fn refresh_project_artifact(bundle: &mut Value) {
     let bytes = serde_json::to_vec(evidence).unwrap();
     bundle["manifest"]["artifacts"][0]["record_count"] = Value::from(evidence.len());
     bundle["manifest"]["artifacts"][0]["content_hash"] =
-        Value::String(format!("sha256:{:x}", Sha256::digest(bytes)));
+        Value::String(format!("sha256:{}", hex::encode(Sha256::digest(bytes))));
 }
 
 fn tracked_file_record() -> Value {

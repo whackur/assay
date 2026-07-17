@@ -349,7 +349,7 @@ fn bundle_hash(
         update_length_prefixed(&mut hash, item.kind.code().as_bytes());
         update_length_prefixed(&mut hash, item.statement.as_bytes());
     }
-    format!("sha256:{:x}", hash.finalize())
+    format!("sha256:{}", hex::encode(hash.finalize()))
 }
 
 fn update_length_prefixed(hash: &mut Sha256, value: &[u8]) {

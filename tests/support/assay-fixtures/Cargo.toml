@@ -6,4 +6,4 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
-tempfile = "3.20"
+tempfile.workspace = true

@@ -30,7 +30,7 @@ use assay_project_intelligence::{
     Visibility, validate_project_bundle_consistency,
 };
 use assay_test_fixtures::{RepositoryFixture, RepositoryScenario};
-use jsonschema::{Draft, Resource, Validator};
+use jsonschema::{Draft, Registry, Resource, Validator};
 use serde_json::Value;
 
 const FIXED_TIME: &str = "2026-01-02T03:04:06Z";
@@ -107,17 +107,19 @@ fn schema_validator(contract: &str) -> Validator {
                 .as_str()
                 .expect("schema must declare $id")
                 .to_owned();
-            Some((
-                id,
-                Resource::from_contents(schema).expect("schema resource must build"),
-            ))
+            Some((id, Resource::from_contents(schema)))
         })
         .collect::<Vec<_>>();
     let root = root.unwrap_or_else(|| panic!("unknown schema contract: {contract}"));
+    let registry = Registry::new()
+        .extend(resources)
+        .expect("schema resource URIs must be valid")
+        .prepare()
+        .expect("schema registry must build");
     jsonschema::options()
         .with_draft(Draft::Draft202012)
         .should_validate_formats(true)
-        .with_resources(resources.into_iter())
+        .with_registry(&registry)
         .build(&root)
         .expect("schema must build")
 }

@@ -605,7 +605,7 @@ impl CompilerPolicy {
         ] {
             field(&(u64::from(value)).to_be_bytes());
         }
-        format!("sha256:{:x}", hash.finalize())
+        format!("sha256:{}", hex::encode(hash.finalize()))
     }
 }
 

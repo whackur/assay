@@ -651,7 +651,7 @@ fn stable_hash(bytes: &[u8]) -> String {
     format!("sha256:{}", stable_hex(bytes))
 }
 fn stable_hex(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    hex::encode(Sha256::digest(bytes))
 }
 fn sha256(bytes: &[u8]) -> String {
     stable_hash(bytes)

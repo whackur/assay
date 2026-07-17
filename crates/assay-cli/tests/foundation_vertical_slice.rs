@@ -8,7 +8,7 @@ use std::{
     process::{Command, Output},
 };
 
-use jsonschema::{Draft, Resource};
+use jsonschema::{Draft, Registry, Resource};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -273,12 +273,17 @@ fn project_analysis_validator() -> jsonschema::Validator {
                 .as_str()
                 .expect("component schema ID")
                 .to_owned();
-            let resource = Resource::from_contents(component).expect("component resource");
+            let resource = Resource::from_contents(component);
             (id, resource)
         });
+    let registry = Registry::new()
+        .extend(resources)
+        .expect("component schema URIs")
+        .prepare()
+        .expect("component schema registry");
     jsonschema::options()
         .with_draft(Draft::Draft202012)
-        .with_resources(resources)
+        .with_registry(&registry)
         .should_validate_formats(true)
         .build(&schema)
         .expect("project-analysis validator")
@@ -448,7 +453,7 @@ fn fixed_repository_is_a_schema_valid_private_and_non_executing_vertical_slice()
         assert!(!fixture.repository.join(sentinel).exists());
     }
 
-    let digest = format!("{:x}", Sha256::digest(&first.stdout));
+    let digest = hex::encode(Sha256::digest(&first.stdout));
     let reviewed_digest = fs::read_to_string(
         repository_root().join("tests/golden/cli/foundation-vertical-slice-v1.sha256"),
     )

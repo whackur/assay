@@ -6,7 +6,7 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
-tree-sitter = "=0.26.11"
-tree-sitter-javascript = "=0.25.0"
-tree-sitter-python = "=0.25.0"
-tree-sitter-typescript = "=0.23.2"
+tree-sitter.workspace = true
+tree-sitter-javascript.workspace = true
+tree-sitter-python.workspace = true
+tree-sitter-typescript.workspace = true

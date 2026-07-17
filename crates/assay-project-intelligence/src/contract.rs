@@ -52,7 +52,7 @@ pub fn validate_project_bundle_consistency(value: &Value) -> Result<(), &'static
         return Err("artifact_count");
     }
     let canonical = serde_json::to_vec(evidence).map_err(|_| "artifact_serialization")?;
-    let expected = format!("sha256:{:x}", Sha256::digest(canonical));
+    let expected = format!("sha256:{}", hex::encode(Sha256::digest(canonical)));
     if artifact["content_hash"].as_str() != Some(expected.as_str()) {
         return Err("artifact_hash");
     }
@@ -246,7 +246,7 @@ pub(crate) fn repository_feature_id(
         "{identity_scope}\0{revision}\0{feature}\0{state}\0{}",
         related_ids.join("\0")
     );
-    let digest = format!("{:x}", Sha256::digest(id_input.as_bytes()));
+    let digest = hex::encode(Sha256::digest(id_input.as_bytes()));
     format!("evidence:repository-feature:v1-{}", &digest[..24])
 }
 
