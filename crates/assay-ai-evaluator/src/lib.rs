@@ -9,9 +9,11 @@
 //! [`HttpTransport`] ports, and agentic CLI adapters built on the injected
 //! [`SnapshotWorkspace`] and [`AgentRunner`] ports. The crate performs no
 //! network, filesystem, process, credential, or score-compilation I/O; every
-//! concrete secret store, HTTP client, snapshot materializer, and process
-//! runner is injected from outside the crate, and every provider's untrusted
-//! bytes pass through the one [`Evaluator`] validation path.
+//! OpenAI keeps its HTTP client injected, while the hosted Ollama-compatible
+//! profile also provides a bounded concrete HTTP transport in this crate so
+//! protocol behavior does not leak into the worker. Secret stores, snapshot
+//! materializers, and process runners remain injected, and every provider's
+//! untrusted bytes pass through the one [`Evaluator`] validation path.
 
 #![forbid(unsafe_code)]
 
@@ -20,6 +22,7 @@ mod api;
 mod bundle;
 mod error;
 mod evaluator;
+mod ollama;
 mod openai;
 mod rubric;
 
@@ -43,6 +46,12 @@ pub use evaluator::{
     Applicability, DeterministicFakeProvider, EvaluationProvider, EvaluationStatus, Evaluator,
     ProviderExecutionBoundary, ProviderRequest, ScoringJudgment, ValidatedJudgment,
     ValidatedJudgmentSet,
+};
+pub use ollama::{
+    HostedOllamaWorkflowEvaluator, OLLAMA_COMPATIBLE_PROFILE, OLLAMA_COMPATIBLE_PROVIDER_ID,
+    OllamaCompatibleConfig, OllamaCompatibleEvaluator, OllamaCompatibleHttpTransport,
+    OllamaConfigError, OllamaFailureDisposition, OllamaProfile, build_hosted_metadata_bundle,
+    classify_ollama_failure,
 };
 pub use openai::{OpenAiConfig, OpenAiEvaluator, OpenAiProfile};
 pub use rubric::{QualitativeCriterion, QualitativeRubric};

@@ -1,0 +1,16 @@
+[package]
+name = "assay-api"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+assay-github = { path = "../../crates/assay-github" }
+assay-project-intelligence = { path = "../../crates/assay-project-intelligence" }
+assay-storage = { path = "../../crates/assay-storage" }
+axum.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+tokio.workspace = true
+uuid.workspace = true

@@ -4,13 +4,14 @@
 //! immutable object identifiers, reports API budget state, and streams
 //! bounded tree facts to analysis consumers. It never executes repository
 //! code and does not persist credentials, source bodies, raw diffs, or cache
-//! values. Persistent cache and HTTP implementations belong in outer
-//! adapters; the traits here are deterministic seams for those adapters.
+//! values. The hosted fixed-origin HTTP adapter lives here beside the
+//! deterministic transport seams so application entrypoints remain thin.
 
 #![forbid(unsafe_code)]
 
 mod cache;
 mod collection;
+mod hosted;
 mod http;
 mod source;
 mod tree;
@@ -21,8 +22,12 @@ pub use cache::{
     ProviderRepositoryId, plan_evaluation,
 };
 pub use collection::{
-    CollectionError, CollectionErrorKind, CollectionStage, GitHubCollector, ResolvedGitHubSource,
-    RevisionSelector,
+    CollectionError, CollectionErrorKind, CollectionStage, GitHubCollector,
+    GitHubRepositoryMetadata, ResolvedGitHubSource, RevisionSelector,
+};
+pub use hosted::{
+    HostedGitHubAdapter, HostedGitHubCollection, HostedGitHubFailure,
+    HostedGitHubWorkflowCollector, ReqwestGitHubHttp,
 };
 pub use http::{GitHubHttp, GitHubRequest, GitHubResponse, RateLimitState, TransportError};
 pub use source::{CanonicalGitHubRepository, RepositoryInputError};

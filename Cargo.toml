@@ -1,5 +1,7 @@
 [workspace]
 members = [
+    "apps/assay-api",
+    "apps/assay-worker",
     "crates/assay-ai-evaluator",
     "crates/assay-classifier",
     "crates/assay-cli",
@@ -10,6 +12,7 @@ members = [
     "crates/assay-local",
     "crates/assay-project-intelligence",
     "crates/assay-semantic-diff",
+    "crates/assay-storage",
     "tests/support/assay-fixtures",
 ]
 resolver = "3"
@@ -21,6 +24,7 @@ rust-version = "1.97"
 publish = false
 
 [workspace.dependencies]
+axum = "0.8.8"
 clap = { version = "4.6.2", features = ["derive"] }
 command-group = "5.0.1"
 hex = "0.4.3"
@@ -28,8 +32,12 @@ jsonschema = { version = "0.48.0", default-features = false }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 sha2 = "0.11.0"
+sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio-rustls", "postgres", "migrate", "macros", "uuid", "time", "json"] }
 tempfile = "3.27.0"
-time = { version = "0.3.53", features = ["formatting", "parsing"] }
+time = { version = "0.3.53", features = ["formatting", "parsing", "serde", "serde-human-readable"] }
+tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "signal", "time"] }
+reqwest = { version = "0.13.1", default-features = false, features = ["blocking", "json", "rustls"] }
+uuid = { version = "1.20.0", features = ["serde", "v4"] }
 tree-sitter = "=0.26.11"
 tree-sitter-javascript = "=0.25.0"
 tree-sitter-python = "=0.25.0"

@@ -185,7 +185,7 @@ impl ScriptedTransport {
 impl HttpTransport for ScriptedTransport {
     fn send(&self, request: &OutboundRequest) -> Result<TransportResponse, TransportError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
-        *self.seen_auth.borrow_mut() = Some(request.authorization());
+        *self.seen_auth.borrow_mut() = request.authorization();
         *self.seen_body.borrow_mut() = Some(request.body().to_vec());
         if let Some(error) = self.error {
             return Err(error);

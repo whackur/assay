@@ -93,8 +93,8 @@ pub struct OutboundRequest {
     endpoint: String,
     body: Vec<u8>,
     timeout: Duration,
-    header_name: &'static str,
-    authorization: ProviderSecret,
+    header_name: Option<&'static str>,
+    authorization: Option<ProviderSecret>,
 }
 
 impl OutboundRequest {
@@ -114,13 +114,15 @@ impl OutboundRequest {
     }
 
     /// Returns the header name carrying the credential.
-    pub const fn authorization_header_name(&self) -> &'static str {
+    pub const fn authorization_header_name(&self) -> Option<&'static str> {
         self.header_name
     }
 
     /// Returns the authorization header value; the only credential exposure.
-    pub fn authorization(&self) -> String {
-        self.authorization.expose().to_owned()
+    pub fn authorization(&self) -> Option<String> {
+        self.authorization
+            .as_ref()
+            .map(|value| value.expose().to_owned())
     }
 }
 
@@ -142,6 +144,7 @@ pub struct TransportResponse {
     status: u16,
     body: Vec<u8>,
     latency: Duration,
+    retry_after: Option<Duration>,
 }
 
 impl TransportResponse {
@@ -151,7 +154,14 @@ impl TransportResponse {
             status,
             body,
             latency,
+            retry_after: None,
         }
+    }
+
+    /// Records the larger Retry-After/reset delay extracted by a bounded transport.
+    pub fn with_retry_after(mut self, retry_after: Option<Duration>) -> Self {
+        self.retry_after = retry_after;
+        self
     }
 }
 
@@ -162,6 +172,7 @@ impl fmt::Debug for TransportResponse {
             .field("status", &self.status)
             .field("body_len", &self.body.len())
             .field("latency", &self.latency)
+            .field("retry_after", &self.retry_after)
             .finish()
     }
 }
@@ -171,9 +182,11 @@ impl fmt::Debug for TransportResponse {
 pub enum TransportError {
     Timeout,
     Network,
+    ResponseTooLarge,
 }
 
-/// HTTP transport seam. The concrete client lives outside this crate.
+/// HTTP transport seam. Profiles may use an injected transport or a bounded
+/// concrete transport owned beside the profile.
 pub trait HttpTransport {
     /// Sends one outbound request and returns an untrusted response.
     fn send(&self, request: &OutboundRequest) -> Result<TransportResponse, TransportError>;
@@ -211,6 +224,7 @@ pub struct ProviderTelemetry {
     http_status: u16,
     latency: Duration,
     usage: Option<Usage>,
+    retry_after: Option<Duration>,
 }
 
 impl ProviderTelemetry {
@@ -227,6 +241,11 @@ impl ProviderTelemetry {
     /// Returns provider-reported token usage when present.
     pub const fn usage(&self) -> Option<Usage> {
         self.usage
+    }
+
+    /// Returns the provider-requested retry delay, when supplied.
+    pub const fn retry_after(&self) -> Option<Duration> {
+        self.retry_after
     }
 }
 
@@ -344,8 +363,9 @@ pub trait ApiProviderProfile {
     /// Returns the provider model identifier recorded as provenance.
     fn model(&self) -> &str;
 
-    /// Returns the reference name of the provider credential.
-    fn secret_name(&self) -> &SecretName;
+    /// Returns the reference name of the provider credential, or none for an
+    /// unauthenticated compatible endpoint.
+    fn secret_name(&self) -> Option<&SecretName>;
 
     /// Returns the deterministic sampling settings recorded as provenance.
     fn sampling(&self) -> SamplingConfig;
@@ -353,8 +373,9 @@ pub trait ApiProviderProfile {
     /// Returns the transport timeout budget.
     fn timeout(&self) -> Duration;
 
-    /// Returns the authorization header form; the key material never appears.
-    fn authorization(&self) -> AuthorizationScheme;
+    /// Returns the authorization header form when a credential is configured;
+    /// the key material never appears.
+    fn authorization(&self) -> Option<AuthorizationScheme>;
 
     /// Builds the provider request body from the canonical payload. The body
     /// never contains the credential.
@@ -423,6 +444,9 @@ impl<P: ApiProviderProfile, S: SecretStore, T: HttpTransport> ApiKeyEvaluator<P,
             Err(TransportError::Network) => {
                 return self.failed(provenance, EvaluationErrorKind::ProviderFailure, None);
             }
+            Err(TransportError::ResponseTooLarge) => {
+                return self.failed(provenance, EvaluationErrorKind::OutputTooLarge, None);
+            }
         };
         self.interpret(provenance, response, bundle)
     }
@@ -444,18 +468,30 @@ impl<P: ApiProviderProfile, S: SecretStore, T: HttpTransport> ApiKeyEvaluator<P,
         request: &ProviderRequest<'_>,
     ) -> Result<OutboundRequest, EvaluationErrorKind> {
         let body = self.profile.request_body(request)?;
-        let secret = self
-            .secret_store
-            .load(self.profile.secret_name())
-            .map_err(|_| EvaluationErrorKind::SecretUnavailable)?;
-        let scheme = self.profile.authorization();
-        let authorization =
-            ProviderSecret::new(format!("{}{}", scheme.value_prefix, secret.expose()));
+        let (header_name, authorization) =
+            match (self.profile.secret_name(), self.profile.authorization()) {
+                (Some(name), Some(scheme)) => {
+                    let secret = self
+                        .secret_store
+                        .load(name)
+                        .map_err(|_| EvaluationErrorKind::SecretUnavailable)?;
+                    (
+                        Some(scheme.header_name),
+                        Some(ProviderSecret::new(format!(
+                            "{}{}",
+                            scheme.value_prefix,
+                            secret.expose()
+                        ))),
+                    )
+                }
+                (None, None) => (None, None),
+                _ => return Err(EvaluationErrorKind::SchemaInvalid),
+            };
         Ok(OutboundRequest {
             endpoint: self.profile.endpoint().to_owned(),
             body,
             timeout: self.profile.timeout(),
-            header_name: scheme.header_name,
+            header_name,
             authorization,
         })
     }
@@ -468,6 +504,7 @@ impl<P: ApiProviderProfile, S: SecretStore, T: HttpTransport> ApiKeyEvaluator<P,
     ) -> EvaluationSnapshot {
         let status = response.status;
         let latency = response.latency;
+        let retry_after = response.retry_after;
         if let Some(kind) = self.profile.classify_http_status(status) {
             let usage = self
                 .profile
@@ -478,6 +515,7 @@ impl<P: ApiProviderProfile, S: SecretStore, T: HttpTransport> ApiKeyEvaluator<P,
                 http_status: status,
                 latency,
                 usage,
+                retry_after,
             };
             return self.failed(provenance, kind, Some(telemetry));
         }
@@ -488,6 +526,7 @@ impl<P: ApiProviderProfile, S: SecretStore, T: HttpTransport> ApiKeyEvaluator<P,
                     http_status: status,
                     latency,
                     usage: None,
+                    retry_after,
                 };
                 return self.failed(provenance, kind, Some(telemetry));
             }
@@ -496,6 +535,7 @@ impl<P: ApiProviderProfile, S: SecretStore, T: HttpTransport> ApiKeyEvaluator<P,
             http_status: status,
             latency,
             usage: reply.usage,
+            retry_after,
         };
         match self
             .evaluator

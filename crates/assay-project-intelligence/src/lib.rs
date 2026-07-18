@@ -20,6 +20,8 @@ mod comparison;
 mod contract;
 mod evidence;
 mod feature;
+mod hosted;
+mod hosted_workflow;
 mod machine;
 mod run;
 mod scoring;
@@ -43,6 +45,19 @@ pub use evidence::{
     PortablePathEncoding, PortableRepositoryPath, ProjectEvidenceManifest, RawEvidenceFact,
     RawEvidenceIssue, RawEvidenceKind, RawEvidencePayload, TrackedFileEvidence,
     assemble_project_evidence,
+};
+pub use hosted::{
+    HOSTED_API_CONTRACT, HOSTED_API_SCHEMA_VERSION, HostedAdmission, HostedContractEnvelope,
+    HostedContractValueError, HostedErrorResponse, HostedEvaluationStatus, HostedJobStage,
+    HostedJobState, HostedProjectStatus, HostedProjectStatusRecord, HostedRecentSourceStatus,
+    HostedRecentSourceStatusRecord, HostedRequestState, HostedScoreStatus, HostedSubmission,
+    HostedSubmissionRequest,
+};
+pub use hosted_workflow::{
+    HostedClaimedJob, HostedEvaluationAttempt, HostedEvaluationInput, HostedEvaluationPort,
+    HostedFailure, HostedFailureScope, HostedPortError, HostedPortErrorKind,
+    HostedSourceCollection, HostedSourceCollectionPort, HostedStoredSource, HostedWorkflow,
+    HostedWorkflowOutcome, HostedWorkflowPolicy, HostedWorkflowStage, HostedWorkflowStore,
 };
 pub use machine::{MachineMappingError, build_project_analysis};
 pub use run::{

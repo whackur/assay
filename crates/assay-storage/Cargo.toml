@@ -1,19 +1,19 @@
 [package]
-name = "assay-ai-evaluator"
+name = "assay-storage"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
-assay-domain = { path = "../assay-domain" }
 assay-project-intelligence = { path = "../assay-project-intelligence" }
 hex.workspace = true
-reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
-tokio.workspace = true
+sqlx.workspace = true
+time.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
-jsonschema.workspace = true
+tokio.workspace = true

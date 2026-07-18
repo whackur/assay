@@ -1,11 +1,12 @@
 # assay-ai-evaluator
 
 This crate owns Assay's provider-independent qualitative project rubric,
-bounded evidence bundle, provider adapter port, the server-managed OpenAI API
-adapter, and validation of untrusted AI judgments. It defines the credential
-and HTTP transport ports the adapter needs but performs no filesystem, process,
-network, database, credential, or score-compilation I/O itself; the concrete
-secret store and HTTP client are injected from the deployment.
+bounded evidence bundle, provider adapter port, server-managed OpenAI API
+adapter, hosted Ollama/OpenAI-compatible adapter, and validation of untrusted
+AI judgments. Filesystem, process, database, secret lookup, and score
+compilation remain outside this crate. The OpenAI transport remains injected;
+the Ollama-compatible profile includes a bounded no-redirect HTTP transport so
+its protocol and response limits do not leak into an application entrypoint.
 
 ## What it measures
 
@@ -24,8 +25,9 @@ These are qualitative project judgments, not published scores.
 
 The evaluator does not establish that a repository builds, runs, is secure,
 original, useful, or likely to succeed. It does not execute repository code,
-contact a model provider, calculate an Assay Score or Potential, or evaluate a
-person. A future deterministic score compiler may consume only the validated
+calculate an Assay Score or Potential, or evaluate a person. A configured API
+adapter may contact its model provider, but that cannot establish any of those
+properties. A future deterministic score compiler may consume only the validated
 rating, applicability, confidence, and evidence IDs; provider rationale remains
 explanation text and is excluded from that scoring view.
 
@@ -78,3 +80,21 @@ are isolated in optional non-deterministic telemetry that never feeds score
 compilation. A timeout, rate limit, unauthorized or other HTTP failure, a
 malformed envelope, and a schema-invalid judgment each become an explicit failed
 status; none is disguised as a zero-rated success.
+
+## Ollama-compatible adapter
+
+`OllamaCompatibleEvaluator` reuses the API-key family, canonical evidence
+bundle, rubric, failure taxonomy, and one judgment validator. Its profile pins
+an operator-provided `/v1` base to `/chat/completions`, sends the canonical JSON
+payload as textual chat content with `stream=false`, records provider ID
+`ollama-openai-compatible-api-1`, and accepts an optional bearer secret by
+reference name. `OllamaCompatibleHttpTransport` rejects redirects, bounds the
+response while reading it, and retains bounded Retry-After/reset timing in
+attempt telemetry. Unknown judgment fields, uncited ratings, and
+citations outside the exact bundle fail closed.
+
+The hosted worker records a canonically validated result as
+`validated_unpublished`: provider transport and validation completed, while
+deterministic score compilation and publication remain unavailable. It stores
+bounded provenance and telemetry but discards provider prose and ratings;
+numeric project scores therefore do not leave this boundary.

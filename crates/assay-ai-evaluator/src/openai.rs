@@ -61,8 +61,8 @@ impl ApiProviderProfile for OpenAiProfile {
         &self.config.model
     }
 
-    fn secret_name(&self) -> &SecretName {
-        &self.config.secret_name
+    fn secret_name(&self) -> Option<&SecretName> {
+        Some(&self.config.secret_name)
     }
 
     fn sampling(&self) -> SamplingConfig {
@@ -73,11 +73,11 @@ impl ApiProviderProfile for OpenAiProfile {
         self.config.timeout
     }
 
-    fn authorization(&self) -> AuthorizationScheme {
-        AuthorizationScheme {
+    fn authorization(&self) -> Option<AuthorizationScheme> {
+        Some(AuthorizationScheme {
             header_name: "Authorization",
             value_prefix: "Bearer ",
-        }
+        })
     }
 
     fn request_body(&self, request: &ProviderRequest<'_>) -> Result<Vec<u8>, EvaluationErrorKind> {

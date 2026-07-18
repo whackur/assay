@@ -44,6 +44,8 @@ pub struct ResolvedGitHubSource {
     revision: RevisionId,
     selected_ref: String,
     rate_limit: RateLimitState,
+    metadata: GitHubRepositoryMetadata,
+    metadata_etag: Option<String>,
 }
 
 impl ResolvedGitHubSource {
@@ -71,6 +73,28 @@ impl ResolvedGitHubSource {
     pub const fn rate_limit(&self) -> &RateLimitState {
         &self.rate_limit
     }
+
+    /// Returns the bounded normalized public metadata projection.
+    pub const fn metadata(&self) -> &GitHubRepositoryMetadata {
+        &self.metadata
+    }
+
+    /// Returns the metadata response ETag when GitHub supplied one.
+    pub fn metadata_etag(&self) -> Option<&str> {
+        self.metadata_etag.as_deref()
+    }
+}
+
+/// Bounded public metadata used by hosted project collection.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GitHubRepositoryMetadata {
+    pub description: Option<String>,
+    pub stargazers_count: u64,
+    pub forks_count: u64,
+    pub open_issues_count: u64,
+    pub archived: bool,
+    pub fork: bool,
+    pub license_spdx: Option<String>,
 }
 
 /// The failing collection stage, without repository data.
@@ -208,6 +232,7 @@ impl<'a, H: GitHubHttp> GitHubCollector<'a, H> {
         let metadata_path = format!("/repos/{}/{}", repository.owner(), repository.name());
         let (metadata_response, _) =
             self.request(GitHubRequest::get(metadata_path), CollectionStage::Metadata)?;
+        let metadata_etag = metadata_response.header("etag").map(str::to_owned);
         let metadata: RepositoryMetadata = parse_json_limited(
             metadata_response,
             METADATA_RESPONSE_LIMIT,
@@ -264,6 +289,16 @@ impl<'a, H: GitHubHttp> GitHubCollector<'a, H> {
             revision,
             selected_ref,
             rate_limit,
+            metadata: GitHubRepositoryMetadata {
+                description: metadata.description,
+                stargazers_count: metadata.stargazers_count,
+                forks_count: metadata.forks_count,
+                open_issues_count: metadata.open_issues_count,
+                archived: metadata.archived,
+                fork: metadata.fork,
+                license_spdx: metadata.license.and_then(|license| license.spdx_id),
+            },
+            metadata_etag,
         })
     }
 
@@ -331,6 +366,23 @@ struct RepositoryMetadata {
     owner: RepositoryOwner,
     default_branch: String,
     private: bool,
+    description: Option<String>,
+    #[serde(default)]
+    stargazers_count: u64,
+    #[serde(default)]
+    forks_count: u64,
+    #[serde(default)]
+    open_issues_count: u64,
+    #[serde(default)]
+    archived: bool,
+    #[serde(default)]
+    fork: bool,
+    license: Option<RepositoryLicense>,
+}
+
+#[derive(Deserialize)]
+struct RepositoryLicense {
+    spdx_id: Option<String>,
 }
 
 #[derive(Deserialize)]

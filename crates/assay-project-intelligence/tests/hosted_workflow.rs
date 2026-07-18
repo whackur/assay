@@ -1,0 +1,206 @@
+use std::sync::Mutex;
+
+use assay_project_intelligence::{
+    HostedClaimedJob, HostedEvaluationAttempt, HostedEvaluationInput, HostedEvaluationPort,
+    HostedFailure, HostedPortError, HostedSourceCollection, HostedSourceCollectionPort,
+    HostedStoredSource, HostedWorkflow, HostedWorkflowOutcome, HostedWorkflowPolicy,
+    HostedWorkflowStage, HostedWorkflowStore,
+};
+use serde_json::json;
+use uuid::Uuid;
+
+struct FakeStore {
+    job: Mutex<Option<HostedClaimedJob>>,
+    input: Option<HostedEvaluationInput>,
+    recorded_attempts: Mutex<usize>,
+    stored_evaluations: Mutex<usize>,
+    settled: Mutex<usize>,
+}
+
+impl HostedWorkflowStore for FakeStore {
+    async fn claim_job(&self, _: &str) -> Result<Option<HostedClaimedJob>, HostedPortError> {
+        Ok(self.job.lock().unwrap().take())
+    }
+
+    async fn load_evaluation_input(
+        &self,
+        _: &HostedClaimedJob,
+    ) -> Result<Option<HostedEvaluationInput>, HostedPortError> {
+        Ok(self.input.clone())
+    }
+
+    async fn store_source_collection(
+        &self,
+        _: &HostedClaimedJob,
+        _: &HostedSourceCollection,
+    ) -> Result<HostedStoredSource, HostedPortError> {
+        Ok(source())
+    }
+
+    async fn record_evaluation_attempt(
+        &self,
+        _: &HostedClaimedJob,
+        _: &HostedStoredSource,
+        _: &HostedEvaluationAttempt,
+    ) -> Result<(), HostedPortError> {
+        *self.recorded_attempts.lock().unwrap() += 1;
+        Ok(())
+    }
+
+    async fn store_evaluation(
+        &self,
+        _: &HostedClaimedJob,
+        _: &HostedStoredSource,
+        _: &HostedEvaluationAttempt,
+    ) -> Result<(), HostedPortError> {
+        *self.stored_evaluations.lock().unwrap() += 1;
+        Ok(())
+    }
+
+    async fn settle_failure(
+        &self,
+        _: &HostedClaimedJob,
+        _: HostedWorkflowStage,
+        _: &HostedFailure,
+        _: HostedWorkflowPolicy,
+    ) -> Result<bool, HostedPortError> {
+        *self.settled.lock().unwrap() += 1;
+        Ok(true)
+    }
+}
+
+struct CountingCollector(Mutex<usize>);
+
+impl HostedSourceCollectionPort for CountingCollector {
+    async fn collect(&self, _: &HostedClaimedJob) -> Result<HostedSourceCollection, HostedFailure> {
+        *self.0.lock().unwrap() += 1;
+        Ok(HostedSourceCollection {
+            provider_repository_id: 42,
+            owner: "whackur".to_owned(),
+            repository: "assay".to_owned(),
+            canonical_url: "https://github.com/whackur/assay".to_owned(),
+            default_branch: "main".to_owned(),
+            head_sha: "0123456789abcdef0123456789abcdef01234567".to_owned(),
+            source_url: "https://api.github.com/repos/whackur/assay".to_owned(),
+            etag: None,
+            normalized_facts: json!({"stargazers_count": 1}),
+        })
+    }
+}
+
+struct RetryingEvaluator;
+
+impl HostedEvaluationPort for RetryingEvaluator {
+    async fn evaluate(
+        &self,
+        _: &HostedEvaluationInput,
+    ) -> Result<HostedEvaluationAttempt, HostedFailure> {
+        let mut failure = HostedFailure::new("ollama_timeout", true);
+        failure.evaluation_attempt = Some(Box::new(attempt("partial")));
+        Err(failure)
+    }
+}
+
+struct SuccessfulEvaluator;
+
+impl HostedEvaluationPort for SuccessfulEvaluator {
+    async fn evaluate(
+        &self,
+        _: &HostedEvaluationInput,
+    ) -> Result<HostedEvaluationAttempt, HostedFailure> {
+        Ok(attempt("validated_unpublished"))
+    }
+}
+
+fn job(stage: HostedWorkflowStage) -> HostedClaimedJob {
+    HostedClaimedJob {
+        job_id: Uuid::nil(),
+        request_id: Uuid::nil(),
+        owner: "whackur".to_owned(),
+        repository: "assay".to_owned(),
+        generation: 1,
+        attempt_count: 1,
+        max_attempts: 5,
+        lease_generation: 1,
+        lease_token: Uuid::nil(),
+        stage,
+        source_snapshot_id: Some(Uuid::nil()),
+    }
+}
+
+fn source() -> HostedStoredSource {
+    HostedStoredSource {
+        source_snapshot_id: Uuid::nil(),
+        source_observation_id: Uuid::nil(),
+    }
+}
+
+fn attempt(status: &str) -> HostedEvaluationAttempt {
+    HostedEvaluationAttempt {
+        provider_id: "ollama-openai-compatible-api-1".to_owned(),
+        model: "qwen3".to_owned(),
+        evaluator_profile: "ollama-compatible-1".to_owned(),
+        rubric_version: "project-rubric-1".to_owned(),
+        prompt_version: "prompt-1".to_owned(),
+        evaluation_version: "evaluation-1".to_owned(),
+        provider_profile_version: "profile-1".to_owned(),
+        sampling: json!({}),
+        evidence_bundle_hash: "abc".to_owned(),
+        usage: None,
+        latency_ms: None,
+        status: status.to_owned(),
+        error_code: None,
+    }
+}
+
+fn policy() -> HostedWorkflowPolicy {
+    HostedWorkflowPolicy {
+        retry_delay_cap_seconds: 3_600,
+        failure_circuit_threshold: 3,
+        failure_circuit_cooldown_seconds: 900,
+    }
+}
+
+#[tokio::test]
+async fn evaluation_retry_reuses_durable_source_and_preserves_attempt() {
+    let store = FakeStore {
+        job: Mutex::new(Some(job(HostedWorkflowStage::Evaluating))),
+        input: Some(HostedEvaluationInput {
+            source: source(),
+            normalized_facts: json!({"stargazers_count": 1}),
+        }),
+        recorded_attempts: Mutex::new(0),
+        stored_evaluations: Mutex::new(0),
+        settled: Mutex::new(0),
+    };
+    let collector = CountingCollector(Mutex::new(0));
+    let workflow = HostedWorkflow::new(&store, &collector, &RetryingEvaluator, policy());
+
+    assert_eq!(
+        workflow.run_once("worker").await.unwrap(),
+        HostedWorkflowOutcome::RetryScheduled
+    );
+    assert_eq!(*collector.0.lock().unwrap(), 0);
+    assert_eq!(*store.recorded_attempts.lock().unwrap(), 1);
+    assert_eq!(*store.settled.lock().unwrap(), 1);
+}
+
+#[tokio::test]
+async fn collecting_sequence_persists_source_before_validated_unpublished_evaluation() {
+    let store = FakeStore {
+        job: Mutex::new(Some(job(HostedWorkflowStage::Collecting))),
+        input: None,
+        recorded_attempts: Mutex::new(0),
+        stored_evaluations: Mutex::new(0),
+        settled: Mutex::new(0),
+    };
+    let collector = CountingCollector(Mutex::new(0));
+    let workflow = HostedWorkflow::new(&store, &collector, &SuccessfulEvaluator, policy());
+
+    assert_eq!(
+        workflow.run_once("worker").await.unwrap(),
+        HostedWorkflowOutcome::Complete
+    );
+    assert_eq!(*collector.0.lock().unwrap(), 1);
+    assert_eq!(*store.stored_evaluations.lock().unwrap(), 1);
+}

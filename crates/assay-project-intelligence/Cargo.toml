@@ -10,10 +10,14 @@ assay-classifier = { path = "../assay-classifier" }
 assay-domain = { path = "../assay-domain" }
 assay-git = { path = "../assay-git" }
 hex.workspace = true
+serde.workspace = true
 sha2.workspace = true
 serde_json.workspace = true
+time.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 assay-test-fixtures = { path = "../../tests/support/assay-fixtures" }
 jsonschema.workspace = true
 tempfile.workspace = true
+tokio.workspace = true
