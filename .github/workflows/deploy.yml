@@ -1,4 +1,4 @@
-name: Publish Assay Image
+name: Publish and Deploy Assay
 
 on:
   push:
@@ -13,73 +13,83 @@ permissions:
   contents: read
   packages: write
 
-env:
-  IMAGE_REPOSITORY: ghcr.io/whackur/assay-web
-
 jobs:
   verify:
-    name: Verify the web dashboard before publishing
+    name: Verify production candidate
     runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: web
     steps:
       - name: Check out the repository
-        # actions/checkout v4
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
 
+      - name: Install the pinned Rust toolchain
+        run: rustup show
+
+      - name: Verify Rust workspace
+        run: |
+          cargo fmt --check
+          cargo clippy --workspace --all-targets --all-features -- -D warnings
+          cargo test --workspace
+
       - name: Set up Node.js
-        # actions/setup-node v4.4.0
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          # Matches the node:22 base image in the Dockerfile.
           node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Verify generated hosted contract
+        working-directory: web
+        run: |
+          npm ci
+          npm run generate:hosted-contract
+          git diff --exit-code -- src/lib/api/hosted.generated.ts
+          npm run lint
+          npx tsc --noEmit
+          npm test
+          npm run build
 
-      - name: Type-check
-        run: npx tsc --noEmit
+      - name: Validate Compose contracts
+        env:
+          ASSAY_API_IMAGE: ghcr.io/whackur/assay-api@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          ASSAY_POSTGRES_VOLUME: assay-ci-postgres
+          ASSAY_WEB_IMAGE: ghcr.io/whackur/assay-web@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          ASSAY_WEB_VOLUME: assay-ci-web
+          ASSAY_WORKER_IMAGE: ghcr.io/whackur/assay-worker@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          DATABASE_URL: postgres://assay:placeholder@db:5432/assay
+          POSTGRES_PASSWORD: placeholder
+        run: |
+          docker compose -f compose.yaml config --quiet
+          docker compose -f compose.hosted.yaml config --quiet
+          sh -n scripts/nas-hosted.sh
 
-      - name: Lint without warnings
-        run: npm run lint
-
-      - name: Run web tests
-        run: npm test
-
-      - name: Build the production bundle
-        run: npm run build
-
-  build:
-    name: Build and publish preview image
+  publish:
+    name: Publish immutable application images
     needs: verify
     runs-on: ubuntu-24.04
-    environment: production
+    outputs:
+      api_image: ${{ steps.images.outputs.api_image }}
+      web_image: ${{ steps.images.outputs.web_image }}
+      worker_image: ${{ steps.images.outputs.worker_image }}
     steps:
       - name: Check out the repository
-        # actions/checkout v4
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
 
       - name: Set up Docker Buildx
-        # docker/setup-buildx-action v4.1.0
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5
 
-      - name: Build and publish immutable and latest tags
+      - name: Build, publish, and capture immutable digests
+        id: images
         shell: bash
         env:
           GHCR_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
-
           docker_config="$(mktemp -d)"
           export DOCKER_CONFIG="$docker_config"
-
           cleanup() {
             docker logout ghcr.io >/dev/null 2>&1 || true
             rm -rf "$docker_config"
@@ -90,10 +100,126 @@ jobs:
             docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin >/dev/null
           unset GHCR_TOKEN
 
-          docker buildx build \
-            --file Dockerfile \
-            --target web-runtime \
-            --tag "${IMAGE_REPOSITORY}:latest" \
-            --tag "${IMAGE_REPOSITORY}:${GITHUB_SHA}" \
-            --push \
-            .
+          publish_image() {
+            output_name=$1
+            dockerfile=$2
+            target=$3
+            repository=$4
+            metadata=$(mktemp)
+            docker buildx build \
+              --file "$dockerfile" \
+              --target "$target" \
+              --tag "$repository:latest" \
+              --tag "$repository:$GITHUB_SHA" \
+              --metadata-file "$metadata" \
+              --push \
+              .
+            digest=$(python -c \
+              'import json,sys; print(json.load(open(sys.argv[1]))["containerimage.digest"])' \
+              "$metadata")
+            case "$digest" in
+              sha256:*) digest_hex=${digest#sha256:} ;;
+              *) echo "registry did not return a SHA-256 digest" >&2; exit 1 ;;
+            esac
+            case "$digest_hex" in
+              *[!0-9a-f]*) echo "registry returned a malformed image digest" >&2; exit 1 ;;
+            esac
+            [ "${#digest_hex}" -eq 64 ] || {
+              echo "registry returned an incomplete image digest" >&2
+              exit 1
+            }
+            printf '%s=%s@%s\n' "$output_name" "$repository" "$digest" >>"$GITHUB_OUTPUT"
+          }
+
+          publish_image web_image Dockerfile web-runtime ghcr.io/whackur/assay-web
+          publish_image api_image Dockerfile.hosted api-runtime ghcr.io/whackur/assay-api
+          publish_image worker_image Dockerfile.hosted worker-runtime ghcr.io/whackur/assay-worker
+
+  deploy:
+    name: Deploy immutable hosted stack
+    needs: publish
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - name: Check out deployment helper
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Verify SSH host and deploy
+        shell: bash
+        env:
+          NAS_HOST: ${{ secrets.NAS_HOST }}
+          NAS_SSH_KEY: ${{ secrets.NAS_SSH_KEY }}
+          NAS_SSH_USER: ${{ secrets.NAS_SSH_USER }}
+          NAS_HOST_FINGERPRINT: ${{ secrets.NAS_HOST_FINGERPRINT }}
+          NAS_SSH_PORT: ${{ vars.NAS_SSH_PORT }}
+          NAS_TARGET_DIR: ${{ vars.NAS_TARGET_DIR }}
+          ASSAY_API_IMAGE_REF: ${{ needs.publish.outputs.api_image }}
+          ASSAY_WEB_IMAGE_REF: ${{ needs.publish.outputs.web_image }}
+          ASSAY_WORKER_IMAGE_REF: ${{ needs.publish.outputs.worker_image }}
+        run: |
+          set -Eeuo pipefail
+          : "${NAS_HOST:?missing NAS_HOST}"
+          : "${NAS_SSH_KEY:?missing NAS_SSH_KEY}"
+          : "${NAS_SSH_USER:?missing NAS_SSH_USER}"
+          : "${NAS_HOST_FINGERPRINT:?missing NAS_HOST_FINGERPRINT}"
+          : "${NAS_TARGET_DIR:?missing NAS_TARGET_DIR}"
+          : "${ASSAY_API_IMAGE_REF:?missing published API digest}"
+          : "${ASSAY_WEB_IMAGE_REF:?missing published web digest}"
+          : "${ASSAY_WORKER_IMAGE_REF:?missing published worker digest}"
+          NAS_SSH_PORT="${NAS_SSH_PORT:-22}"
+
+          install -d -m 700 ~/.ssh
+          key_file=~/.ssh/assay_deploy
+          known_hosts=~/.ssh/known_hosts
+          printf '%s\n' "$NAS_SSH_KEY" >"$key_file"
+          chmod 600 "$key_file"
+          candidate="$known_hosts.candidate"
+          verified="$known_hosts.verified"
+          single="$known_hosts.single"
+          ssh-keyscan -p "$NAS_SSH_PORT" "$NAS_HOST" >"$candidate" 2>/dev/null
+          : >"$verified"
+          while IFS= read -r key_line; do
+            printf '%s\n' "$key_line" >"$single"
+            fingerprint=$(ssh-keygen -lf "$single" -E sha256 2>/dev/null |
+              awk 'NR == 1 {print $2}')
+            if [ "$fingerprint" = "$NAS_HOST_FINGERPRINT" ]; then
+              printf '%s\n' "$key_line" >>"$verified"
+            fi
+          done <"$candidate"
+          rm -f "$candidate" "$single"
+          [ -s "$verified" ] || {
+            echo "NAS SSH host fingerprint mismatch" >&2
+            exit 1
+          }
+          mv "$verified" "$known_hosts"
+          chmod 600 "$known_hosts"
+
+          ssh -i "$key_file" -p "$NAS_SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$NAS_SSH_USER@$NAS_HOST" sh -s -- \
+            "$NAS_TARGET_DIR" "$GITHUB_SHA" \
+            "$ASSAY_WEB_IMAGE_REF" "$ASSAY_API_IMAGE_REF" "$ASSAY_WORKER_IMAGE_REF" <<'REMOTE'
+          set -eu
+          target_dir=$1
+          release_sha=$2
+          web_image=$3
+          api_image=$4
+          worker_image=$5
+          cd "$target_dir"
+          [ -f .env.production ] || {
+            echo "missing NAS-local .env.production" >&2
+            exit 1
+          }
+          git diff --quiet && git diff --cached --quiet || {
+            echo "refusing deployment over tracked local changes" >&2
+            exit 1
+          }
+          git fetch --no-tags origin "$release_sha"
+          git checkout --detach "$release_sha"
+          ASSAY_WEB_IMAGE_OVERRIDE="$web_image" \
+          ASSAY_API_IMAGE_OVERRIDE="$api_image" \
+          ASSAY_WORKER_IMAGE_OVERRIDE="$worker_image" \
+            sh scripts/nas-hosted.sh --env-file .env.production deploy
+          REMOTE

@@ -1,4 +1,4 @@
-name: assay-prod
+name: assay-hosted
 
 services:
   db:
@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-assay}
       POSTGRES_USER: ${POSTGRES_USER:-assay}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the NAS-local environment file}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     restart: unless-stopped
     volumes:
       - assay-postgres-data:/var/lib/postgresql/data
@@ -14,11 +14,13 @@ services:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-assay} -d ${POSTGRES_DB:-assay}"]
       interval: 5s
       timeout: 5s
-      start_period: 10s
-      retries: 24
+      retries: 12
 
   api:
-    image: ${ASSAY_API_IMAGE:?set an immutable assay-api digest reference}
+    build:
+      context: .
+      dockerfile: Dockerfile.hosted
+      target: api-runtime
     environment:
       ASSAY_API_BIND: 0.0.0.0:8080
       ASSAY_MAX_ACTIVE_JOBS: ${ASSAY_MAX_ACTIVE_JOBS:-8}
@@ -30,21 +32,25 @@ services:
       ASSAY_PUBLIC_OWNER_BURST: ${ASSAY_PUBLIC_OWNER_BURST:-3}
       ASSAY_PUBLIC_PROVIDER_BURST: ${ASSAY_PUBLIC_PROVIDER_BURST:-20}
       ASSAY_SEED_REPOSITORIES: ${ASSAY_SEED_REPOSITORIES:-whackur/assay}
-      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in the NAS-local environment file}
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env}
     depends_on:
       db:
         condition: service_healthy
     init: true
+    ports:
+      - "127.0.0.1:${ASSAY_API_PORT:-8080}:8080"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health/ready"]
       interval: 10s
       timeout: 5s
-      start_period: 10s
-      retries: 18
+      retries: 12
 
   worker:
-    image: ${ASSAY_WORKER_IMAGE:?set an immutable assay-worker digest reference}
+    build:
+      context: .
+      dockerfile: Dockerfile.hosted
+      target: worker-runtime
     environment:
       ASSAY_GITHUB_TOKEN: ${ASSAY_GITHUB_TOKEN:-}
       ASSAY_OLLAMA_API_KEY: ${ASSAY_OLLAMA_API_KEY:-}
@@ -53,7 +59,7 @@ services:
       ASSAY_PROVIDER_RETRY_MAX_SECONDS: ${ASSAY_PROVIDER_RETRY_MAX_SECONDS:-3600}
       ASSAY_PUBLIC_FAILURE_CIRCUIT_THRESHOLD: ${ASSAY_PUBLIC_FAILURE_CIRCUIT_THRESHOLD:-3}
       ASSAY_PUBLIC_FAILURE_CIRCUIT_COOLDOWN_SECONDS: ${ASSAY_PUBLIC_FAILURE_CIRCUIT_COOLDOWN_SECONDS:-900}
-      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in the NAS-local environment file}
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env}
     depends_on:
       db:
         condition: service_healthy
@@ -63,7 +69,10 @@ services:
     restart: unless-stopped
 
   web:
-    image: ${ASSAY_WEB_IMAGE:?set an immutable assay-web digest reference}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web-runtime
     environment:
       ASSAY_API_INTERNAL_URL: http://api:8080
       ASSAY_TRUSTED_CLIENT_IP_HEADER: ${ASSAY_TRUSTED_CLIENT_IP_HEADER:-}
@@ -78,15 +87,11 @@ services:
         condition: service_healthy
     init: true
     ports:
-      - "127.0.0.1:${ASSAY_WEB_PORT:-1019}:3000"
+      - "127.0.0.1:${ASSAY_WEB_PORT:-3000}:3000"
     restart: unless-stopped
     volumes:
       - assay-web-data:/app/data
 
 volumes:
   assay-postgres-data:
-    external: true
-    name: ${ASSAY_POSTGRES_VOLUME:?set an explicit stable ASSAY_POSTGRES_VOLUME}
   assay-web-data:
-    external: true
-    name: ${ASSAY_WEB_VOLUME:?set an explicit stable ASSAY_WEB_VOLUME}
