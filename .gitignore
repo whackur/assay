@@ -10,3 +10,4 @@ target/
 !**/.env.example
 
 backups/
+/docs/internal/
