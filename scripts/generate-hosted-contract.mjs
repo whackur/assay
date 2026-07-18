@@ -1,0 +1,142 @@
+import { createHash } from "node:crypto";
+import { readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const schemaPath = path.join(root, "schemas", "hosted-api", "1.0.0.json");
+const outputPath = path.join(root, "web", "src", "lib", "api", "hosted.generated.ts");
+const source = await readFile(schemaPath);
+const schema = JSON.parse(source.toString("utf8"));
+const hash = createHash("sha256").update(source).digest("hex");
+
+function literal(value) {
+  return value === null ? "null" : JSON.stringify(value);
+}
+
+function typeOf(node) {
+  if (node.$ref) return node.$ref.split("/").at(-1);
+  if (Object.hasOwn(node, "const")) return literal(node.const);
+  if (node.enum) return node.enum.map(literal).join(" | ");
+  if (node.oneOf) return node.oneOf.map(typeOf).join(" | ");
+  if (node.anyOf) return node.anyOf.map(typeOf).join(" | ");
+  if (Array.isArray(node.type)) {
+    return node.type.map((type) => typeOf({ ...node, type, enum: undefined })).join(" | ");
+  }
+  if (node.type === "array") return `Array<${typeOf(node.items)}>`;
+  if (node.type === "integer" || node.type === "number") return "number";
+  if (node.type === "boolean") return "boolean";
+  if (node.type === "null") return "null";
+  if (node.type === "object") {
+    const required = new Set(node.required ?? []);
+    const fields = Object.entries(node.properties ?? {}).map(
+      ([name, property]) => `${JSON.stringify(name)}${required.has(name) ? "" : "?"}: ${typeOf(property)};`,
+    );
+    return `{ ${fields.join(" ")} }`;
+  }
+  return "string";
+}
+
+function declaration(name, node) {
+  if (node.type !== "object") return `export type ${name} = ${typeOf(node)};`;
+  const required = new Set(node.required ?? []);
+  const fields = Object.entries(node.properties ?? {}).map(
+    ([field, property]) => `  ${JSON.stringify(field)}${required.has(field) ? "" : "?"}: ${typeOf(property)};`,
+  );
+  return `export interface ${name} {\n${fields.join("\n")}\n}`;
+}
+
+function predicate(node, value) {
+  if (node.$ref) return `is${node.$ref.split("/").at(-1)}(${value})`;
+  if (Object.hasOwn(node, "const")) return `${value} === ${literal(node.const)}`;
+  if (node.enum) return `(${node.enum.map((item) => `${value} === ${literal(item)}`).join(" || ")})`;
+  if (node.oneOf || node.anyOf) {
+    return `(${(node.oneOf ?? node.anyOf).map((part) => predicate(part, value)).join(" || ")})`;
+  }
+  if (Array.isArray(node.type)) {
+    return `(${node.type.map((type) => predicate({ ...node, type }, value)).join(" || ")})`;
+  }
+  if (node.type === "null") return `${value} === null`;
+  if (node.type === "boolean") return `typeof ${value} === "boolean"`;
+  if (node.type === "integer" || node.type === "number") {
+    const checks = [`typeof ${value} === "number"`, `Number.isFinite(${value})`];
+    if (node.type === "integer") checks.push(`Number.isInteger(${value})`);
+    if (node.minimum !== undefined) checks.push(`${value} >= ${node.minimum}`);
+    if (node.maximum !== undefined) checks.push(`${value} <= ${node.maximum}`);
+    return `(${checks.join(" && ")})`;
+  }
+  if (node.type === "array") {
+    const checks = [`Array.isArray(${value})`];
+    if (node.maxItems !== undefined) checks.push(`${value}.length <= ${node.maxItems}`);
+    checks.push(`${value}.every((item) => ${predicate(node.items, "item")})`);
+    return `(${checks.join(" && ")})`;
+  }
+  if (node.type === "object") {
+    const properties = Object.entries(node.properties ?? {});
+    const required = new Set(node.required ?? []);
+    const checks = [`isRecord(${value})`];
+    if (node.additionalProperties === false) {
+      checks.push(`hasOnlyKeys(${value}, ${JSON.stringify(properties.map(([name]) => name))})`);
+    }
+    for (const [name, property] of properties) {
+      const field = `${value}[${JSON.stringify(name)}]`;
+      const fieldCheck = predicate(property, field);
+      checks.push(required.has(name) ? fieldCheck : `(${field} === undefined || ${fieldCheck})`);
+    }
+    return `(${checks.join(" && ")})`;
+  }
+  const checks = [`typeof ${value} === "string"`];
+  if (node.minLength !== undefined) checks.push(`${value}.length >= ${node.minLength}`);
+  if (node.maxLength !== undefined) checks.push(`${value}.length <= ${node.maxLength}`);
+  if (node.pattern) checks.push(`new RegExp(${JSON.stringify(node.pattern)}).test(${value})`);
+  if (node.format) checks.push(`isFormat(${value}, ${JSON.stringify(node.format)})`);
+  return `(${checks.join(" && ")})`;
+}
+
+function validator(name, node) {
+  return `export function is${name}(value: unknown): value is ${name} {\n  return ${predicate(node, "value")};\n}`;
+}
+
+const names = schema["x-typescript-exports"];
+if (!Array.isArray(names) || names.some((name) => !schema.$defs[name])) {
+  throw new Error("hosted schema x-typescript-exports is invalid");
+}
+const generated = [
+  "// Generated by scripts/generate-hosted-contract.mjs. DO NOT EDIT.",
+  `// Source: schemas/hosted-api/1.0.0.json sha256:${hash}`,
+  "",
+  `export const HOSTED_API_CONTRACT = ${JSON.stringify(schema.$defs.HostedSubmissionResponse.properties.contract.const)} as const;`,
+  `export const HOSTED_API_SCHEMA_VERSION = ${JSON.stringify(schema.$defs.HostedSubmissionResponse.properties.schema_version.const)} as const;`,
+  `export const HOSTED_API_SCHEMA_SHA256 = ${JSON.stringify(hash)} as const;`,
+  "",
+  ...names.map((name) => declaration(name, schema.$defs[name])),
+  "",
+  "function isRecord(value: unknown): value is Record<string, unknown> {",
+  "  return typeof value === \"object\" && value !== null && !Array.isArray(value);",
+  "}",
+  "",
+  "function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {",
+  "  return Object.keys(value).every((key) => keys.includes(key));",
+  "}",
+  "",
+  "function isFormat(value: string, format: string): boolean {",
+  "  if (format === \"uuid\") return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);",
+  "  if (format === \"date-time\") return /^\\d{4}-\\d{2}-\\d{2}T/.test(value) && Number.isFinite(Date.parse(value));",
+  "  if (format === \"uri\") { try { new URL(value); return true; } catch { return false; } }",
+  "  return false;",
+  "}",
+  "",
+  ...names.map((name) => validator(name, schema.$defs[name])),
+  "",
+].join("\n");
+
+if (process.argv.includes("--check")) {
+  const current = await readFile(outputPath, "utf8").catch(() => "");
+  if (current !== generated) {
+    console.error("hosted.generated.ts is stale; run npm run generate:hosted-contract");
+    process.exit(1);
+  }
+} else {
+  await writeFile(outputPath, generated, "utf8");
+}

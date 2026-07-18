@@ -22,9 +22,9 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Assay — evidence-based project evaluation",
+  title: "Assay — public repository evidence status",
   description:
-    "Paste a public GitHub repository and read its dimensioned, evidence-cited project evaluation. Every score is traceable.",
+    "Submit a public GitHub repository and inspect durable collection status. Scored reports remain clearly labeled samples until the full evaluation pipeline runs.",
 };
 
 // Nothing in the public chrome reads deployment state: the admin area lives
@@ -50,7 +50,7 @@ export default function RootLayout({
             </Link>
             <span className="brand-tag">evidence-based project evaluation</span>
             <nav className="masthead-nav" aria-label="Site">
-              <Link href="/#catalog">Catalog</Link>
+              <Link href="/#source-activity">Source activity</Link>
               <Link href="/contact">Contact</Link>
               <a
                 className="github-link"
@@ -82,9 +82,9 @@ export default function RootLayout({
             <div>
               <div className="colophon-brand">Assay</div>
               <p>
-                An evidence-based evaluation engine for public repositories.
-                Scores are dimensioned, versioned, and grounded in cited
-                evidence — never in impressions.
+                Durable public-repository collection with explicit partial and
+                unavailable states. Live metadata is never presented as a
+                scored evaluation.
               </p>
               <p>
                 Assay reads public repositories only. Private project? Publish
@@ -98,10 +98,9 @@ export default function RootLayout({
             </div>
             <div className="mono">
               <p>
-                report contract v1 · evaluation project-intelligence-1
+                sample report contract v1 · hosted metadata contract v1
                 <br />
-                preview deployment — results render from fixture evaluations,
-                not a live engine
+                live source-processing data is separated from the labeled sample report
               </p>
             </div>
           </div>

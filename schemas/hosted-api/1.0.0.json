@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assay.dev/hosted-api/1.0.0.json",
+  "title": "Assay Hosted API v1",
+  "description": "Versioned submission, project-status, and recent source-processing responses for the hosted GitHub metadata workflow. This contract does not publish or approve a project score or provider judgment.",
+  "x-typescript-exports": [
+    "HostedSubmissionRequest",
+    "HostedSubmission",
+    "HostedProjectStatus",
+    "HostedRecentSourceStatus",
+    "HostedSubmissionResponse",
+    "HostedProjectStatusResponse",
+    "HostedRecentSourcesResponse",
+    "HostedErrorResponse"
+  ],
+  "oneOf": [
+    { "$ref": "#/$defs/HostedSubmissionResponse" },
+    { "$ref": "#/$defs/HostedProjectStatusResponse" },
+    { "$ref": "#/$defs/HostedRecentSourcesResponse" },
+    { "$ref": "#/$defs/HostedErrorResponse" }
+  ],
+  "$defs": {
+    "HostedSubmissionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 3, "maxLength": 512 }
+      }
+    },
+    "HostedSubmission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_id", "owner", "repository", "canonical_url", "state", "admission", "retry_after_seconds"],
+      "properties": {
+        "request_id": { "type": "string", "format": "uuid" },
+        "owner": { "type": "string", "minLength": 1, "maxLength": 39 },
+        "repository": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "canonical_url": { "type": "string", "format": "uri", "pattern": "^https://github\\.com/" },
+        "state": { "enum": ["queued", "collecting", "partial", "complete", "unavailable"] },
+        "admission": { "enum": ["admitted", "joined_active", "cooldown"] },
+        "retry_after_seconds": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "HostedProjectStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_id", "owner", "repository", "canonical_url", "request_state", "job_stage", "job_state", "last_error_code", "provider_repository_id", "default_branch", "head_sha", "description", "stars", "evaluation_status", "score_status", "next_attempt_at", "updated_at"],
+      "properties": {
+        "request_id": { "type": "string", "format": "uuid" },
+        "owner": { "type": "string", "minLength": 1, "maxLength": 39 },
+        "repository": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "canonical_url": { "type": "string", "format": "uri", "pattern": "^https://github\\.com/" },
+        "request_state": { "enum": ["queued", "collecting", "partial", "complete", "unavailable"] },
+        "job_stage": { "enum": ["canonicalizing", "collecting", "evaluating", "publishing"] },
+        "job_state": { "enum": ["queued", "running", "partial", "complete", "unavailable"] },
+        "last_error_code": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+        "provider_repository_id": { "type": ["string", "null"], "pattern": "^[1-9][0-9]*$" },
+        "default_branch": { "type": ["string", "null"], "minLength": 1, "maxLength": 255 },
+        "head_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
+        "description": { "type": ["string", "null"], "maxLength": 1000 },
+        "stars": { "type": ["integer", "null"], "minimum": 0 },
+        "evaluation_status": { "type": ["string", "null"], "enum": ["validated_unpublished", "partial", "unavailable", null] },
+        "score_status": { "enum": ["pending", "unavailable"] },
+        "next_attempt_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "HostedRecentSourceStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "repository", "canonical_url", "provider_repository_id", "description", "stars", "default_branch", "head_sha", "collection_status", "evaluation_status", "score_status", "updated_at"],
+      "properties": {
+        "owner": { "type": "string", "minLength": 1, "maxLength": 39 },
+        "repository": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "canonical_url": { "type": "string", "format": "uri", "pattern": "^https://github\\.com/" },
+        "provider_repository_id": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+        "description": { "type": ["string", "null"], "maxLength": 1000 },
+        "stars": { "type": ["integer", "null"], "minimum": 0 },
+        "default_branch": { "type": ["string", "null"], "minLength": 1, "maxLength": 255 },
+        "head_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
+        "collection_status": { "enum": ["queued", "collecting", "partial", "complete", "unavailable"] },
+        "evaluation_status": { "type": ["string", "null"], "enum": ["validated_unpublished", "partial", "unavailable", null] },
+        "score_status": { "enum": ["pending", "unavailable"] },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "HostedSubmissionResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract", "schema_version", "data"],
+      "properties": {
+        "contract": { "const": "assay-hosted-api" },
+        "schema_version": { "const": "1.0.0" },
+        "data": { "$ref": "#/$defs/HostedSubmission" }
+      }
+    },
+    "HostedProjectStatusResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract", "schema_version", "data"],
+      "properties": {
+        "contract": { "const": "assay-hosted-api" },
+        "schema_version": { "const": "1.0.0" },
+        "data": { "$ref": "#/$defs/HostedProjectStatus" }
+      }
+    },
+    "HostedRecentSourcesResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract", "schema_version", "data"],
+      "properties": {
+        "contract": { "const": "assay-hosted-api" },
+        "schema_version": { "const": "1.0.0" },
+        "data": { "type": "array", "items": { "$ref": "#/$defs/HostedRecentSourceStatus" }, "maxItems": 100 }
+      }
+    },
+    "HostedErrorResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract", "schema_version", "error"],
+      "properties": {
+        "contract": { "const": "assay-hosted-api" },
+        "schema_version": { "const": "1.0.0" },
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code"],
+          "properties": {
+            "code": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" }
+          }
+        }
+      }
+    }
+  }
+}

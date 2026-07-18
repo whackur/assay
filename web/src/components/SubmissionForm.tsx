@@ -1,12 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { fixtureApi, type SubmissionOutcome } from "@/lib/api/client";
 import { parseGithubTarget } from "@/lib/state/github-url";
-
-type CooldownOutcome = Extract<SubmissionOutcome, { kind: "cooldown" }>;
 
 // Submission form and live canonical preview (specification 12.5). Host
 // validation runs client-side to guide the user; the server repeats it.
@@ -16,10 +12,8 @@ export function SubmissionForm() {
   const inputId = useId();
   const previewId = useId();
   const errorId = useId();
-  const cooldownId = useId();
   const [value, setValue] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState<CooldownOutcome | null>(null);
   const [pending, setPending] = useState(false);
 
   const preview = useMemo(() => {
@@ -31,25 +25,40 @@ export function SubmissionForm() {
     event.preventDefault();
     setPending(true);
     setSubmitError(null);
-    setCooldown(null);
-    const outcome = await fixtureApi.submit(value);
-    if (outcome.kind === "invalid") {
-      setSubmitError(outcome.error);
+    const parsed = parseGithubTarget(value);
+    if (!parsed.ok) {
+      setSubmitError(parsed.error);
       setPending(false);
       return;
     }
-    if (outcome.kind === "cooldown") {
-      setCooldown(outcome);
+    let response: Response;
+    try {
+      response = await fetch("/api/project-evaluations", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ repository: parsed.canonicalUrl }),
+      });
+    } catch {
+      setSubmitError("The hosted API is unavailable. Your repository was not scored or discarded.");
       setPending(false);
       return;
     }
-    router.push(`/evaluations/${outcome.id}`);
+    if (!response.ok) {
+      const retryAfter = Number(response.headers.get("retry-after"));
+      setSubmitError(response.status === 400
+        ? "Enter a public GitHub owner/repository or canonical URL."
+        : response.status === 429
+          ? `Submission capacity is cooling down. Try again${Number.isFinite(retryAfter) && retryAfter > 0 ? ` in ${retryAfter} seconds` : " later"}.`
+          : "The hosted API is unavailable. Try again after the service recovers.");
+      setPending(false);
+      return;
+    }
+    router.push(`/projects/github/${parsed.source.namespace}/${parsed.source.repository}`);
   }
 
   const describedBy = [
     preview ? previewId : null,
     submitError ? errorId : null,
-    cooldown ? cooldownId : null,
   ]
     .filter(Boolean)
     .join(" ");
@@ -95,18 +104,6 @@ export function SubmissionForm() {
         </p>
       )}
 
-      <div aria-live="polite">
-        {cooldown && (
-          <div id={cooldownId} className="notice" role="status" style={{ marginTop: "var(--space-sm)" }}>
-            This repository was already analyzed on the{" "}
-            {cooldown.cooldown.profile} profile. A refresh is on cooldown; the
-            next eligible analysis is in {cooldown.cooldown.remainingLabel} (
-            {cooldown.cooldown.nextEligibleAt.slice(0, 10)}). You can open the
-            existing result now.{" "}
-            <Link href={`/evaluations/${cooldown.id}`}>View cached result</Link>
-          </div>
-        )}
-      </div>
     </form>
   );
 }

@@ -1,13 +1,15 @@
 # Schemas
 
-The JSON Schema documents in this directory are Assay's authoritative public
-machine contracts. They are reviewed, hand-authored Draft 2020-12 schemas.
-Rust types may implement or consume these contracts, but Rust type versions
-remain independent and do not generate a second public schema.
+The JSON Schema documents in this directory are Assay's authoritative machine
+contracts. Most are public report contracts discovered as `*/v1.json`; the
+exact-version hosted HTTP contract is deployment-internal. They are reviewed,
+hand-authored Draft 2020-12 schemas. Rust types may implement or consume these
+contracts, but Rust type versions remain independent and do not generate a
+second schema.
 
 ## Contracts
 
-| Contract | v1 status | Purpose |
+| Contract | Status | Purpose |
 | --- | --- | --- |
 | `analysis-manifest` | Complete | Immutable source, effective-config hash, component versions, status, scope, and artifacts |
 | `project-evidence` | Complete | Citable facts or explicit availability envelopes without raw source or person scores |
@@ -17,6 +19,7 @@ remain independent and do not generate a second public schema.
 | `project-evaluation` | Reviewable skeleton | Dimensioned project-score envelope compiled from cited evidence |
 | `project-comparison` | Complete | One-depth functional-cohort comparison with cited similarity evidence and differentiators |
 | `run-state` | Complete | Named-stage run state with preserved completed stages, bounded-retry policy, and audited administrator recovery |
+| `hosted-api` | Internal 1.0.0 | Hosted GitHub submission, project status, recent source-processing status, and error responses without publication approval, scores, or provider prose |
 
 `ai-judgment/v1.json` is the implemented provider-independent qualitative
 judgment contract. `project-evaluation/v1.json` remains a reviewable contract
@@ -29,6 +32,16 @@ similarity.
 Every instance declares `schema_version`. The `v1.json` schemas accept only
 `1.x.y` versions. A new major version requires a new schema artifact and an
 explicit migration note.
+
+`hosted-api/1.0.0.json` is the source of truth for the deployment-internal hosted
+HTTP surface. Its payload is a validated v1 contract even though the route is
+not advertised as a general public API. Rust DTOs are validated against this
+schema, and the web types plus runtime response validators are generated
+deterministically with:
+
+```sh
+node scripts/generate-hosted-contract.mjs --check
+```
 
 ## Unknown fields and compatibility
 
@@ -91,8 +104,8 @@ result snapshot; only failed stages carry `partial` or `unavailable` plus a
 machine-readable reason, and neither is a numeric zero or a success. Automatic
 retries are bounded, versioned policy data, `ordinary_user_retry_available` is
 always `false`, and the only stage carrying `automatic_retries_exhausted: true`
-is an `unavailable` stage. Administrator recovery actions — rerun a failed
-stage, rerun all failed stages, soft delete, restore, and purge — append
+is an `unavailable` stage. Administrator recovery actions ??rerun a failed
+stage, rerun all failed stages, soft delete, restore, and purge ??append
 secret-free audit events; a single-stage rerun names its stage while the other
 actions do not.
 

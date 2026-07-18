@@ -1,21 +1,13 @@
 import { SubmissionForm } from "@/components/SubmissionForm";
 import { ProjectNotice } from "@/components/ProjectNotice";
-import { FeaturedCard } from "@/components/FeaturedCard";
-import { CatalogBrowser } from "@/components/CatalogBrowser";
 import { SampleReport, TraceChain } from "@/components/SampleReport";
-import { filterOptions } from "@/lib/catalog/catalog";
-import { featuredEntries, publicCatalogEntries } from "@/lib/catalog/fixtures";
-import { defaultDataDir, hiddenEntryIds } from "@/lib/admin/store";
+import { LiveSourceActivity } from "@/components/LiveCatalog";
+import { getHostedRecentSources } from "@/lib/api/hosted";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  // Admin-hidden entries drop out of the public lists; the records themselves
-  // are untouched and their evaluation pages stay reachable by direct link.
-  const hidden = new Set(await hiddenEntryIds(defaultDataDir()));
-  const entries = publicCatalogEntries().filter((entry) => !hidden.has(entry.id));
-  const featured = featuredEntries().filter((entry) => !hidden.has(entry.id));
-  const options = filterOptions(entries);
+  const recentSources = await getHostedRecentSources();
 
   return (
     <div>
@@ -23,29 +15,34 @@ export default async function HomePage() {
         <p className="hero-kicker">assay, n. — the testing of a metal to
         determine its purity.</p>
         <h1>
-          How good is your code, <span className="accent-word">really</span>?
+          Track a public repository, <span className="accent-word">honestly</span>.
         </h1>
         <p className="hero-lede">
-          Paste a public GitHub repository. Assay reads the evidence — files,
-          features, the snapshot itself — and hands down a scored verdict.{" "}
-          <strong>Every claim cited. No hand-waving.</strong>
+          Submit a public GitHub repository. This hosted slice records its
+          stable GitHub identity, normalized public metadata, and immutable
+          default-branch revision. <strong>It does not publish a project score.</strong>
         </p>
         <SubmissionForm />
         <p className="hero-honesty">
-          Preview deployment: submissions resolve against fixture evaluations
-          from the versioned report contract, not a live analysis engine. The
-          report you see is the real output format.
+          Hosted workflow: submissions are queued in PostgreSQL, resolved to a
+          stable GitHub repository identity, and collected by a leased worker.
+          Temporary failures retry with bounded backoff; missing data stays
+          unavailable rather than becoming zero.
         </p>
       </section>
 
       <section className="section" aria-labelledby="specimen">
         <div className="section-head">
-          <h2 id="specimen">The verdict you get</h2>
+          <h2 id="specimen">Sample report format</h2>
           <p>
             Not a star rating. A scored, versioned document with confidence
             bands, graded evidence, and a hard release gate — a score that
             cannot be backed by evidence is withheld, never faked as a zero.
           </p>
+        </div>
+        <div className="notice" role="note" style={{ marginBottom: "var(--space-lg)" }}>
+          Sample only: this versioned fixture demonstrates the final report
+          contract. It is not a live result and is not mixed into source-processing status.
         </div>
         <SampleReport />
       </section>
@@ -54,18 +51,18 @@ export default async function HomePage() {
         <div className="trace">
           <div>
             <div className="section-head">
-              <h2 id="traceable">Every score is traceable</h2>
+              <h2 id="traceable">What the sample contract requires</h2>
             </div>
             <div className="stack prose">
               <p>
-                Deterministic collectors gather graded evidence from the
-                repository; an AI evaluator judges it against a versioned
-                rubric; a compiler turns the judgments into scores. Walk any
-                number in the report back to the commit-pinned record it
-                stands on. If it can&rsquo;t be cited, it isn&rsquo;t scored.
+                The labeled sample demonstrates Assay&rsquo;s full report
+                contract: deterministic evidence, canonical AI validation,
+                and compiler-produced scores. The live hosted collector below
+                has not completed that pipeline and publishes no judgment or
+                score.
               </p>
               <p className="muted">
-                On the right: one real chain from the specimen above — a
+                On the right: one sample chain from the specimen above — a
                 dimension score, the evidence id it cites, and the graded
                 record behind that id.
               </p>
@@ -76,22 +73,17 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="section" aria-labelledby="catalog-heading" id="catalog">
+      <section className="section" aria-labelledby="source-activity-heading" id="source-activity">
         <div className="section-head">
-          <h2 id="catalog-heading">See where you&rsquo;d land</h2>
+          <h2 id="source-activity-heading">Recent source processing</h2>
           <p>
-            Anonymous evaluations publish automatically. Featured projects are
-            editorially selected and labeled; featuring never buys a point.
+            Live PostgreSQL-backed repository status. This slice stores
+            normalized GitHub metadata and revision provenance only. Provider
+            transport output is not published as a judgment or score.
           </p>
         </div>
 
-        <div className="featured-grid" style={{ marginBottom: "var(--space-lg)" }}>
-          {featured.map((entry) => (
-            <FeaturedCard key={entry.id} entry={entry} />
-          ))}
-        </div>
-
-        <CatalogBrowser entries={entries} options={options} />
+        <LiveSourceActivity result={recentSources} />
       </section>
     </div>
   );
