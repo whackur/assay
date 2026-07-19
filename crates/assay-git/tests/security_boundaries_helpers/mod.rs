@@ -1,4 +1,5 @@
 #![cfg(unix)]
+#![allow(dead_code)]
 
 use std::{
     ffi::OsStr,
