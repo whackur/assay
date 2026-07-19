@@ -8,7 +8,7 @@
   "required": ["contract", "schema_version", "data"],
   "properties": {
     "contract": { "const": "project-ai-analysis" },
-    "schema_version": { "const": "1.0.0" },
+    "schema_version": { "type": "string", "pattern": "^1\\.[0-9]+\\.[0-9]+$" },
     "data": {
       "type": "object", "additionalProperties": false,
       "required": ["project", "revision", "evaluation", "interpretation", "judgments", "limitations"],
