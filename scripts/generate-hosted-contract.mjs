@@ -134,7 +134,7 @@ const generated = [
 if (process.argv.includes("--check")) {
   const current = await readFile(outputPath, "utf8").catch(() => "");
   if (current !== generated) {
-    console.error("hosted.generated.ts is stale; run npm run generate:hosted-contract");
+    console.error("hosted.generated.ts is stale; run pnpm run generate:hosted-contract");
     process.exit(1);
   }
 } else {

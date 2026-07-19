@@ -28,11 +28,11 @@ already-compiled values; they do not compute scores.
 ## Scripts
 
 ```sh
-npm run dev         # local development server
-npm run lint        # eslint (flat config, eslint-config-next)
-npm run type-check  # tsc --noEmit
-npm run test        # node --test with tsx over src/**/*.test.ts
-npm run build       # production build
+pnpm dev         # local development server
+pnpm run lint    # eslint (flat config, eslint-config-next)
+pnpm run type-check  # tsc --noEmit
+pnpm test        # node --test with tsx over src/**/*.test.ts
+pnpm run build   # production build
 ```
 
 Next.js telemetry is disabled in every script via `NEXT_TELEMETRY_DISABLED=1`.
