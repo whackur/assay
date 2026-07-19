@@ -35,20 +35,23 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: web/package-lock.json
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install pnpm
+        run: corepack enable && corepack prepare pnpm@10.33.0 --activate
 
       - name: Verify generated hosted contract
         working-directory: web
         run: |
-          npm ci
-          npm run generate:hosted-contract
+          pnpm install --frozen-lockfile
+          pnpm run generate:hosted-contract
           git diff --exit-code -- src/lib/api/hosted.generated.ts
-          npm run lint
-          npx tsc --noEmit
-          npm test
-          npm run build
+          pnpm run lint
+          pnpm exec tsc --noEmit
+          pnpm test
+          pnpm run build
 
       - name: Validate Compose contracts
         env:

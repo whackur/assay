@@ -29,7 +29,7 @@ jobs:
           dpkg --compare-versions "$version" ge 2.47.0
 
       - name: Install the pinned Rust toolchain
-        run: rustup toolchain install 1.97.0 --profile minimal --component rustfmt --component clippy
+        run: rustup toolchain install 1.97.1 --profile minimal --component rustfmt --component clippy
 
       - name: Restore Cargo dependency cache
         # actions/cache v4.2.3
@@ -76,7 +76,7 @@ jobs:
             python -c "import sys; sys.exit(0 if tuple(int(p) for p in '$base'.split('.')) >= (2,47,0) else 1)"
 
       - name: Install the pinned Rust toolchain
-        run: rustup toolchain install 1.97.0 --profile minimal --component rustfmt --component clippy
+        run: rustup toolchain install 1.97.1 --profile minimal --component rustfmt --component clippy
 
       - name: Restore Cargo dependency cache
         # actions/cache v4.2.3
@@ -123,22 +123,25 @@ jobs:
         # actions/setup-node v4.4.0
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          # Matches the node:22 base image in the Dockerfile.
-          node-version: 22
-          cache: npm
-          cache-dependency-path: web/package-lock.json
+          # Matches the node:24 base image in the Dockerfile.
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install pnpm
+        run: corepack enable && corepack prepare pnpm@10.33.0 --activate
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Type-check
-        run: npx tsc --noEmit
+        run: pnpm exec tsc --noEmit
 
       - name: Lint without warnings
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Run web tests
-        run: npm test
+        run: pnpm test
 
       - name: Build the production bundle
-        run: npm run build
+        run: pnpm run build
