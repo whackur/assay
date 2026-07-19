@@ -11,6 +11,18 @@ pub struct PublicationApproval {
     pub display_name: String,
 }
 
+#[derive(sqlx::FromRow)]
+struct PublicationDetails {
+    canonical_owner: String,
+    canonical_name: String,
+    commit_sha: String,
+    default_branch: String,
+    evaluation_version: String,
+    rubric_version: String,
+    evidence_bundle_hash: String,
+    judgment: serde_json::Value,
+}
+
 impl Storage {
     pub async fn approve_public_ai_analysis(
         &self,
@@ -33,16 +45,7 @@ impl Storage {
         .await?
         .ok_or(StorageError::PublicationNotFound)?;
         let current_source_id = current_source_id.ok_or(StorageError::PublicationNotFound)?;
-        let details: Option<(
-            String,
-            String,
-            String,
-            String,
-            String,
-            String,
-            String,
-            serde_json::Value,
-        )> = sqlx::query_as(
+        let details: Option<PublicationDetails> = sqlx::query_as(
             r#"SELECT gr.canonical_owner, gr.canonical_name, ss.commit_sha, ss.default_branch,
                       es.evaluation_version, es.rubric_version, es.evidence_bundle_hash, es.judgment
                  FROM evaluation_snapshots es
@@ -55,16 +58,16 @@ impl Storage {
         .bind(current_source_id)
         .fetch_optional(&mut *tx)
         .await?;
-        let Some((
-            owner,
-            repository,
+        let Some(PublicationDetails {
+            canonical_owner: owner,
+            canonical_name: repository,
             commit_sha,
             default_branch,
             evaluation_version,
             rubric_version,
             evidence_bundle_hash,
             judgment,
-        )) = details
+        }) = details
         else {
             return Err(StorageError::PublicationNotSafe);
         };
