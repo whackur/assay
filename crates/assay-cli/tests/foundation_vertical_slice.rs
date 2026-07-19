@@ -265,17 +265,21 @@ fn project_analysis_validator() -> jsonschema::Validator {
         .unwrap_or_else(|error| panic!("parse {name} schema: {error}"))
     };
     let schema = read("project-analysis");
-    let resources = ["analysis-manifest", "project-evidence"]
-        .into_iter()
-        .map(|name| {
-            let component = read(name);
-            let id = component["$id"]
-                .as_str()
-                .expect("component schema ID")
-                .to_owned();
-            let resource = Resource::from_contents(component);
-            (id, resource)
-        });
+    let resources = [
+        "analysis-manifest",
+        "project-evidence",
+        "project-evaluation",
+    ]
+    .into_iter()
+    .map(|name| {
+        let component = read(name);
+        let id = component["$id"]
+            .as_str()
+            .expect("component schema ID")
+            .to_owned();
+        let resource = Resource::from_contents(component);
+        (id, resource)
+    });
     let registry = Registry::new()
         .extend(resources)
         .expect("component schema URIs")
@@ -601,7 +605,7 @@ fn fixed_repository_is_a_schema_valid_private_and_non_executing_vertical_slice()
     ] {
         assert!(limitations.iter().any(|item| item["code"] == code));
     }
-    let text = String::from_utf8(first.stdout).expect("UTF-8 JSON");
+    let text = String::from_utf8(first.stdout.clone()).expect("UTF-8 JSON");
     for forbidden in [
         fixture.repository.to_string_lossy().as_ref(),
         fixture.tripwire.to_string_lossy().as_ref(),
@@ -609,7 +613,6 @@ fn fixed_repository_is_a_schema_valid_private_and_non_executing_vertical_slice()
         "private-source-body",
         "foundation-fixture@example.invalid",
         "raw_diff",
-        "assay_score",
         "person_score",
     ] {
         assert!(
@@ -617,6 +620,18 @@ fn fixed_repository_is_a_schema_valid_private_and_non_executing_vertical_slice()
             "published forbidden value: {forbidden}"
         );
     }
+    // The public numeric Assay Score stays behind the sufficiency and
+    // calibration gates: the field is present but its value is null while
+    // essential dimensions remain unscored.
+    let bundle: Value = serde_json::from_slice(&first.stdout).expect("analysis bundle");
+    assert_eq!(
+        bundle["evaluation"]["scores"]["assay_score"]["value"],
+        Value::Null
+    );
+    assert_eq!(
+        bundle["evaluation"]["scores"]["assay_score"]["status"],
+        "insufficient"
+    );
 }
 
 #[test]

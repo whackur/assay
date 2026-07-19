@@ -51,7 +51,7 @@ fn ai_evaluation_capability_never_claims_an_unrunnable_evaluator() {
     assert_eq!(feature["id"], "ai_evaluation");
     let evaluators = feature["evaluators"].as_array().unwrap();
     assert!(!evaluators.is_empty());
-    // The feature may claim implemented only when some AI evaluator can
+    // The feature may claim implemented only when some evaluator can
     // actually run end to end through this binary.
     let any_implemented = evaluators
         .iter()
@@ -61,11 +61,12 @@ fn ai_evaluation_capability_never_claims_an_unrunnable_evaluator() {
         any_implemented,
         "feature status must derive from the per-evaluator statuses"
     );
-    // The deterministic selection performs no AI evaluation.
+    // The deterministic evaluator is now wired end to end, so it appears and
+    // claims implemented alongside the consent-gated external providers.
     assert!(
         evaluators
             .iter()
-            .all(|evaluator| evaluator["id"] != "deterministic")
+            .any(|evaluator| evaluator["id"] == "deterministic")
     );
 }
 

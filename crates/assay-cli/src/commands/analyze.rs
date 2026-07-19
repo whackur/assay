@@ -9,7 +9,7 @@ use assay_project_intelligence::{
 };
 use serde_json::Value;
 
-use crate::cli::{AnalyzeArgs, Evaluator};
+use crate::cli::AnalyzeArgs;
 use crate::errors::{
     RunError, analysis_failed, bundle_error, collection_error, collection_or_not_found,
     executable_missing, history_record_invalid, history_write_error, invalid_github_token_env,
@@ -20,6 +20,7 @@ use crate::output::json_bytes;
 use crate::schema::validate;
 use crate::time::current_time;
 
+use super::evaluation;
 use super::{Outcome, emit};
 
 pub(crate) fn analyze(arguments: AnalyzeArgs) -> Result<Outcome, RunError> {
@@ -30,11 +31,12 @@ pub(crate) fn analyze(arguments: AnalyzeArgs) -> Result<Outcome, RunError> {
     );
     // Consent gating runs before provider construction (ADR 0012). The local
     // slice exposes no consent-granting surface yet, so no matching
-    // `ConsentGrant` can exist, no external provider is ever constructed, and
-    // deterministic evidence is returned for every evaluator selection; the
-    // recorded report keeps its `ai_evaluation` section `disabled` with
-    // `user_consent_required`.
-    let consent = evaluation_consent(arguments.evaluator);
+    // `ConsentGrant` can exist and no external provider is ever constructed.
+    // The deterministic evaluator runs without external transmission and
+    // produces a validated judgment set that the score compiler consumes; the
+    // recorded report keeps its `ai_evaluation` section reflecting the consent
+    // posture.
+    let consent = evaluation::evaluation_consent(arguments.evaluator.id());
     // Validate the token variable *name* eagerly; the value is never read here.
     // An already-cloned local repository is analyzed without credentials.
     if let Some(name) = &arguments.github_token_env {
@@ -72,24 +74,37 @@ pub(crate) fn analyze(arguments: AnalyzeArgs) -> Result<Outcome, RunError> {
     let evidence = assemble_project_evidence(&snapshot, classifications)
         .map_err(|_| analysis_failed("evidence_assembly"))?;
     let generated_at = current_time()?;
-    let value = build_project_analysis(&snapshot, &evidence, &generated_at)
+    let mut value = build_project_analysis(&snapshot, &evidence, &generated_at)
         .map_err(|_| analysis_failed("machine_mapping"))?;
     validate("project-analysis", &value)?;
     validate_project_bundle_consistency(&value).map_err(|_| bundle_error())?;
+
+    // WIRE-001: run the deterministic evaluator and score compiler, then embed
+    // the project-evaluation output in the analysis bundle. The deterministic
+    // evaluator performs no external transmission, so it runs without consent.
+    // External AI providers remain consent-gated and are not constructed here.
+    // Per the spec, a failed stage does not fail the whole run: the evaluation
+    // field stays absent when the deterministic evaluator cannot produce a
+    // valid evaluation (for example, when the bundle exceeds the provider
+    // output bound), and the analysis remains schema-valid without it.
+    if evaluation::deterministic_evaluation_allowed(&consent)
+        && let Ok(classification) = evaluation::classification_for_compilation(&evidence)
+        && let Ok(evaluation_value) = evaluation::compile_deterministic_evaluation(
+            &evidence,
+            &classification,
+            identity.source().clone(),
+            identity.revision().clone(),
+        )
+        && validate("project-evaluation", &evaluation_value).is_ok()
+    {
+        value["evaluation"] = evaluation_value;
+        let _ = validate("project-analysis", &value);
+    }
+
     if let Some(directory) = &arguments.record_history {
         record_local_history(directory, value.clone(), &consent, &generated_at)?;
     }
     Ok(emit(json_bytes(&value)?, arguments.output))
-}
-
-/// Returns the consent posture governing one analysis run. Every selectable
-/// evaluator ID starts from the no-grant default: `deterministic` performs no
-/// AI evaluation, and the AI evaluator IDs (see
-/// [`crate::evaluators::EVALUATOR_REGISTRY`]) require an explicit informed grant
-/// that no local surface can produce yet, so they stay consent-gated.
-fn evaluation_consent(evaluator: Evaluator) -> ConsentState {
-    let _selected = evaluator.id();
-    ConsentState::default()
 }
 
 fn record_local_history(

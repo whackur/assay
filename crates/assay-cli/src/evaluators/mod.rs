@@ -72,12 +72,13 @@ impl EvaluatorDescriptor {
 
 /// The static registry mapping stable evaluator IDs to a family (ADR 0012).
 ///
-/// `deterministic` is the default and performs no AI evaluation. The AI
-/// evaluator IDs are registered so automation can detect exactly which
-/// providers this binary supports, but both stay `not_implemented`: the local
-/// slice has no consent-granting surface, no live HTTP transport, and no
-/// evaluation section in the analysis output, so no AI evaluation can
-/// actually run end to end yet.
+/// `deterministic` is the default and performs rubric evaluation locally
+/// without network, producing a `ValidatedJudgmentSet` that the score compiler
+/// consumes. The AI evaluator IDs are registered so automation can detect
+/// exactly which providers this binary supports, but both stay
+/// `not_implemented`: the local slice has no consent-granting surface, no live
+/// HTTP transport, and no evaluation section in the analysis output, so no
+/// external AI evaluation can actually run end to end yet.
 pub const EVALUATOR_REGISTRY: &[EvaluatorDescriptor] = &[
     EvaluatorDescriptor {
         id: "deterministic",

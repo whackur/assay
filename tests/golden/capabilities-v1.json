@@ -7,14 +7,16 @@
     { "name": "analysis-manifest", "version": "1.0.0" },
     { "name": "capabilities", "version": "1.0.0" },
     { "name": "project-analysis", "version": "1.0.0" },
-    { "name": "project-evidence", "version": "1.0.0" }
+    { "name": "project-evidence", "version": "1.0.0" },
+    { "name": "project-evaluation", "version": "1.0.0" }
   ],
   "languages": ["javascript", "python", "tsx", "typescript"],
   "features": [
     {
       "id": "ai_evaluation",
-      "status": "not_implemented",
+      "status": "implemented",
       "evaluators": [
+        { "id": "deterministic", "family": "deterministic", "status": "implemented" },
         { "id": "openai-api-1", "family": "api_key", "status": "not_implemented" },
         { "id": "codex-cli-1", "family": "agentic", "status": "not_implemented" }
       ]
@@ -25,7 +27,7 @@
     { "id": "local_git_snapshot", "status": "implemented" },
     { "id": "local_private_history", "status": "implemented" },
     { "id": "loopback_dashboard", "status": "implemented" },
-    { "id": "project_scores", "status": "not_implemented" },
+    { "id": "project_scores", "status": "implemented" },
     { "id": "remote_private_fetch", "status": "not_implemented" },
     { "id": "repository_code_execution", "status": "prohibited" },
     { "id": "semantic_diff", "status": "not_implemented" }

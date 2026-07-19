@@ -13,12 +13,21 @@ fn registry_ids_are_stable_and_honest() {
         .map(EvaluatorDescriptor::id)
         .collect::<Vec<_>>();
     assert_eq!(ids, ["deterministic", "openai-api-1", "codex-cli-1"]);
-    // No AI evaluator may claim implemented until it can actually run.
+    // The deterministic evaluator is wired end to end, so it claims
+    // implemented. External AI evaluators remain consent-gated and
+    // unimplemented until a live provider is constructed.
     assert!(
         EVALUATOR_REGISTRY
             .iter()
             .filter(|descriptor| descriptor.family() != EvaluatorFamily::Deterministic)
             .all(|descriptor| !descriptor.is_implemented())
+    );
+    assert!(
+        EVALUATOR_REGISTRY
+            .iter()
+            .find(|descriptor| descriptor.family() == EvaluatorFamily::Deterministic)
+            .unwrap()
+            .is_implemented()
     );
 }
 

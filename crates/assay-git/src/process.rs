@@ -58,9 +58,10 @@ impl GitProcessRunner {
             command.current_dir(repository);
         }
 
-        let mut child = command
-            .group_spawn()
-            .map_err(|error| CollectionError::new(stage, spawn_error_kind(error.kind())))?;
+        let mut child = command.group_spawn().map_err(|error| {
+            eprintln!("group_spawn error: {error:?}");
+            CollectionError::new(stage, spawn_error_kind(error.kind()))
+        })?;
         let stdout = child
             .inner()
             .stdout

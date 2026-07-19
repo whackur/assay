@@ -16,7 +16,7 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum Command {
-    /// Analyze project-level repository evidence without computing scores.
+    /// Analyze project-level repository evidence and compile a project evaluation.
     Project(ProjectCommand),
     /// Serve the local dashboard on the loopback interface only.
     Serve(ServeArgs),
@@ -43,10 +43,11 @@ pub(crate) enum OutputFormat {
 }
 
 /// Selectable evaluator IDs from the static registry (ADR 0012). The
-/// deterministic default performs no AI evaluation; the AI evaluator IDs are
-/// selectable so the interface is stable, but without an explicit
-/// [`assay_local::ConsentGrant`] no external provider is ever constructed and
-/// the evaluation section stays `disabled` with `user_consent_required`.
+/// deterministic default performs rubric evaluation locally without network;
+/// the AI evaluator IDs are selectable so the interface is stable, but
+/// without an explicit [`assay_local::ConsentGrant`] no external provider is
+/// ever constructed and the evaluation section stays `disabled` with
+/// `user_consent_required`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub(crate) enum Evaluator {
     Deterministic,

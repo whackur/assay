@@ -29,7 +29,7 @@
         "additionalProperties": false,
         "required": ["name", "version"],
         "properties": {
-          "name": { "type": "string", "enum": ["analysis-manifest", "capabilities", "project-analysis", "project-evidence"] },
+          "name": { "type": "string", "enum": ["analysis-manifest", "capabilities", "project-analysis", "project-evidence", "project-evaluation"] },
           "version": { "const": "1.0.0" }
         }
       }
@@ -56,7 +56,7 @@
               "required": ["id", "family", "status"],
               "properties": {
                 "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
-                "family": { "type": "string", "enum": ["api_key", "agentic"] },
+                "family": { "type": "string", "enum": ["deterministic", "api_key", "agentic"] },
                 "status": { "type": "string", "enum": ["implemented", "not_implemented"] }
               }
             }

@@ -8,10 +8,10 @@
 //! and the deterministic score compiler (`assay-project-intelligence`) through
 //! to a schema-valid `project-evaluation`.
 //!
-//! The evidence-manifest-to-evaluation-bundle adapter and the compiler are not
-//! wired into the CLI in the foundation milestone, so the bundle is assembled
-//! here from identifiers the CLI actually emitted. The status handoff records
-//! this as deliberately deferred wiring.
+//! ADP-001 and WIRE-001 wire the manifest-to-bundle adapter and the
+//! evaluator-compiler chain into the CLI, so the analysis bundle now embeds a
+//! `project-evaluation` instance. The tests below verify both the embedded
+//! evaluation and the hand-assembled chain that produced it.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
@@ -255,6 +255,18 @@ fn fresh_cli_output_is_schema_valid_bundle_and_byte_deterministic() {
     }
     validate_project_bundle_consistency(&bundle)
         .expect("fresh bundle must satisfy cross-component invariants");
+    // WIRE-001: the CLI now embeds a project-evaluation instance produced by
+    // the deterministic evaluator and score compiler chain.
+    assert_valid("project-evaluation", &bundle["evaluation"]);
+    assert_eq!(
+        bundle["evaluation"]["evaluation_version"],
+        "project-intelligence-1"
+    );
+    // The public numeric Assay Score stays behind the sufficiency gate.
+    assert_eq!(
+        bundle["evaluation"]["scores"]["assay_score"]["value"],
+        Value::Null
+    );
 }
 
 #[test]
@@ -431,4 +443,82 @@ fn record_history_round_trips_the_local_report_contract_over_serve() {
     );
     // The immutable analysis the CLI produced is embedded verbatim.
     assert_eq!(report["analysis"]["schema_version"], "1.0.0");
+}
+
+#[test]
+fn private_repository_ai_processing_requires_explicit_consent() {
+    // ADR 0012: the local slice exposes no consent-granting surface, so the
+    // recorded report keeps its `ai_evaluation` section `disabled` with
+    // `user_consent_required`. The deterministic evaluator still runs because
+    // it performs no external transmission, but no external provider is ever
+    // constructed for a private repository without an explicit grant.
+    let fixture = RepositoryFixture::build(RepositoryScenario::TypeScriptProject)
+        .expect("fixture must build");
+    let history = tempfile::TempDir::new().unwrap();
+
+    let recorded = Command::new(binary())
+        .env_clear()
+        .env("ASSAY_TEST_FIXED_TIME", FIXED_TIME)
+        .arg("project")
+        .arg("analyze")
+        .arg(fixture.path())
+        .args(["--evaluator", "openai-api-1", "--output", "-"])
+        .arg("--record-history")
+        .arg(history.path())
+        .output()
+        .expect("analyze subprocess must start");
+    assert!(recorded.status.success());
+
+    let response = serve_once_get(history.path(), "/api/history/rec-000001");
+    assert!(response.starts_with("HTTP/1.1 200 OK"));
+    let body = response
+        .split("\r\n\r\n")
+        .nth(1)
+        .expect("response must have a body");
+    let report: Value = serde_json::from_str(body.trim()).expect("served report must be JSON");
+
+    // The AI evaluation section stays disabled pending explicit consent.
+    assert_eq!(report["sections"]["ai_evaluation"]["state"], "disabled");
+    assert_eq!(
+        report["sections"]["ai_evaluation"]["reason"],
+        "user_consent_required"
+    );
+    assert_eq!(
+        report["privacy"]["external_transmission"],
+        "consent_required"
+    );
+    // The deterministic evaluation still ran and is embedded in the analysis.
+    assert_eq!(report["analysis"]["schema_version"], "1.0.0");
+    assert_eq!(
+        report["analysis"]["evaluation"]["evaluation_version"],
+        "project-intelligence-1"
+    );
+}
+
+#[test]
+fn deterministic_evaluator_produces_schema_valid_evaluation_without_network() {
+    // The deterministic evaluator runs locally without network calls and
+    // produces a project-evaluation instance embedded in the analysis bundle.
+    let fixture = RepositoryFixture::build(RepositoryScenario::TypeScriptProject)
+        .expect("fixture must build");
+    let output = analyze(fixture.path());
+    let bundle: Value = serde_json::from_slice(&output).expect("analysis must be JSON");
+
+    let evaluation = &bundle["evaluation"];
+    assert_valid("project-evaluation", evaluation);
+    assert_eq!(evaluation["evaluation_version"], "project-intelligence-1");
+    assert_eq!(evaluation["evaluator"]["provider"], "deterministic");
+    assert_eq!(
+        evaluation["evaluator"]["rubric_version"],
+        "project-rubric-1"
+    );
+    assert_eq!(evaluation["visibility"], "private_local");
+    // The public numeric Assay Score stays behind the sufficiency gate.
+    assert_eq!(evaluation["scores"]["assay_score"]["value"], Value::Null);
+    assert_eq!(
+        evaluation["scores"]["assay_score"]["status"],
+        "insufficient"
+    );
+    // The compiler recorded the judgment bundle hash binding.
+    assert!(evaluation["compiler"]["judgment_bundle_hash"].is_string());
 }

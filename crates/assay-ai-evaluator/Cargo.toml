@@ -16,4 +16,8 @@ sha2.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
+assay-classifier = { path = "../assay-classifier" }
+assay-git = { path = "../assay-git" }
+assay-test-fixtures = { path = "../../tests/support/assay-fixtures" }
 jsonschema.workspace = true
+serde_json.workspace = true

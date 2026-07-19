@@ -1,5 +1,6 @@
 mod analyze;
 mod capabilities;
+mod evaluation;
 mod history;
 mod serve;
 

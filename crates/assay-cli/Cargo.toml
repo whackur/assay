@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 assay-ai-evaluator = { path = "../assay-ai-evaluator" }
 assay-classifier = { path = "../assay-classifier" }
+assay-domain = { path = "../assay-domain" }
 assay-git = { path = "../assay-git" }
 assay-local = { path = "../assay-local" }
 assay-project-intelligence = { path = "../assay-project-intelligence" }
@@ -27,5 +28,4 @@ jsonschema.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
-assay-domain = { path = "../assay-domain" }
 assay-test-fixtures = { path = "../../tests/support/assay-fixtures" }

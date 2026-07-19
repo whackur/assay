@@ -1504,6 +1504,7 @@ fn assert_closed_objects_and_bundled_refs(schema: &Value, value: &Value, locatio
                             reference,
                             "https://schemas.assay.dev/analysis-manifest/v1.json"
                                 | "https://schemas.assay.dev/project-evidence/v1.json"
+                                | "https://schemas.assay.dev/project-evaluation/v1.json"
                         ) && location.starts_with("project-analysis/"),
                         "unregistered or non-composition reference at {location}: {reference}"
                     );

@@ -168,12 +168,23 @@ fn project_analyze_is_repeatable_private_local_and_has_a_reviewed_digest() {
         attribute_limitation["affected_evidence_ids"],
         Value::Array(portable_partial_classifications)
     );
-    let text = String::from_utf8(first.stdout).unwrap();
+    let text = String::from_utf8(first.stdout.clone()).unwrap();
     assert!(!text.contains(&fixture.path().display().to_string()));
     assert!(!text.contains("fixture-author@example.invalid"));
     assert!(!text.contains("return left + right"));
-    assert!(!text.contains("assay_score"));
     assert!(!text.contains("person"));
+    // The public numeric Assay Score stays behind the sufficiency and
+    // calibration gates: the field is present but its value is null while
+    // essential dimensions remain unscored.
+    let value: Value = serde_json::from_slice(&first.stdout).unwrap();
+    assert_eq!(
+        value["evaluation"]["scores"]["assay_score"]["value"],
+        Value::Null
+    );
+    assert_eq!(
+        value["evaluation"]["scores"]["assay_score"]["status"],
+        "insufficient"
+    );
 }
 
 #[test]

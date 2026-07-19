@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.assay.dev/project-analysis/v1.json",
   "title": "Assay Project Analysis Bundle v1",
-  "description": "One CLI result whose bundled same-origin references require an analysis-manifest instance and project-evidence instances without network resolution.",
+  "description": "One CLI result whose bundled same-origin references require an analysis-manifest instance and project-evidence instances without network resolution. The optional evaluation field carries a project-evaluation instance when the wired evaluator and score compiler ran.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "manifest", "evidence"],
@@ -16,6 +16,7 @@
       "type": "array",
       "minItems": 1,
       "items": { "$ref": "https://schemas.assay.dev/project-evidence/v1.json" }
-    }
+    },
+    "evaluation": { "$ref": "https://schemas.assay.dev/project-evaluation/v1.json" }
   }
 }

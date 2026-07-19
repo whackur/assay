@@ -4,6 +4,7 @@ use std::{
     env,
     ffi::OsStr,
     fs,
+    io::Write,
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
     process::Command,
@@ -769,10 +770,20 @@ fn wrapper(body: &str) -> (TempDir, PathBuf) {
 }
 
 fn write_wrapper(executable: &Path, body: &str) {
-    fs::write(executable, format!("#!/bin/sh\nset -eu\n{body}\n"))
+    // Write to a sibling temp file and atomically rename into place. Under
+    // heavy thread pressure, executing a file that was just written via
+    // O_TRUNC can hit ETXTBSY because the kernel still treats the inode as
+    // open for writing. The rename-into-place pattern sidesteps that race:
+    // the final executable path is never opened for writing.
+    let staging = executable.with_extension("stage");
+    let mut file = fs::File::create(&staging).expect("the staging wrapper must be creatable");
+    file.write_all(format!("#!/bin/sh\nset -eu\n{body}\n").as_bytes())
         .expect("the wrapper must be writable");
-    fs::set_permissions(executable, fs::Permissions::from_mode(0o755))
+    file.sync_all().expect("the wrapper must be synced");
+    drop(file);
+    fs::set_permissions(&staging, fs::Permissions::from_mode(0o755))
         .expect("the wrapper must be executable");
+    fs::rename(&staging, executable).expect("the wrapper must be renamed into place");
 }
 
 fn git_config(repository: &Path, key: &str, value: &OsStr) {

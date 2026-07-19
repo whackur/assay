@@ -30,6 +30,10 @@ fn schema_validator(contract: &str) -> Result<Validator, ()> {
             "project-evidence",
             include_str!("../../../schemas/project-evidence/v1.json"),
         ),
+        (
+            "project-evaluation",
+            include_str!("../../../schemas/project-evaluation/v1.json"),
+        ),
     ];
     let mut parsed = BTreeSchemas::default();
     for (name, text) in schemas {

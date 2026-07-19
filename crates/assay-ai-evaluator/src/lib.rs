@@ -17,6 +17,7 @@
 
 #![forbid(unsafe_code)]
 
+mod adapter;
 mod agentic;
 mod api;
 mod bundle;
@@ -26,6 +27,7 @@ mod ollama;
 mod openai;
 mod rubric;
 
+pub use adapter::{AdapterPrivacy, ManifestAdapterError, manifest_to_evidence_bundle};
 pub use agentic::{
     AGENT_INSTRUCTIONS, AgentIdentity, AgentRun, AgentRunError, AgentRunner, AgenticConfig,
     AgenticEvaluator, AgenticProvenance, AgenticSnapshot, ControlInputs, PreparedWorkspace,
