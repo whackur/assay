@@ -109,6 +109,33 @@ jobs:
         run: cargo test --workspace
       - name: Validate public schemas and goldens
         run: cargo test -p assay-cli --test schema_contracts
+  web:
+    name: Web dashboard checks
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Type-check
+        run: npx tsc --noEmit
+      - name: Lint without warnings
+        run: npm run lint
+      - name: Run web tests
+        run: npm test
+      - name: Build the production bundle
+        run: npm run build
 "#;
     let active = active_yaml_lines(workflow)?;
     let expected = active_yaml_lines(EXPECTED_ACTIVE_WORKFLOW)?;
