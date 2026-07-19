@@ -18,11 +18,13 @@ use assay_git::{
     ParentDeltaIssue, RepositorySnapshot, RepositorySnapshotPort, SnapshotRequest,
 };
 use assay_test_fixtures::{RepositoryFixture, RepositoryScenario};
+use serial_test::serial;
 use tempfile::TempDir;
 
 const CHILD_MARKER: &str = "ASSAY_HOSTILE_ENV_CHILD";
 
 #[test]
+#[serial]
 fn rejects_incompatible_git_and_malformed_nul_protocol() {
     let (_directory, old_git) = wrapper("printf 'git version 2.46.0\\n'");
     let old = GitCliAdapter::from_trusted_executable(old_git, CollectionLimits::default())
@@ -65,6 +67,7 @@ exec /usr/bin/git "$@"
 }
 
 #[test]
+#[serial]
 fn accepts_a_bounded_vendor_git_version_suffix() {
     let (_directory, apple_git) = wrapper("printf 'git version 2.47.3 (Apple Git-145)\\n'");
     GitCliAdapter::from_trusted_executable(apple_git, CollectionLimits::default())
@@ -81,6 +84,7 @@ fn accepts_a_bounded_vendor_git_version_suffix() {
 }
 
 #[test]
+#[serial]
 fn rejects_malformed_or_multiline_commit_time() {
     for reported in ["not-a-time\\n", "2001-02-03T04:05:06+09:00\\nextra\\n"] {
         let body = format!(
@@ -106,6 +110,7 @@ exec /usr/bin/git "$@"
 }
 
 #[test]
+#[serial]
 fn rejects_empty_records_in_reachable_root_identity() {
     let script = r#"
 for argument in "$@"; do
@@ -127,6 +132,7 @@ exec /usr/bin/git "$@"
 }
 
 #[test]
+#[serial]
 fn rejects_symlinked_dot_git_and_unrelated_gitdir_redirects() {
     let target = fixture();
     let parent = tempfile::tempdir().expect("the submitted parent must be creatable");
@@ -188,6 +194,7 @@ fn rejects_symlinked_dot_git_and_unrelated_gitdir_redirects() {
 }
 
 #[test]
+#[serial]
 fn one_deadline_kills_an_exited_parents_pipe_holding_grandchild() {
     let wrapper_parent = tempfile::tempdir().expect("the wrapper parent must be creatable");
     let pid_file = wrapper_parent.path().join("grandchild.pid");
@@ -238,6 +245,7 @@ exec /usr/bin/git "$@"
 }
 
 #[test]
+#[serial]
 fn rejects_mixed_object_ids_and_impossible_raw_statuses() {
     let mixed_tree = r#"
 for argument in "$@"; do
@@ -287,6 +295,7 @@ exec /usr/bin/git "$@"
 }
 
 #[test]
+#[serial]
 fn raw_diff_contract_rejects_invalid_type_status_score_and_copy_records() {
     const OLD: &str = "1111111111111111111111111111111111111111";
     const NEW: &str = "2222222222222222222222222222222222222222";
@@ -353,6 +362,7 @@ fn raw_diff_contract_rejects_invalid_type_status_score_and_copy_records() {
 }
 
 #[test]
+#[serial]
 fn raw_diff_contract_accepts_chmod_type_change_and_threshold_renames() {
     const OLD: &str = "1111111111111111111111111111111111111111";
     const NEW: &str = "2222222222222222222222222222222222222222";
@@ -397,6 +407,7 @@ fn raw_diff_contract_accepts_chmod_type_change_and_threshold_renames() {
 }
 
 #[test]
+#[serial]
 fn bounds_timeout_and_concurrently_drains_both_pipes() {
     let timeout_script = r#"
 for argument in "$@"; do
@@ -452,6 +463,7 @@ exec /usr/bin/git "$@"
 }
 
 #[test]
+#[serial]
 fn malformed_raw_diff_is_an_explicit_unavailable_parent_delta() {
     let script = r#"
 for argument in "$@"; do
@@ -484,6 +496,7 @@ exec /usr/bin/git "$@"
 }
 
 #[test]
+#[serial]
 fn alternate_and_symlinked_object_stores_fail_before_object_access() {
     let fixture = fixture();
     let external = tempfile::tempdir().expect("the external object store must be creatable");
@@ -524,6 +537,7 @@ fn alternate_and_symlinked_object_stores_fail_before_object_access() {
 }
 
 #[test]
+#[serial]
 fn nonzero_child_exit_is_redacted() {
     let script = r#"
 for argument in "$@"; do
@@ -552,6 +566,7 @@ exec /usr/bin/git "$@"
 }
 
 #[test]
+#[serial]
 fn hostile_inherited_environment_and_repository_configuration_are_isolated() {
     if env::var_os(CHILD_MARKER).is_some() {
         hostile_environment_child();
@@ -638,6 +653,7 @@ exec /usr/bin/git "$@"
 }
 
 #[test]
+#[serial]
 fn missing_promisor_object_never_invokes_transport_or_helper_or_mutates_objects() {
     let fixture = fixture();
     let trap_parent = tempfile::tempdir().expect("the transport trap parent must be creatable");

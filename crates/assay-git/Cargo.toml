@@ -14,4 +14,5 @@ time.workspace = true
 
 [dev-dependencies]
 assay-test-fixtures = { path = "../../tests/support/assay-fixtures" }
+serial_test.workspace = true
 tempfile.workspace = true
