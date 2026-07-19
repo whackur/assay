@@ -82,7 +82,7 @@ impl Storage {
                 WHERE {predicate}
                 ORDER BY aj.created_at DESC LIMIT 1"#
         );
-        let mut query = sqlx::query_as::<_, ProjectStatusRow>(&query);
+        let mut query = sqlx::query_as::<_, ProjectStatusRow>(sqlx::AssertSqlSafe(query));
         if let Some(id) = id {
             query = query.bind(id);
         } else {
