@@ -1,18 +1,12 @@
-// Route-level contract tests for the composed admin HTTP surface in standalone
-// (local credential) mode: the actual handlers from src/app/[panel]/api/*/route.ts
-// invoked with real NextRequest objects against a fresh ASSAY_DATA_DIR per test.
+// Route-level contract tests for setup and login in standalone mode.
 // SSO-mode scenarios live in routes-sso.test.ts; shared helpers live in
-// routes.helpers.ts.
-//
-// Gap: the AdminPage/setup/login page bodies need Next's request scope
-// (next/headers cookies()), so page coverage stops at generateMetadata's slug
-// guard; the session redirect inside the page body is not executable here.
+// routes.helpers.ts. Catalog and logout tests live in
+// routes-standalone-session.test.ts.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { POST as setupPost } from "@/app/[panel]/api/setup/route";
 import { POST as loginPost } from "@/app/[panel]/api/login/route";
-import { POST as logoutPost } from "@/app/[panel]/api/logout/route";
 import { POST as catalogPost } from "@/app/[panel]/api/catalog/route";
 import { generateMetadata } from "@/app/[panel]/page";
 import { getBootstrap, hiddenEntryIds } from "@/lib/admin/store";
@@ -49,12 +43,6 @@ test("every admin route is a plain 404 under a wrong panel slug", async () => {
         username: USERNAME,
         password: PASSWORD,
       }),
-      routeContext(WRONG_PANEL),
-    ),
-  );
-  await assertNotFound(
-    logoutPost(
-      formRequest(`/${WRONG_PANEL}/api/logout`, {}),
       routeContext(WRONG_PANEL),
     ),
   );
@@ -188,56 +176,4 @@ test("login issues a session cookie the catalog route accepts", async () => {
   );
   assert.equal(toggle.status, 303);
   assert.deepEqual(await hiddenEntryIds(dir), [ENTRY_ID]);
-});
-
-test("catalog visibility toggle requires a valid session", async () => {
-  const dir = await freshDataDir();
-  const { panel } = await completeSetup(dir);
-
-  const anonymous = await catalogPost(
-    formRequest(`/${panel}/api/catalog`, { entryId: ENTRY_ID, hidden: "true" }),
-    routeContext(panel),
-  );
-  assert.equal(anonymous.status, 401);
-
-  const forged = await catalogPost(
-    formRequest(
-      `/${panel}/api/catalog`,
-      { entryId: ENTRY_ID, hidden: "true" },
-      `${SESSION_COOKIE}=forged.c29tZS1mb3JnZWQtc2lnbmF0dXJl`,
-    ),
-    routeContext(panel),
-  );
-  assert.equal(forged.status, 401);
-
-  assert.deepEqual(await hiddenEntryIds(dir), []);
-});
-
-test("logout clears the cookie and invalidates the session server-side", async () => {
-  const dir = await freshDataDir();
-  const { panel, cookie } = await completeSetup(dir);
-
-  const logout = await logoutPost(
-    formRequest(`/${panel}/api/logout`, {}, cookie),
-    routeContext(panel),
-  );
-  assert.equal(logout.status, 303);
-  assert.equal(
-    logout.headers.get("location"),
-    `http://localhost/${panel}/login`,
-  );
-  const cleared = logout.cookies.get(SESSION_COOKIE);
-  assert.ok(cleared);
-  assert.equal(cleared.value, "");
-
-  // The old cookie is dead server-side, not just cleared client-side.
-  const afterward = await catalogPost(
-    formRequest(
-      `/${panel}/api/catalog`,
-      { entryId: ENTRY_ID, hidden: "true" },
-      cookie,
-    ),
-    routeContext(panel),
-  );
-  assert.equal(afterward.status, 401);
 });
