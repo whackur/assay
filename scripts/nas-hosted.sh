@@ -1,6 +1,9 @@
 #!/bin/sh
 set -eu
 
+# Synology packages Docker and Git outside sudo's default secure PATH.
+export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH
+
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 ENV_FILE="$ROOT/.env.production"
 WEB_IMAGE_OVERRIDE=${ASSAY_WEB_IMAGE_OVERRIDE:-}
