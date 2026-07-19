@@ -11,7 +11,7 @@ fn golden_public_project_ai_analysis_matches_closed_schema() {
         .build(&schema)
         .unwrap();
     let golden: Value = serde_json::from_str(include_str!(
-        "../../../schemas/project-ai-analysis/v1.golden.json"
+        "../../../tests/golden/project-ai-analysis-v1.json"
     ))
     .unwrap();
     assert!(validator.is_valid(&golden));
