@@ -227,7 +227,7 @@ fn duplicate_privacy_field_in_metadata_cannot_reopen_a_private_repository() {
 
 #[test]
 fn oversized_revision_response_fails_closed_without_leaking_its_body() {
-    let padding = "leak".repeat(6_000);
+    let padding = "leak".repeat(150_000);
     let mut http = FakeHttp::new(vec![
         response(
             200,

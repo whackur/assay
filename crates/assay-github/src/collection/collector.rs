@@ -17,7 +17,7 @@ use crate::{
 };
 
 const METADATA_RESPONSE_LIMIT: usize = 64 * 1024;
-const REVISION_RESPONSE_LIMIT: usize = 16 * 1024;
+const REVISION_RESPONSE_LIMIT: usize = 512 * 1024;
 
 /// Read-only GitHub collector over an injected fixed-origin HTTP adapter.
 pub struct GitHubCollector<'a, H> {
