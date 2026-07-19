@@ -175,7 +175,7 @@ impl ApiProviderProfile for OllamaProfile {
         let judgment = envelope
             .choices
             .first()
-            .map(|choice| choice.message.content.clone())
+            .map(|choice| strip_code_fence(&choice.message.content).to_owned())
             .ok_or(EvaluationErrorKind::MalformedOutput)?;
         Ok(ProviderReply {
             judgment,
@@ -186,4 +186,62 @@ impl ApiProviderProfile for OllamaProfile {
     }
 }
 
+/// Removes a single surrounding Markdown code fence so provider output that
+/// wraps JSON in ```json ... ``` (e.g. glm-5.2:cloud) still parses as JSON.
+/// Returns the input unchanged when no fence is present or the fence is
+/// unbalanced.
+fn strip_code_fence(content: &str) -> &str {
+    let trimmed = content.trim();
+    let Some(rest) = trimmed.strip_prefix("```") else {
+        return content;
+    };
+    // Skip an optional language tag on the opening fence line.
+    let after_open = rest
+        .match_indices('\n')
+        .next()
+        .map(|(idx, _)| &rest[idx + 1..]);
+    let Some(after_open) = after_open else {
+        return content;
+    };
+    let Some(inner) = after_open.strip_suffix("```") else {
+        return content;
+    };
+    inner.trim()
+}
+
 pub(crate) const MAX_RESPONSE_BYTES_EXPOSED: usize = MAX_RESPONSE_BYTES;
+
+#[cfg(test)]
+mod tests {
+    use super::strip_code_fence;
+
+    #[test]
+    fn strip_code_fence_removes_json_language_tag() {
+        let input = "```json\n{\"hello\":\"world\"}\n```";
+        assert_eq!(strip_code_fence(input), "{\"hello\":\"world\"}");
+    }
+
+    #[test]
+    fn strip_code_fence_removes_bare_fence() {
+        let input = "```\n{\"hello\":\"world\"}\n```";
+        assert_eq!(strip_code_fence(input), "{\"hello\":\"world\"}");
+    }
+
+    #[test]
+    fn strip_code_fence_preserves_unfenced_json() {
+        let input = "{\"hello\":\"world\"}";
+        assert_eq!(strip_code_fence(input), "{\"hello\":\"world\"}");
+    }
+
+    #[test]
+    fn strip_code_fence_preserves_unbalanced_fence() {
+        let input = "```json\n{\"hello\":\"world\"}";
+        assert_eq!(strip_code_fence(input), input);
+    }
+
+    #[test]
+    fn strip_code_fence_preserves_text_without_fence() {
+        let input = "not json at all";
+        assert_eq!(strip_code_fence(input), "not json at all");
+    }
+}

@@ -9,7 +9,6 @@ pub(crate) struct ChatEnvelope {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 pub(crate) struct ChatChoice {
     #[serde(default)]
     #[serde(rename = "index")]
@@ -21,12 +20,20 @@ pub(crate) struct ChatChoice {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 pub(crate) struct ChatMessage {
     #[serde(default)]
     #[serde(rename = "role")]
     pub(crate) _role: Option<String>,
     pub(crate) content: String,
+    /// Providers may include a reasoning/thinking trace alongside the
+    /// content. It is ignored by the evaluator, but must be tolerated so
+    /// hybrid reasoning models (e.g. glm-5.2:cloud) do not fail parsing.
+    #[serde(default)]
+    #[serde(rename = "reasoning")]
+    pub(crate) _reasoning: Option<String>,
+    #[serde(default)]
+    #[serde(rename = "thinking")]
+    pub(crate) _thinking: Option<String>,
 }
 
 #[derive(Deserialize)]
