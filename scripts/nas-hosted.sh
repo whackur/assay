@@ -56,6 +56,7 @@ export ASSAY_WEB_IMAGE ASSAY_API_IMAGE ASSAY_WORKER_IMAGE
 
 POSTGRES_DB=${POSTGRES_DB:-assay}
 POSTGRES_USER=${POSTGRES_USER:-assay}
+export POSTGRES_DB POSTGRES_USER
 SUPPORTED_POSTGRES_IMAGE=postgres:18-alpine
 ASSAY_POSTGRES_IMAGE=${ASSAY_POSTGRES_IMAGE:-$SUPPORTED_POSTGRES_IMAGE}
 ASSAY_WEB_PORT=${ASSAY_WEB_PORT:-1019}
@@ -269,11 +270,12 @@ restore() {
     "$ASSAY_POSTGRES_IMAGE" >/dev/null
 
   attempt=0
-  until docker exec "$restore_name" pg_isready \
-    --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" >/dev/null 2>&1; do
+  until docker exec "$restore_name" psql --no-psqlrc --set ON_ERROR_STOP=1 \
+    --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
+    --command 'SELECT 1' >/dev/null 2>&1; do
     attempt=$((attempt + 1))
     [ "$attempt" -lt 60 ] || {
-      echo "restored PostgreSQL instance did not become ready" >&2
+      echo "restored PostgreSQL database did not become ready" >&2
       exit 70
     }
     sleep 2
