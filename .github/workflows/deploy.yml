@@ -205,6 +205,7 @@ jobs:
             "$NAS_TARGET_DIR" "$GITHUB_SHA" \
             "$ASSAY_WEB_IMAGE_REF" "$ASSAY_API_IMAGE_REF" "$ASSAY_WORKER_IMAGE_REF" <<'REMOTE'
           set -eu
+          export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH
           target_dir=$1
           release_sha=$2
           web_image=$3
