@@ -1,11 +1,13 @@
 # syntax=docker/dockerfile:1
 
-FROM node:22-bookworm-slim AS web-dependencies
+FROM node:24-bookworm-slim AS web-dependencies
+
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
 WORKDIR /app
 
-COPY web/package.json web/package-lock.json ./
-RUN npm ci
+COPY web/package.json web/pnpm-lock.yaml web/.npmrc ./
+RUN pnpm install --frozen-lockfile
 
 FROM web-dependencies AS web-builder
 
@@ -13,9 +15,9 @@ COPY web ./
 # Next.js expects this directory in the standalone image even when the
 # application does not currently ship public assets.
 RUN mkdir -p public
-RUN npm run build
+RUN pnpm run build
 
-FROM node:22-bookworm-slim AS web-runtime
+FROM node:24-bookworm-slim AS web-runtime
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
