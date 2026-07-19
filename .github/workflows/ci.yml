@@ -52,6 +52,60 @@ jobs:
       - name: Validate public schemas and goldens
         run: cargo test -p assay-cli --test schema_contracts
 
+  windows:
+    name: Rust and schema contracts (Windows)
+    runs-on: windows-latest
+    env:
+      CARGO_TERM_COLOR: never
+    steps:
+      - name: Check out the repository
+        # actions/checkout v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Verify the Git adapter baseline
+        shell: bash
+        run: |
+          git version --build-options
+          version="$(git version | awk '{print $3}')"
+          # Git for Windows prints a version like 2.47.1.windows.1; strip the
+          # vendor suffix before comparing against the 2.47.0 baseline.
+          base="$(echo "$version" | sed 's/\.windows\..*//')"
+          dpkg --compare-versions "$base" ge 2.47.0 || \
+            python -c "import sys; sys.exit(0 if tuple(int(p) for p in '$base'.split('.')) >= (2,47,0) else 1)"
+
+      - name: Install the pinned Rust toolchain
+        run: rustup toolchain install 1.97.0 --profile minimal --component rustfmt --component clippy
+
+      - name: Restore Cargo dependency cache
+        # actions/cache v4.2.3
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Lint without warnings
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+      - name: Run workspace tests
+        run: cargo test --workspace
+
+      - name: Re-run flaky assay-git tests single-threaded
+        # FLAKY-001: ProbeCapabilities/Io failures are load-sensitive under
+        # parallel execution. Single-threaded retry is the documented
+        # stabilization, not a product-code fix.
+        if: always()
+        run: cargo test -p assay-git -- --test-threads=1
+
+      - name: Validate public schemas and goldens
+        run: cargo test -p assay-cli --test schema_contracts
+
   web:
     name: Web dashboard checks
     runs-on: ubuntu-24.04
