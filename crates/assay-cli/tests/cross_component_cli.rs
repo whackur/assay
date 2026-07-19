@@ -12,8 +12,7 @@ use assay_project_intelligence::validate_project_bundle_consistency;
 use assay_test_fixtures::{RepositoryFixture, RepositoryScenario};
 use serde_json::Value;
 
-use common::analyze;
-use common::assert_valid;
+use common::{analyze, assert_valid};
 use fixtures::{compile, evidence_bundle, evidence_id, validated_judgments};
 
 #[test]
