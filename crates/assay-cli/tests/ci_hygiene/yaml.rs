@@ -124,14 +124,14 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+      - name: Install pnpm
+        run: corepack enable && corepack prepare pnpm@10.33.0 --activate
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
-      - name: Install pnpm
-        run: corepack enable && corepack prepare pnpm@10.33.0 --activate
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Type-check
