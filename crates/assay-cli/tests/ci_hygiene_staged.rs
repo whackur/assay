@@ -6,9 +6,6 @@ mod ci_hygiene;
 use ci_hygiene::audit::audit_staged_index;
 use ci_hygiene::common::{git_command, successful};
 
-use audit::audit_staged_index;
-use common::{git_command, successful};
-
 #[test]
 fn staged_index_audit_rejects_gitlinks_and_malformed_records() {
     let oid = "a".repeat(40);

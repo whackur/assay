@@ -5,8 +5,6 @@ mod ci_hygiene;
 
 use ci_hygiene::audit::audit_tracked_paths;
 
-use audit::audit_tracked_paths;
-
 #[test]
 fn tracked_path_audit_rejects_sensitive_mutations_without_blocking_public_examples() {
     for forbidden in [

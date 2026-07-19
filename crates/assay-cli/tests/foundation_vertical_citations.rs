@@ -9,10 +9,6 @@ use foundation_vertical::validation::audit_bundle_citations;
 
 use serde_json::Value;
 
-use fixture::FoundationFixture;
-use runner::run_analysis;
-use validation::audit_bundle_citations;
-
 #[test]
 fn citation_audit_rejects_removed_nested_and_manifest_branches() {
     let fixture = FoundationFixture::build();

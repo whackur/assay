@@ -9,10 +9,6 @@ use ci_hygiene::yaml::audit_ci_workflow;
 
 use std::fs;
 
-use audit::audit_staged_index;
-use common::{git_command, repository_root, successful};
-use yaml::audit_ci_workflow;
-
 #[test]
 fn active_ci_contract_is_read_only_pinned_and_runs_the_local_gates() {
     let root = repository_root();

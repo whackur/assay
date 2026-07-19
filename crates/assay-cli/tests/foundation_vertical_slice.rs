@@ -4,6 +4,7 @@
 mod foundation_vertical;
 
 use foundation_vertical::common;
+use foundation_vertical::common::{REPOSITORY_EXECUTION_SENTINELS, SECRET_MARKER, repository_root};
 use foundation_vertical::fixture::FoundationFixture;
 use foundation_vertical::runner::run_analysis;
 use foundation_vertical::validation::{audit_bundle_citations, project_analysis_validator};
@@ -12,11 +13,6 @@ use std::{collections::BTreeSet, fs};
 
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-
-use common::{REPOSITORY_EXECUTION_SENTINELS, SECRET_MARKER, repository_root};
-use fixture::FoundationFixture;
-use runner::run_analysis;
-use validation::{audit_bundle_citations, project_analysis_validator};
 
 #[test]
 fn fixed_repository_is_a_schema_valid_private_and_non_executing_vertical_slice() {
