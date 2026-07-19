@@ -4,13 +4,15 @@ FROM node:24-bookworm-slim AS web-dependencies
 
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
-WORKDIR /app
+WORKDIR /repo/web
 
 COPY web/package.json web/pnpm-lock.yaml web/.npmrc ./
 RUN pnpm install --frozen-lockfile
 
 FROM web-dependencies AS web-builder
 
+WORKDIR /repo/web
+COPY scripts ../scripts
 COPY web ./
 # Next.js expects this directory in the standalone image even when the
 # application does not currently ship public assets.
@@ -34,9 +36,9 @@ RUN groupadd --system --gid 1001 nodejs \
   && mkdir -p /app/data \
   && chown nextjs:nodejs /app/data
 
-COPY --from=web-builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=web-builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=web-builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=web-builder --chown=nextjs:nodejs /repo/web/public ./public
+COPY --from=web-builder --chown=nextjs:nodejs /repo/web/.next/standalone ./
+COPY --from=web-builder --chown=nextjs:nodejs /repo/web/.next/static ./.next/static
 
 USER nextjs
 

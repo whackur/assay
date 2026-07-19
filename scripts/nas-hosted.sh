@@ -53,11 +53,11 @@ export ASSAY_WEB_IMAGE ASSAY_API_IMAGE ASSAY_WORKER_IMAGE
 
 POSTGRES_DB=${POSTGRES_DB:-assay}
 POSTGRES_USER=${POSTGRES_USER:-assay}
-SUPPORTED_POSTGRES_IMAGE=postgres:17-alpine
+SUPPORTED_POSTGRES_IMAGE=postgres:18-alpine
 ASSAY_POSTGRES_IMAGE=${ASSAY_POSTGRES_IMAGE:-$SUPPORTED_POSTGRES_IMAGE}
 ASSAY_WEB_PORT=${ASSAY_WEB_PORT:-1019}
 ASSAY_BACKUP_DIR=${ASSAY_BACKUP_DIR:-"$ROOT/backups/postgres"}
-EXPECTED_POSTGRES_MAJOR=17
+EXPECTED_POSTGRES_MAJOR=18
 
 validate_name() {
   case "$1" in
@@ -106,7 +106,7 @@ compose() {
 }
 
 postgres_major() {
-  docker run --rm --volume "$ASSAY_POSTGRES_VOLUME:/var/lib/postgresql/data:ro" \
+  docker run --rm --volume "$ASSAY_POSTGRES_VOLUME:/var/lib/postgresql:ro" \
     "$ASSAY_POSTGRES_IMAGE" \
     sh -c 'if [ -f /var/lib/postgresql/data/PG_VERSION ]; then cat /var/lib/postgresql/data/PG_VERSION; fi'
 }
@@ -262,7 +262,7 @@ restore() {
   trap 'exit 143' 15
   docker run -d --name "$restore_name" \
     --env POSTGRES_DB --env POSTGRES_USER --env POSTGRES_PASSWORD \
-    --volume "$new_volume:/var/lib/postgresql/data" \
+    --volume "$new_volume:/var/lib/postgresql" \
     "$ASSAY_POSTGRES_IMAGE" >/dev/null
 
   attempt=0

@@ -1,6 +1,6 @@
 # Deploy Assay to a Synology NAS
 
-The production stack runs PostgreSQL 17, the Rust API and worker, and the
+The production stack runs PostgreSQL 18, the Rust API and worker, and the
 Next.js site. Only the web service binds a host port, on loopback. A NAS reverse
 proxy is responsible for TLS and public routing.
 
@@ -12,7 +12,7 @@ proxy is responsible for TLS and public routing.
 - PostgreSQL and web state use explicitly named external Docker volumes.
   Compose does not own those volumes, so `docker compose down -v` cannot remove
   them.
-- Every deployment over an initialized database starts PostgreSQL 17 if needed,
+- Every deployment over an initialized database starts PostgreSQL 18 if needed,
   then creates and validates a custom-format backup before images are pulled.
 - SQLx migrations are forward-only and advisory-lock serialized.
 - Restore always targets a NEW external volume. The helper refuses to overwrite
@@ -110,7 +110,7 @@ sh scripts/nas-hosted.sh --env-file .env.production restore \
 ```
 
 The helper validates the dump, refuses the active volume, starts an isolated
-PostgreSQL 17 container, restores with `--exit-on-error`, and queries the SQLx
+PostgreSQL 18 container, restores with `--exit-on-error`, and queries the SQLx
 migration table. It does NOT switch production automatically.
 
 After verification, update `ASSAY_POSTGRES_VOLUME` in `.env.production` to the
@@ -119,7 +119,7 @@ data checks pass.
 
 ## PostgreSQL upgrades and rollback
 
-`postgres:17-alpine` pins the database major. Minor PostgreSQL 17 image upgrades
+`postgres:18-alpine` pins the database major. Minor PostgreSQL 18 image upgrades
 use the normal backup/deploy path.
 
 NEVER point a PostgreSQL 18 image at a PostgreSQL 17 data volume. For a major
