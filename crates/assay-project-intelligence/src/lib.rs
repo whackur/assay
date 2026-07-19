@@ -15,6 +15,7 @@
 
 #![forbid(unsafe_code)]
 
+mod ai_analysis;
 mod classification;
 mod comparison;
 mod contract;
@@ -26,6 +27,10 @@ mod machine;
 mod run;
 mod scoring;
 
+pub use ai_analysis::{
+    PROJECT_AI_ANALYSIS_CONTRACT, PROJECT_AI_ANALYSIS_SCHEMA_VERSION, ProjectAiAnalysisEnvelope,
+    StoredProjectAiAnalysis,
+};
 pub use classification::{
     ClassificationError, ClassificationErrorKind, ClassificationOutcome, ClassificationPolicy,
     MaturityObservation, MaturitySignal, TypeObservation, TypeSignal, classify_project,

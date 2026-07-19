@@ -10,6 +10,11 @@ pub(crate) const SHARED_ANONYMOUS_BUCKET: &str =
 pub(crate) struct AppState {
     pub(crate) storage: Storage,
     pub(crate) admission_limits: PublicAdmissionLimits,
+    pub(crate) internal_admin_token: String,
+}
+
+pub(crate) const fn bounded_secret(value: &str) -> bool {
+    !value.is_empty() && value.len() <= 256
 }
 
 pub(crate) fn required_env(name: &'static str) -> Result<String, Box<dyn std::error::Error>> {

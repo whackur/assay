@@ -23,9 +23,10 @@ import { parseManifest } from "./parse-analysis-manifest";
 import { parseRunState } from "./parse-run-state";
 import { parseCapabilities } from "./parse-capabilities";
 import { parseAiJudgment } from "./parse-ai-judgment";
+import { parseProjectAiAnalysis } from "./parse-project-ai-analysis";
 
 export { ContractError } from "./parse-helpers";
-export { parseAnalysis, parseManifest, parseRunState, parseCapabilities, parseAiJudgment };
+export { parseAnalysis, parseManifest, parseRunState, parseCapabilities, parseAiJudgment, parseProjectAiAnalysis };
 
 export function parseEvaluation(input: unknown): ProjectEvaluation {
   const value = asRecord(input, "evaluation");

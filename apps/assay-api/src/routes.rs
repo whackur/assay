@@ -4,7 +4,10 @@ use axum::{
     routing::{get, post},
 };
 
-use crate::handlers::{live, project, ready, recent_sources, status, submit};
+use crate::handlers::{
+    ai_analysis, approve_ai_analysis, live, project, ready, recent_sources, review_queue, status,
+    submit,
+};
 use crate::state::AppState;
 
 pub(crate) fn router(state: AppState) -> Router {
@@ -17,6 +20,18 @@ pub(crate) fn router(state: AppState) -> Router {
         .route(
             "/internal/hosted/projects/github/{owner}/{repository}",
             get(project),
+        )
+        .route(
+            "/api/v1/projects/github/{owner}/{repository}/ai-analysis",
+            get(ai_analysis),
+        )
+        .route(
+            "/internal/admin/hosted/ai-analysis/approve",
+            post(approve_ai_analysis),
+        )
+        .route(
+            "/internal/admin/hosted/ai-analysis/review-queue",
+            get(review_queue),
         )
         .layer(DefaultBodyLimit::max(4 * 1024))
         .with_state(state)

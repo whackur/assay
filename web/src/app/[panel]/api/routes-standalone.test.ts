@@ -8,6 +8,7 @@ import { test } from "node:test";
 import { POST as setupPost } from "@/app/[panel]/api/setup/route";
 import { POST as loginPost } from "@/app/[panel]/api/login/route";
 import { POST as catalogPost } from "@/app/[panel]/api/catalog/route";
+import { POST as reviewPost } from "@/app/[panel]/api/review/route";
 import { generateMetadata } from "@/app/[panel]/page";
 import { getBootstrap, hiddenEntryIds } from "@/lib/admin/store";
 import {
@@ -56,8 +57,23 @@ test("every admin route is a plain 404 under a wrong panel slug", async () => {
     ),
   );
   await assertNotFound(
+    reviewPost(
+      jsonRequest(`/${WRONG_PANEL}/api/review`, { evaluation_snapshot_id: "x" }),
+      routeContext(WRONG_PANEL),
+    ),
+  );
+  await assertNotFound(
     generateMetadata({ params: Promise.resolve({ panel: WRONG_PANEL }) }),
   );
+});
+
+test("review publishing rejects cross-origin requests before any backend call", async () => {
+  const dir = await freshDataDir();
+  const { panel, cookie } = await completeSetup(dir);
+  const request = jsonRequest(`/${panel}/api/review`, { evaluation_snapshot_id: "snapshot-1" }, `${SESSION_COOKIE}=${cookie.split("=")[1]}`);
+  request.headers.set("origin", "https://attacker.example");
+  const response = await reviewPost(request, routeContext(panel));
+  assert.equal(response.status, 403);
 });
 
 test("setup with a wrong or missing token is the same plain 404", async () => {

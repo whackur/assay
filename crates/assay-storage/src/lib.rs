@@ -6,6 +6,8 @@
 
 mod admission;
 mod admission_bucket;
+mod ai_analysis;
+mod approval;
 mod error;
 mod evaluation;
 mod failure;
@@ -21,6 +23,8 @@ mod types;
 mod util;
 mod workflow;
 
+pub use ai_analysis::{REVIEW_QUEUE_LIMIT, ReviewQueueItem, ReviewQueueProvenance};
+pub use approval::PublicationApproval;
 pub use error::{AdmissionError, StorageError};
 pub use storage::Storage;
 pub use types::{

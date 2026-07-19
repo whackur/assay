@@ -53,6 +53,7 @@ export ASSAY_WEB_IMAGE ASSAY_API_IMAGE ASSAY_WORKER_IMAGE
 : "${ASSAY_WORKER_IMAGE:?set ASSAY_WORKER_IMAGE to an immutable digest reference}"
 : "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the NAS-local environment file}"
 : "${DATABASE_URL:?set DATABASE_URL in the NAS-local environment file}"
+: "${ASSAY_INTERNAL_ADMIN_TOKEN:?set ASSAY_INTERNAL_ADMIN_TOKEN in the NAS-local environment file}"
 
 POSTGRES_DB=${POSTGRES_DB:-assay}
 POSTGRES_USER=${POSTGRES_USER:-assay}

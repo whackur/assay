@@ -11,6 +11,7 @@ import {
 import { ssoEnabled, ssoLoginRedirect } from "@/lib/admin/sso";
 import { publicCatalogEntries } from "@/lib/catalog/fixtures";
 import { scoreSummary } from "@/lib/catalog/catalog";
+import { ReviewQueue } from "@/components/admin/ReviewQueue";
 
 // Admin dashboard, reachable only under the secret /panel-<slug> path. A
 // wrong slug renders the app's ordinary 404 before anything admin-flavored
@@ -165,13 +166,8 @@ export default async function AdminPage({ params }: PageProps) {
       </section>
 
       <section className="admin-section" aria-labelledby="admin-pending">
-        <h2 id="admin-pending">Not yet available</h2>
-        <p className="lede">
-          Manual re-analysis, evaluation-rule corrections, and the report-review
-          queue require the live evaluation engine. They will appear here once
-          this deployment is attached to one; this preview does not simulate
-          them.
-        </p>
+        <h2 id="admin-pending">Evaluation operations</h2>
+        <ReviewQueue panel={context.basePath} />
       </section>
     </div>
   );

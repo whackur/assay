@@ -11,6 +11,7 @@ hosted-development stack, not the production NAS deployment contract.
    password inside `DATABASE_URL`.
 2. Set `ASSAY_OLLAMA_MODEL`. For a remote compatible service, also set its
    HTTPS `/v1` base and `ASSAY_OLLAMA_API_KEY`.
+   Set a random `ASSAY_INTERNAL_ADMIN_TOKEN` for the internal review queue.
 3. Run `docker compose -f compose.hosted.yaml up --build`.
 4. Open `http://localhost:3000`. The default seed is `whackur/assay`.
 

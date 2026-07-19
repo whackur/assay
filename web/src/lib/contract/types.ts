@@ -11,3 +11,4 @@ export * from "./types/project-analysis";
 export * from "./types/run-state";
 export * from "./types/capabilities";
 export * from "./types/ai-judgment";
+export * from "./types/project-ai-analysis";

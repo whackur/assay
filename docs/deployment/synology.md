@@ -41,6 +41,7 @@ Set unique values for at least:
 - `POSTGRES_PASSWORD` and the matching password inside `DATABASE_URL`
 - `ASSAY_POSTGRES_VOLUME` and `ASSAY_WEB_VOLUME`
 - `ASSAY_ADMISSION_HASH_KEY` when a trusted client-IP header is enabled
+- `ASSAY_INTERNAL_ADMIN_TOKEN` to protect the internal review queue
 - `ASSAY_OLLAMA_BASE_URL`, `ASSAY_OLLAMA_MODEL`, and
   `ASSAY_OLLAMA_API_KEY` when the compatible endpoint requires a key
 

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.assay.dev/project-ai-analysis/v1.json",
+  "title": "Assay Public Project AI Analysis v1",
+  "description": "A bounded AI interpretation of public project evidence. It is explicitly not a project score.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "schema_version", "data"],
+  "properties": {
+    "contract": { "const": "project-ai-analysis" },
+    "schema_version": { "const": "1.0.0" },
+    "data": {
+      "type": "object", "additionalProperties": false,
+      "required": ["project", "revision", "evaluation", "interpretation", "judgments", "limitations"],
+      "properties": {
+        "project": { "type": "object", "additionalProperties": false, "required": ["owner", "repository"], "properties": { "owner": { "type": "string", "minLength": 1, "maxLength": 39 }, "repository": { "type": "string", "minLength": 1, "maxLength": 100 } } },
+        "revision": { "type": "object", "additionalProperties": false, "required": ["commit_sha", "default_branch"], "properties": { "commit_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" }, "default_branch": { "type": "string", "minLength": 1, "maxLength": 255 } } },
+        "evaluation": { "type": "object", "additionalProperties": false, "required": ["evaluation_version", "rubric_version", "evidence_bundle_hash"], "properties": { "evaluation_version": { "type": "string", "minLength": 1, "maxLength": 100 }, "rubric_version": { "type": "string", "minLength": 1, "maxLength": 100 }, "evidence_bundle_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" } } },
+        "interpretation": { "type": "object", "additionalProperties": false, "required": ["kind", "not_a_project_score"], "properties": { "kind": { "const": "ai_interpretation" }, "not_a_project_score": { "const": true } } },
+        "judgments": { "type": "array", "minItems": 1, "maxItems": 64, "items": { "$ref": "#/$defs/judgment" } },
+        "limitations": { "type": "array", "minItems": 1, "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 300 } }
+      }
+    }
+  },
+  "$defs": {
+    "judgment": { "type": "object", "additionalProperties": false, "required": ["criterion_id", "applicability", "rating", "rating_scale", "confidence", "evidence_ids", "rationale"], "properties": {
+      "criterion_id": { "type": "string", "minLength": 3, "maxLength": 100 },
+      "applicability": { "enum": ["applicable", "partially_applicable", "not_applicable"] },
+      "rating": { "type": ["integer", "null"], "minimum": 0, "maximum": 4 },
+      "rating_scale": { "const": 4 },
+      "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+      "evidence_ids": { "type": "array", "uniqueItems": true, "maxItems": 32, "items": { "type": "string", "pattern": "^evidence:[a-z0-9._-]+:[a-z0-9._-]+(?:[:][a-z0-9._-]+)*$" } },
+      "rationale": { "type": "string", "minLength": 1, "maxLength": 1000 }
+    } }
+  }
+}

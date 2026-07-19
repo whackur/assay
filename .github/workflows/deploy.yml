@@ -61,6 +61,7 @@ jobs:
           ASSAY_WEB_VOLUME: assay-ci-web
           ASSAY_WORKER_IMAGE: ghcr.io/whackur/assay-worker@sha256:0000000000000000000000000000000000000000000000000000000000000000
           DATABASE_URL: postgres://assay:placeholder@db:5432/assay
+          ASSAY_INTERNAL_ADMIN_TOKEN: ci-internal-admin-token
           POSTGRES_PASSWORD: placeholder
         run: |
           docker compose -f compose.yaml config --quiet

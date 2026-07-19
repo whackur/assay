@@ -39,6 +39,39 @@ pub(crate) struct RecentSourceStatusRow {
 }
 
 #[derive(sqlx::FromRow)]
+pub(crate) struct ProjectAiAnalysisRow {
+    pub owner: String,
+    pub repository: String,
+    pub commit_sha: String,
+    pub default_branch: String,
+    pub evaluation_version: String,
+    pub rubric_version: String,
+    pub evidence_bundle_hash: String,
+    pub judgment: serde_json::Value,
+}
+
+#[derive(sqlx::FromRow)]
+pub(crate) struct ReviewQueueRow {
+    pub evaluation_snapshot_id: Uuid,
+    pub source_snapshot_id: Uuid,
+    pub source_observation_id: Uuid,
+    pub owner: String,
+    pub repository: String,
+    pub commit_sha: String,
+    pub default_branch: String,
+    pub provider_id: String,
+    pub model: String,
+    pub evaluator_profile: String,
+    pub rubric_version: String,
+    pub prompt_version: String,
+    pub evaluation_version: String,
+    pub provider_profile_version: String,
+    pub evidence_bundle_hash: String,
+    pub content_hash: String,
+    pub judgment: serde_json::Value,
+}
+
+#[derive(sqlx::FromRow)]
 pub(crate) struct AdmissionJob {
     pub job_id: Uuid,
     pub state: String,

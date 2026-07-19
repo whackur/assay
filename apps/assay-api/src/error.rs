@@ -28,6 +28,13 @@ impl ApiError {
             retry_after_seconds: None,
         }
     }
+    pub(crate) fn unauthorized(code: &'static str) -> Self {
+        Self {
+            status: StatusCode::UNAUTHORIZED,
+            code,
+            retry_after_seconds: None,
+        }
+    }
 
     pub(crate) fn service_unavailable(code: &'static str) -> Self {
         Self {

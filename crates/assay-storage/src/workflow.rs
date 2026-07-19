@@ -118,9 +118,10 @@ impl HostedWorkflowStore for Storage {
 fn workflow_error(error: StorageError) -> HostedPortError {
     match error {
         StorageError::LeaseLost => HostedPortError::lease_lost(),
-        StorageError::Database(_) | StorageError::InvalidEvaluation => {
-            HostedPortError::unavailable()
-        }
+        StorageError::Database(_)
+        | StorageError::InvalidEvaluation
+        | StorageError::PublicationNotFound
+        | StorageError::PublicationNotSafe => HostedPortError::unavailable(),
     }
 }
 

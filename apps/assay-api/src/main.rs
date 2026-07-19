@@ -25,6 +25,10 @@ async fn main() -> ExitCode {
 async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let database_url = required_env("DATABASE_URL")?;
     let storage = Storage::connect(&database_url).await?;
+    let internal_admin_token = required_env("ASSAY_INTERNAL_ADMIN_TOKEN")?;
+    if !state::bounded_secret(&internal_admin_token) {
+        return Err("ASSAY_INTERNAL_ADMIN_TOKEN must be 1..=256 bytes".into());
+    }
     storage.migrate().await?;
     let admission_limits = PublicAdmissionLimits {
         max_active: bounded_env("ASSAY_MAX_ACTIVE_JOBS", 8, 1, 1_000)?,
@@ -55,6 +59,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let state = AppState {
         storage,
         admission_limits,
+        internal_admin_token,
     };
     let app = routes::router(state);
     let address: SocketAddr = env::var("ASSAY_API_BIND")

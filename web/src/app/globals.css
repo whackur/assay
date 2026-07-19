@@ -99,6 +99,15 @@ code {
   color: var(--color-ink-2);
 }
 
+.admin-review { border: 1px solid var(--color-rule); padding: var(--space-md); background: var(--color-paper-2); }
+.admin-review summary { cursor: pointer; font-family: var(--font-display); font-size: 1.15rem; }
+.admin-review-body { display: grid; gap: var(--space-md); margin-top: var(--space-md); }
+.review-card { border-top: 1px solid var(--color-rule); padding-top: var(--space-md); display: grid; gap: var(--space-sm); }
+.review-card header { display: flex; justify-content: space-between; gap: var(--space-sm); align-items: baseline; }
+.review-card h3, .review-card h4 { margin: 0; }
+.review-judgments { display: grid; gap: var(--space-sm); }
+.review-judgments section { border-left: 3px solid var(--color-accent); padding-left: var(--space-sm); }
+
 .mono {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
@@ -838,6 +847,60 @@ dl.meta dd {
 
 .notice strong {
   color: var(--color-ink);
+}
+
+/* ---------- Public AI interpretation ---------- */
+
+.ai-analysis {
+  padding-block: var(--space-xl);
+  border-top: var(--rule-hairline);
+}
+
+.ai-judgments {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.ai-judgment {
+  border: 1px solid var(--color-rule-strong);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-paper-2);
+}
+
+.ai-judgment-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-xs);
+}
+
+.ai-judgment-header h3 {
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  overflow-wrap: anywhere;
+}
+
+.ai-evidence-list,
+.ai-limitations ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.ai-rationale {
+  margin-top: var(--space-sm);
+  max-width: 52rem;
+}
+
+.ai-limitations {
+  margin-top: var(--space-md);
+  max-width: 52rem;
+}
+
+.ai-limitations ul {
+  margin-top: var(--space-2xs);
 }
 
 /* ---------- HakHub teaser — single external touchpoint after the score ---------- */

@@ -7,7 +7,7 @@ import {
   getSessionSecret,
   SESSION_TTL_MS,
 } from "@/lib/admin/store";
-import { getSsoConfig, ssoEnabled, verifySsoAdmin } from "@/lib/admin/sso";
+import { getSsoConfig, ssoEnabled, verifySsoAdmin, type SsoIdentity } from "@/lib/admin/sso";
 
 // Session guard shared by the /admin pages and the admin route handlers. The
 // cookie is httpOnly and HMAC-signed; the id inside it must still match a live
@@ -19,6 +19,12 @@ import { getSsoConfig, ssoEnabled, verifySsoAdmin } from "@/lib/admin/sso";
 // auth, though the store still supplies the secret panel slug.
 
 export const SESSION_COOKIE = "assay_admin_session";
+
+export interface AdminPrincipal {
+  issuer: string;
+  subject: string;
+  displayName: string;
+}
 
 async function sessionIdFromToken(token: string | undefined): Promise<string | null> {
   if (!token) return null;
@@ -53,6 +59,21 @@ export async function requestSessionId(request: NextRequest): Promise<string | n
     return ssoAdminId(request.cookies.get(getSsoConfig()!.cookieName)?.value);
   }
   return sessionIdFromToken(request.cookies.get(SESSION_COOKIE)?.value);
+}
+
+/** Derives the reviewer identity on the server; callers never provide it. */
+export async function requestAdminPrincipal(request: NextRequest): Promise<AdminPrincipal | null> {
+  if (ssoEnabled()) {
+    const config = getSsoConfig()!;
+    const identity: SsoIdentity | null = await verifySsoAdmin(request.cookies.get(config.cookieName)?.value);
+    return identity ? {
+      issuer: config.issuer!, subject: identity.subject, displayName: identity.username,
+    } : null;
+  }
+  const sessionId = await requestSessionId(request);
+  if (!sessionId) return null;
+  const admin = await import("@/lib/admin/store").then(({ getAdmin, defaultDataDir }) => getAdmin(defaultDataDir()));
+  return admin ? { issuer: "assay-local", subject: admin.username, displayName: admin.username } : null;
 }
 
 function requestIsHttps(request: NextRequest): boolean {

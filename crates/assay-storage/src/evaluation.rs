@@ -20,6 +20,7 @@ impl Storage {
         let id = insert_evaluation_attempt(&mut tx, job, source, evaluation).await?;
         sqlx::query(
             r#"UPDATE hosted_source_status SET latest_evaluation_snapshot_id = $2,
+                      publication_status = 'hidden', publication_approval_id = NULL,
                       score_status = 'unavailable', updated_at = now()
                 WHERE latest_source_snapshot_id = $1"#,
         )
@@ -81,6 +82,7 @@ impl Storage {
         let id = insert_evaluation_attempt(&mut tx, job, source, evaluation).await?;
         sqlx::query(
             r#"UPDATE hosted_source_status SET latest_evaluation_snapshot_id = $2,
+                      publication_status = 'hidden', publication_approval_id = NULL,
                       score_status = 'unavailable', updated_at = now()
                 WHERE latest_source_snapshot_id = $1"#,
         )

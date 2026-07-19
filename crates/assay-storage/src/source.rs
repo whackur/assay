@@ -90,6 +90,7 @@ impl Storage {
                ON CONFLICT (provider_repository_id) DO UPDATE SET
                  latest_source_snapshot_id = EXCLUDED.latest_source_snapshot_id,
                  latest_evaluation_snapshot_id = NULL,
+                 publication_status = 'hidden', publication_approval_id = NULL,
                  score_status = 'pending', updated_at = now()"#,
         )
         .bind(collection.provider_repository_id)
