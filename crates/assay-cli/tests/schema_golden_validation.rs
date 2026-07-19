@@ -23,7 +23,7 @@ fn reviewed_golden_contracts_validate() {
 
 #[test]
 fn discovered_contract_files_have_exact_fixture_mapping_and_unique_json_keys() {
-    assert_eq!(contracts().len(), 8);
+    assert_eq!(contracts().len(), 9);
     assert!(
         parse_json_without_duplicate_keys(r#"{"schema_version":"1.0.0","schema_version":"1.0.1"}"#)
             .is_err(),
@@ -67,6 +67,12 @@ fn reviewed_invalid_fixtures_are_rejected() {
                         .as_object_mut()
                         .expect("scores must be an object")
                         .remove("person_performance");
+                }
+                "project-ai-analysis-v1-person-score.json" => {
+                    instance["data"]
+                        .as_object_mut()
+                        .expect("public analysis data must be an object")
+                        .remove("project_score");
                 }
                 "capabilities-v1-future-claim.json" => {
                     instance["commands"] = serde_json::json!(["capabilities", "project analyze"]);
