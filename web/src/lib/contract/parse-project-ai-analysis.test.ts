@@ -5,10 +5,10 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { ContractError, parseProjectAiAnalysis } from "@/lib/contract/parse";
 
-const schemaDir = join(dirname(fileURLToPath(import.meta.url)), "../../../../schemas/project-ai-analysis");
+const goldenPath = join(dirname(fileURLToPath(import.meta.url)), "../../../../tests/golden/project-ai-analysis-v1.json");
 
 function golden(): unknown {
-  return JSON.parse(readFileSync(join(schemaDir, "v1.golden.json"), "utf8"));
+  return JSON.parse(readFileSync(goldenPath, "utf8"));
 }
 
 test("parses the public project AI analysis golden contract", () => {
