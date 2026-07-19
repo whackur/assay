@@ -1,0 +1,13 @@
+{
+  "contract": "project-ai-analysis",
+  "schema_version": "1.0.0",
+  "data": {
+    "project": { "owner": "assay", "repository": "example" },
+    "revision": { "commit_sha": "0123456789abcdef0123456789abcdef01234567", "default_branch": "main" },
+    "evaluation": { "evaluation_version": "hosted-evaluation-1", "rubric_version": "project-rubric-1", "evidence_bundle_hash": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" },
+    "interpretation": { "kind": "ai_interpretation", "not_a_project_score": true },
+    "judgments": [{ "criterion_id": "quality.documentation", "applicability": "applicable", "rating": 3, "rating_scale": 4, "confidence": 0.8, "evidence_ids": ["evidence:github:readme"], "rationale": "The public README provides clear setup and usage guidance." }],
+    "limitations": ["AI interpretation of cited public evidence only; it is not a project score."],
+    "project_score": 82
+  }
+}
