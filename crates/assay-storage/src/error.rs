@@ -40,6 +40,7 @@ impl From<sqlx::Error> for AdmissionError {
 #[derive(Debug)]
 pub enum StorageError {
     Database(sqlx::Error),
+    InvalidEvaluation,
     LeaseLost,
 }
 
@@ -47,6 +48,9 @@ impl fmt::Display for StorageError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Database(_) => formatter.write_str("hosted storage unavailable"),
+            Self::InvalidEvaluation => {
+                formatter.write_str("hosted evaluation violates persistence rules")
+            }
             Self::LeaseLost => formatter.write_str("job lease was reclaimed"),
         }
     }
@@ -56,7 +60,7 @@ impl Error for StorageError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Database(error) => Some(error),
-            Self::LeaseLost => None,
+            Self::InvalidEvaluation | Self::LeaseLost => None,
         }
     }
 }

@@ -7,6 +7,7 @@ import {
   type HostedProjectStatus,
   type HostedRecentSourceStatus,
 } from "@/lib/api/hosted.generated";
+import { hostedEvaluationLabel, hostedPublicationLabel, hostedScoreLabel } from "@/lib/state/hosted-status-display";
 
 type HostedListResult =
   | { state: "available"; data: HostedRecentSourceStatus[] }
@@ -38,7 +39,8 @@ export function LiveSourceActivity({ result }: { result: HostedListResult }) {
           <dl className="meta">
             <dt>GitHub stars</dt><dd>{project.stars ?? "Unavailable"}</dd>
             <dt>Revision</dt><dd>{project.head_sha?.slice(0, 12) ?? "Pending"}</dd>
-            <dt>Publication</dt><dd>Not evaluated</dd>
+            <dt>Publication</dt><dd>{hostedPublicationLabel(project.evaluation_status)}</dd>
+            <dt>Project score</dt><dd>{hostedScoreLabel(project.score_status)}</dd>
           </dl>
         </article>
       ))}
@@ -91,9 +93,9 @@ export function LiveProjectStatus({ initial }: { initial: HostedProjectStatus })
         <dt>Request</dt><dd>{project.request_state}</dd>
         <dt>Job</dt><dd>{project.job_state}</dd>
         <dt>Current stage</dt><dd>{project.job_stage}</dd>
-        <dt>Evaluation</dt><dd>{project.evaluation_status ?? "pending"}</dd>
+        <dt>Evaluation</dt><dd>{hostedEvaluationLabel(project.evaluation_status)}</dd>
         <dt>Revision</dt><dd>{project.head_sha ?? "pending"}</dd>
-        <dt>Project score</dt><dd>Unavailable in this workflow</dd>
+        <dt>Project score</dt><dd>{hostedScoreLabel(project.score_status)}</dd>
       </dl>
       {project.last_error_code && <div className="notice" role="status">Stage unavailable: {project.last_error_code}. Preserved source facts remain available.</div>}
       {pollingUnavailable && <div className="notice" role="status">Live refresh is temporarily unavailable; the last known status remains visible.</div>}

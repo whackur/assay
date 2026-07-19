@@ -14,6 +14,7 @@ impl Storage {
         source: &StoredSource,
         evaluation: &EvaluationAttempt,
     ) -> Result<Uuid, StorageError> {
+        validate_evaluation_attempt(evaluation)?;
         let mut tx = self.pool.begin().await?;
         fence_and_renew(&mut tx, job).await?;
         let id = insert_evaluation_attempt(&mut tx, job, source, evaluation).await?;
@@ -74,6 +75,7 @@ impl Storage {
         source: &StoredSource,
         evaluation: &EvaluationAttempt,
     ) -> Result<Uuid, StorageError> {
+        validate_evaluation_attempt(evaluation)?;
         let mut tx = self.pool.begin().await?;
         fence_and_renew(&mut tx, job).await?;
         let id = insert_evaluation_attempt(&mut tx, job, source, evaluation).await?;
@@ -89,6 +91,14 @@ impl Storage {
         tx.commit().await?;
         Ok(id)
     }
+}
+
+fn validate_evaluation_attempt(evaluation: &EvaluationAttempt) -> Result<(), StorageError> {
+    let is_validated = evaluation.status == "validated_unpublished";
+    if is_validated != evaluation.judgment.is_some() {
+        return Err(StorageError::InvalidEvaluation);
+    }
+    Ok(())
 }
 
 async fn insert_evaluation_attempt(
@@ -115,7 +125,7 @@ async fn insert_evaluation_attempt(
         "source_observation_id": source.source_observation_id,
         "status": evaluation.status,
         "error_code": evaluation.error_code,
-        "judgment": null,
+        "judgment": evaluation.judgment,
         "score_status": "unavailable"
     }));
     let content_hash = sha256_hex(content.as_bytes());
@@ -127,7 +137,7 @@ async fn insert_evaluation_attempt(
                evidence_bundle_hash, usage, latency_ms, source_observation_id,
                status, error_code, judgment, score_status, content_hash)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-                    $14, $15, $16, $17, $18, NULL, 'unavailable', $19)
+                    $14, $15, $16, $17, $18, $19, 'unavailable', $20)
             ON CONFLICT (source_snapshot_id, provider_id, model, evaluator_profile, rubric_version, content_hash)
             DO NOTHING"#,
     )
@@ -149,6 +159,7 @@ async fn insert_evaluation_attempt(
     .bind(source.source_observation_id)
     .bind(&evaluation.status)
     .bind(&evaluation.error_code)
+    .bind(&evaluation.judgment)
     .bind(&content_hash)
     .execute(&mut **tx)
     .await?;

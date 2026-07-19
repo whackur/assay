@@ -68,7 +68,11 @@ impl Storage {
                       ss.default_branch, ss.commit_sha AS head_sha,
                       NULLIF(go.normalized_facts ->> 'description', '') AS description,
                       (go.normalized_facts ->> 'stargazers_count')::bigint AS stars,
-                      es.status AS evaluation_status,
+                      CASE
+                        WHEN es.status = 'validated_unpublished' AND es.judgment IS NULL
+                          THEN 'unavailable'
+                        ELSE es.status
+                      END AS evaluation_status,
                       COALESCE(cp.score_status, 'pending') AS score_status,
                       aj.next_attempt_at,
                       GREATEST(sr.updated_at, aj.updated_at, COALESCE(cp.updated_at, sr.updated_at)) AS updated_at
@@ -101,7 +105,12 @@ impl Storage {
                       NULLIF(go.normalized_facts ->> 'description', '') AS description,
                       (go.normalized_facts ->> 'stargazers_count')::bigint AS stars,
                       ss.default_branch, ss.commit_sha AS head_sha,
-                      sr.state AS collection_status, es.status AS evaluation_status,
+                      sr.state AS collection_status,
+                      CASE
+                        WHEN es.status = 'validated_unpublished' AND es.judgment IS NULL
+                          THEN 'unavailable'
+                        ELSE es.status
+                      END AS evaluation_status,
                       cp.score_status, cp.updated_at
                  FROM hosted_source_status cp
                  JOIN github_repositories gr USING (provider_repository_id)

@@ -13,7 +13,9 @@ struct FakeStore {
     job: Mutex<Option<HostedClaimedJob>>,
     input: Option<HostedEvaluationInput>,
     recorded_attempts: Mutex<usize>,
+    recorded_attempt: Mutex<Option<HostedEvaluationAttempt>>,
     stored_evaluations: Mutex<usize>,
+    stored_attempt: Mutex<Option<HostedEvaluationAttempt>>,
     settled: Mutex<usize>,
 }
 
@@ -41,9 +43,10 @@ impl HostedWorkflowStore for FakeStore {
         &self,
         _: &HostedClaimedJob,
         _: &HostedStoredSource,
-        _: &HostedEvaluationAttempt,
+        attempt: &HostedEvaluationAttempt,
     ) -> Result<(), HostedPortError> {
         *self.recorded_attempts.lock().unwrap() += 1;
+        *self.recorded_attempt.lock().unwrap() = Some(attempt.clone());
         Ok(())
     }
 
@@ -51,9 +54,10 @@ impl HostedWorkflowStore for FakeStore {
         &self,
         _: &HostedClaimedJob,
         _: &HostedStoredSource,
-        _: &HostedEvaluationAttempt,
+        attempt: &HostedEvaluationAttempt,
     ) -> Result<(), HostedPortError> {
         *self.stored_evaluations.lock().unwrap() += 1;
+        *self.stored_attempt.lock().unwrap() = Some(attempt.clone());
         Ok(())
     }
 
@@ -145,12 +149,37 @@ fn attempt(status: &str) -> HostedEvaluationAttempt {
         evaluation_version: "evaluation-1".to_owned(),
         provider_profile_version: "profile-1".to_owned(),
         sampling: json!({}),
-        evidence_bundle_hash: "abc".to_owned(),
+        evidence_bundle_hash:
+            "sha256:0000000000000000000000000000000000000000000000000000000000000000".to_owned(),
         usage: None,
         latency_ms: None,
         status: status.to_owned(),
         error_code: None,
+        judgment: (status == "validated_unpublished").then(valid_judgment),
     }
+}
+
+fn valid_judgment() -> serde_json::Value {
+    json!({
+        "schema_version": "1.0.0",
+        "evaluation_version": "evaluation-1",
+        "rubric_version": "project-rubric-1",
+        "status": "complete",
+        "evidence_bundle_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "privacy": {
+            "evidence_scope": "public_only",
+            "external_transmission": "public_only"
+        },
+        "judgments": [{
+            "criterion_id": "project.maintainability",
+            "applicability": "applicable",
+            "rating": 4,
+            "rating_scale": 4,
+            "confidence": 0.9,
+            "evidence_ids": ["evidence:repository_feature:fixture"],
+            "rationale": "The cited public evidence supports this rating."
+        }]
+    })
 }
 
 fn policy() -> HostedWorkflowPolicy {
@@ -170,7 +199,9 @@ async fn evaluation_retry_reuses_durable_source_and_preserves_attempt() {
             normalized_facts: json!({"stargazers_count": 1}),
         }),
         recorded_attempts: Mutex::new(0),
+        recorded_attempt: Mutex::new(None),
         stored_evaluations: Mutex::new(0),
+        stored_attempt: Mutex::new(None),
         settled: Mutex::new(0),
     };
     let collector = CountingCollector(Mutex::new(0));
@@ -182,6 +213,15 @@ async fn evaluation_retry_reuses_durable_source_and_preserves_attempt() {
     );
     assert_eq!(*collector.0.lock().unwrap(), 0);
     assert_eq!(*store.recorded_attempts.lock().unwrap(), 1);
+    assert_eq!(
+        store
+            .recorded_attempt
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|attempt| attempt.judgment.as_ref()),
+        None
+    );
     assert_eq!(*store.settled.lock().unwrap(), 1);
 }
 
@@ -191,7 +231,9 @@ async fn collecting_sequence_persists_source_before_validated_unpublished_evalua
         job: Mutex::new(Some(job(HostedWorkflowStage::Collecting))),
         input: None,
         recorded_attempts: Mutex::new(0),
+        recorded_attempt: Mutex::new(None),
         stored_evaluations: Mutex::new(0),
+        stored_attempt: Mutex::new(None),
         settled: Mutex::new(0),
     };
     let collector = CountingCollector(Mutex::new(0));
@@ -203,4 +245,11 @@ async fn collecting_sequence_persists_source_before_validated_unpublished_evalua
     );
     assert_eq!(*collector.0.lock().unwrap(), 1);
     assert_eq!(*store.stored_evaluations.lock().unwrap(), 1);
+    let judgment = store
+        .stored_attempt
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|attempt| attempt.judgment.clone());
+    assert_eq!(judgment, Some(valid_judgment()));
 }

@@ -118,7 +118,9 @@ impl HostedWorkflowStore for Storage {
 fn workflow_error(error: StorageError) -> HostedPortError {
     match error {
         StorageError::LeaseLost => HostedPortError::lease_lost(),
-        StorageError::Database(_) => HostedPortError::unavailable(),
+        StorageError::Database(_) | StorageError::InvalidEvaluation => {
+            HostedPortError::unavailable()
+        }
     }
 }
 
@@ -187,5 +189,6 @@ fn storage_attempt(attempt: &HostedEvaluationAttempt) -> EvaluationAttempt {
         latency_ms: attempt.latency_ms,
         status: attempt.status.clone(),
         error_code: attempt.error_code.clone(),
+        judgment: attempt.judgment.clone(),
     }
 }

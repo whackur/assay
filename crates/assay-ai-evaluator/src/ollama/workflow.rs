@@ -52,8 +52,18 @@ where
                     HostedFailure::provider(disposition.code(), disposition.retryable())
                 })?;
             match snapshot.outcome() {
+                SnapshotOutcome::Validated(judgment) if judgment.is_usable() => {
+                    let judgment = serde_json::to_value(judgment)
+                        .expect("validated judgments must be JSON serializable");
+                    Ok(workflow_attempt(
+                        &snapshot,
+                        "validated_unpublished",
+                        None,
+                        Some(judgment),
+                    ))
+                }
                 SnapshotOutcome::Validated(_) => {
-                    Ok(workflow_attempt(&snapshot, "validated_unpublished", None))
+                    Ok(workflow_attempt(&snapshot, "unavailable", None, None))
                 }
                 SnapshotOutcome::Failed(kind) => {
                     let disposition = classify_ollama_failure(*kind);
@@ -67,6 +77,7 @@ where
                             &snapshot,
                             "partial",
                             Some(disposition.code()),
+                            None,
                         )));
                         Err(failure)
                     } else {
@@ -74,6 +85,7 @@ where
                             &snapshot,
                             "unavailable",
                             Some(disposition.code()),
+                            None,
                         ))
                     }
                 }
@@ -99,6 +111,7 @@ fn unavailable_attempt(model: &str, code: &str) -> HostedEvaluationAttempt {
         latency_ms: None,
         status: "unavailable".to_owned(),
         error_code: Some(code.to_owned()),
+        judgment: None,
     }
 }
 
@@ -106,6 +119,7 @@ fn workflow_attempt(
     snapshot: &EvaluationSnapshot,
     status: &str,
     error_code: Option<&str>,
+    judgment: Option<serde_json::Value>,
 ) -> HostedEvaluationAttempt {
     let provenance = snapshot.provenance();
     let sampling = provenance.sampling();
@@ -135,5 +149,6 @@ fn workflow_attempt(
         latency_ms: telemetry.and_then(|value| i64::try_from(value.latency().as_millis()).ok()),
         status: status.to_owned(),
         error_code: error_code.map(str::to_owned),
+        judgment,
     }
 }

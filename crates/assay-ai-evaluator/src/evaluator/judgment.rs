@@ -136,6 +136,11 @@ pub(crate) struct ValidatedPrivacy {
 }
 
 impl ValidatedJudgmentSet {
+    /// Returns whether this validated result contains a usable rubric judgment.
+    pub(crate) const fn is_usable(&self) -> bool {
+        self.status.is_usable()
+    }
+
     /// Returns the rubric version accepted by the validator.
     pub fn rubric_version(&self) -> &str {
         &self.rubric_version

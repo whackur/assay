@@ -66,7 +66,7 @@ pub struct StoredEvaluationInput {
     pub normalized_facts: Value,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct EvaluationAttempt {
     pub provider_id: String,
     pub model: String,
@@ -81,4 +81,30 @@ pub struct EvaluationAttempt {
     pub latency_ms: Option<i64>,
     pub status: String,
     pub error_code: Option<String>,
+    pub judgment: Option<Value>,
+}
+
+impl std::fmt::Debug for EvaluationAttempt {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("EvaluationAttempt")
+            .field("provider_id", &self.provider_id)
+            .field("model", &self.model)
+            .field("evaluator_profile", &self.evaluator_profile)
+            .field("rubric_version", &self.rubric_version)
+            .field("prompt_version", &self.prompt_version)
+            .field("evaluation_version", &self.evaluation_version)
+            .field("provider_profile_version", &self.provider_profile_version)
+            .field("sampling", &self.sampling)
+            .field("evidence_bundle_hash", &self.evidence_bundle_hash)
+            .field("usage", &self.usage)
+            .field("latency_ms", &self.latency_ms)
+            .field("status", &self.status)
+            .field("error_code", &self.error_code)
+            .field(
+                "judgment",
+                &self.judgment.as_ref().map(|_| "<validated-ai-judgment>"),
+            )
+            .finish()
+    }
 }
