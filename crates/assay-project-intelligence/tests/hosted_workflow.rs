@@ -1,5 +1,10 @@
+use std::str::FromStr;
 use std::sync::Mutex;
 
+use assay_domain::{
+    AnalysisVersion, ContentHash, EvidenceStatus, RepositorySource, RevisionId,
+    RubricApplicability, RubricCriterionId, RubricJudgment, RubricJudgmentSet,
+};
 use assay_project_intelligence::{
     HostedClaimedJob, HostedEvaluationAttempt, HostedEvaluationInput, HostedEvaluationPort,
     HostedFailure, HostedPortError, HostedSourceCollection, HostedSourceCollectionPort,
@@ -16,6 +21,7 @@ struct FakeStore {
     recorded_attempt: Mutex<Option<HostedEvaluationAttempt>>,
     stored_evaluations: Mutex<usize>,
     stored_attempt: Mutex<Option<HostedEvaluationAttempt>>,
+    stored_score: Mutex<Option<assay_project_intelligence::HostedScoreArtifact>>,
     settled: Mutex<usize>,
 }
 
@@ -55,9 +61,11 @@ impl HostedWorkflowStore for FakeStore {
         _: &HostedClaimedJob,
         _: &HostedStoredSource,
         attempt: &HostedEvaluationAttempt,
+        score: &assay_project_intelligence::HostedScoreArtifact,
     ) -> Result<(), HostedPortError> {
         *self.stored_evaluations.lock().unwrap() += 1;
         *self.stored_attempt.lock().unwrap() = Some(attempt.clone());
+        *self.stored_score.lock().unwrap() = Some(score.clone());
         Ok(())
     }
 
@@ -156,7 +164,35 @@ fn attempt(status: &str) -> HostedEvaluationAttempt {
         status: status.to_owned(),
         error_code: None,
         judgment: (status == "validated_unpublished").then(valid_judgment),
+        validated_judgments: (status == "validated_unpublished").then(valid_judgment_set),
     }
+}
+
+fn valid_judgment_set() -> assay_domain::RubricJudgmentSet {
+    RubricJudgmentSet::new(
+        AnalysisVersion::from_str("project-intelligence-1").unwrap(),
+        AnalysisVersion::from_str("project-rubric-1").unwrap(),
+        EvidenceStatus::Complete,
+        ContentHash::from_str(
+            "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .unwrap(),
+        vec![
+            RubricJudgment::new(
+                RubricCriterionId::from_str("maintenance_health.maintainability").unwrap(),
+                RubricApplicability::Applicable,
+                Some(4),
+                4,
+                0.9,
+                vec![
+                    assay_domain::EvidenceId::from_str("evidence:repository_feature:fixture")
+                        .unwrap(),
+                ],
+            )
+            .unwrap(),
+        ],
+    )
+    .unwrap()
 }
 
 fn valid_judgment() -> serde_json::Value {
@@ -196,12 +232,15 @@ async fn evaluation_retry_reuses_durable_source_and_preserves_attempt() {
         job: Mutex::new(Some(job(HostedWorkflowStage::Evaluating))),
         input: Some(HostedEvaluationInput {
             source: source(),
+            project_source: RepositorySource::hosted("github", "whackur", "assay").unwrap(),
+            revision: RevisionId::from_str("0123456789abcdef0123456789abcdef01234567").unwrap(),
             normalized_facts: json!({"stargazers_count": 1}),
         }),
         recorded_attempts: Mutex::new(0),
         recorded_attempt: Mutex::new(None),
         stored_evaluations: Mutex::new(0),
         stored_attempt: Mutex::new(None),
+        stored_score: Mutex::new(None),
         settled: Mutex::new(0),
     };
     let collector = CountingCollector(Mutex::new(0));
@@ -234,6 +273,7 @@ async fn collecting_sequence_persists_source_before_validated_unpublished_evalua
         recorded_attempt: Mutex::new(None),
         stored_evaluations: Mutex::new(0),
         stored_attempt: Mutex::new(None),
+        stored_score: Mutex::new(None),
         settled: Mutex::new(0),
     };
     let collector = CountingCollector(Mutex::new(0));
@@ -251,5 +291,16 @@ async fn collecting_sequence_persists_source_before_validated_unpublished_evalua
         .unwrap()
         .as_ref()
         .and_then(|attempt| attempt.judgment.clone());
-    assert_eq!(judgment, Some(valid_judgment()));
+    assert_eq!(judgment.as_ref(), Some(&valid_judgment()));
+    assert_eq!(
+        judgment
+            .as_ref()
+            .and_then(|value| value["judgments"][0]["rationale"].as_str()),
+        Some("The cited public evidence supports this rating.")
+    );
+    let score = store.stored_score.lock().unwrap().clone().unwrap();
+    assert_eq!(score.status, "insufficient");
+    assert_eq!(score.value, None);
+    assert!(!score.snapshot.to_string().contains("rationale"));
+    assert_eq!(score.snapshot["evaluator"]["provider"], "ollama_compatible");
 }

@@ -61,6 +61,7 @@ impl ProjectMaturity {
 pub enum EvaluatorProvider {
     Deterministic,
     OpenaiApi,
+    OllamaCompatible,
     CodexCli,
     CodexOauth,
 }
@@ -70,6 +71,7 @@ impl EvaluatorProvider {
         match self {
             Self::Deterministic => "deterministic",
             Self::OpenaiApi => "openai_api",
+            Self::OllamaCompatible => "ollama_compatible",
             Self::CodexCli => "codex_cli",
             Self::CodexOauth => "codex_oauth",
         }

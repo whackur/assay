@@ -1,7 +1,7 @@
 use super::types::{
     HostedClaimedJob, HostedEvaluationAttempt, HostedEvaluationInput, HostedFailure,
-    HostedPortError, HostedSourceCollection, HostedStoredSource, HostedWorkflowPolicy,
-    HostedWorkflowStage,
+    HostedPortError, HostedScoreArtifact, HostedSourceCollection, HostedStoredSource,
+    HostedWorkflowPolicy, HostedWorkflowStage,
 };
 
 pub trait HostedWorkflowStore: Sync {
@@ -30,6 +30,7 @@ pub trait HostedWorkflowStore: Sync {
         job: &HostedClaimedJob,
         source: &HostedStoredSource,
         attempt: &HostedEvaluationAttempt,
+        score: &HostedScoreArtifact,
     ) -> Result<(), HostedPortError>;
 
     async fn settle_failure(
