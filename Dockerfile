@@ -12,6 +12,8 @@ RUN pnpm install --frozen-lockfile
 FROM web-dependencies AS web-builder
 
 WORKDIR /repo/web
+ARG GIT_COMMIT_SHA=unknown
+ENV GIT_COMMIT_SHA=$GIT_COMMIT_SHA
 COPY scripts ../scripts
 COPY web ./
 # Next.js expects this directory in the standalone image even when the

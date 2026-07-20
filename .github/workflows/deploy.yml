@@ -113,6 +113,7 @@ jobs:
             docker buildx build \
               --file "$dockerfile" \
               --target "$target" \
+              --build-arg "GIT_COMMIT_SHA=$GITHUB_SHA" \
               --tag "$repository:latest" \
               --tag "$repository:$GITHUB_SHA" \
               --metadata-file "$metadata" \

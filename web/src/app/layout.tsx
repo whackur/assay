@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Fraunces, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
+const commitSha = process.env.NEXT_PUBLIC_COMMIT_SHA ?? "unknown";
+
 const fraunces = Fraunces({
   subsets: ["latin"],
   variable: "--font-fraunces",
@@ -101,6 +103,9 @@ export default function RootLayout({
                 sample report contract v1 · hosted metadata contract v1
                 <br />
                 live source-processing data is separated from the labeled sample report
+              </p>
+              <p className="colophon-build">
+                build <code>{commitSha}</code>
               </p>
             </div>
           </div>
