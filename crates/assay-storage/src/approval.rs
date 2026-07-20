@@ -100,3 +100,76 @@ impl Storage {
         Ok(())
     }
 }
+
+/// Publishes a validated judgment inside the caller's transaction without an
+/// administrator. The same safety gate as manual approval decides publication;
+/// an unsafe judgment stays hidden (returns `false`) rather than failing the job.
+pub(crate) async fn auto_publish_validated_evaluation(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    evaluation_snapshot_id: Uuid,
+    source_snapshot_id: Uuid,
+) -> Result<bool, StorageError> {
+    let details: Option<PublicationDetails> = sqlx::query_as(
+        r#"SELECT gr.canonical_owner, gr.canonical_name, ss.commit_sha, ss.default_branch,
+                  es.evaluation_version, es.rubric_version, es.evidence_bundle_hash, es.judgment
+             FROM evaluation_snapshots es
+             JOIN source_snapshots ss ON ss.id = es.source_snapshot_id
+             JOIN github_repositories gr USING (provider_repository_id)
+            WHERE es.id = $1 AND es.source_snapshot_id = $2
+              AND es.status = 'validated_unpublished' AND es.judgment IS NOT NULL"#,
+    )
+    .bind(evaluation_snapshot_id)
+    .bind(source_snapshot_id)
+    .fetch_optional(&mut **tx)
+    .await?;
+    let Some(PublicationDetails {
+        canonical_owner: owner,
+        canonical_name: repository,
+        commit_sha,
+        default_branch,
+        evaluation_version,
+        rubric_version,
+        evidence_bundle_hash,
+        judgment,
+    }) = details
+    else {
+        return Ok(false);
+    };
+    if ProjectAiAnalysisEnvelope::from_stored(StoredProjectAiAnalysis {
+        owner,
+        repository,
+        commit_sha,
+        default_branch,
+        evaluation_version,
+        rubric_version,
+        evidence_bundle_hash,
+        judgment,
+    })
+    .is_none()
+    {
+        return Ok(false);
+    }
+    let approval_id: Uuid = sqlx::query_scalar(
+        r#"INSERT INTO evaluation_publication_approvals
+             (evaluation_snapshot_id, source_snapshot_id, approval_kind, issuer, subject, display_name)
+           VALUES ($1, $2, 'public_ai_analysis', 'system', 'auto-publication', 'Automatic publication')
+           ON CONFLICT (evaluation_snapshot_id, source_snapshot_id)
+             DO UPDATE SET issuer = EXCLUDED.issuer
+           RETURNING id"#,
+    )
+    .bind(evaluation_snapshot_id)
+    .bind(source_snapshot_id)
+    .fetch_one(&mut **tx)
+    .await?;
+    sqlx::query(
+        r#"UPDATE hosted_source_status
+              SET publication_status = 'public', publication_approval_id = $2, updated_at = now()
+            WHERE latest_source_snapshot_id = $1 AND latest_evaluation_snapshot_id = $3"#,
+    )
+    .bind(source_snapshot_id)
+    .bind(approval_id)
+    .bind(evaluation_snapshot_id)
+    .execute(&mut **tx)
+    .await?;
+    Ok(true)
+}

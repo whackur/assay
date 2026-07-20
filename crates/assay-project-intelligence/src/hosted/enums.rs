@@ -41,6 +41,7 @@ pub enum HostedJobState {
 #[serde(rename_all = "snake_case")]
 pub enum HostedEvaluationStatus {
     ValidatedUnpublished,
+    ValidatedPublished,
     Partial,
     Unavailable,
 }
@@ -101,6 +102,7 @@ storage_enum!(HostedJobState, {
 });
 storage_enum!(HostedEvaluationStatus, {
     "validated_unpublished" => HostedEvaluationStatus::ValidatedUnpublished,
+    "validated_published" => HostedEvaluationStatus::ValidatedPublished,
     "partial" => HostedEvaluationStatus::Partial,
     "unavailable" => HostedEvaluationStatus::Unavailable,
 });
@@ -111,3 +113,20 @@ storage_enum!(HostedScoreStatus, {
     "insufficient" => HostedScoreStatus::Insufficient,
     "unavailable" => HostedScoreStatus::Unavailable,
 });
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn published_evaluation_status_round_trips_the_contract_string() {
+        assert_eq!(
+            HostedEvaluationStatus::try_from("validated_published"),
+            Ok(HostedEvaluationStatus::ValidatedPublished)
+        );
+        assert_eq!(
+            serde_json::to_value(HostedEvaluationStatus::ValidatedPublished).unwrap(),
+            serde_json::json!("validated_published")
+        );
+    }
+}

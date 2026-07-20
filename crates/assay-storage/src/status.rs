@@ -71,6 +71,8 @@ impl Storage {
                       CASE
                         WHEN es.status = 'validated_unpublished' AND es.judgment IS NULL
                           THEN 'unavailable'
+                        WHEN es.status = 'validated_unpublished' AND cp.publication_status = 'public'
+                          THEN 'validated_published'
                         ELSE es.status
                       END AS evaluation_status,
                       COALESCE(cp.score_status, 'pending') AS score_status,
@@ -109,6 +111,8 @@ impl Storage {
                       CASE
                         WHEN es.status = 'validated_unpublished' AND es.judgment IS NULL
                           THEN 'unavailable'
+                        WHEN es.status = 'validated_unpublished' AND cp.publication_status = 'public'
+                          THEN 'validated_published'
                         ELSE es.status
                       END AS evaluation_status,
                       cp.score_status, cp.updated_at

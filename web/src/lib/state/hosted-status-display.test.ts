@@ -8,6 +8,11 @@ test("distinguishes a validated judgment from its unpublished score", () => {
   assert.equal(hostedScoreLabel("unavailable"), "Unavailable");
 });
 
+test("reports an auto-published AI analysis", () => {
+  assert.equal(hostedEvaluationLabel("validated_published"), "Published AI analysis");
+  assert.equal(hostedPublicationLabel("validated_published"), "Published AI analysis");
+});
+
 test("keeps other hosted workflow states explicit", () => {
   assert.equal(hostedEvaluationLabel(null), "Not evaluated");
   assert.equal(hostedEvaluationLabel("partial"), "Partially evaluated");

@@ -60,7 +60,7 @@
         "head_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
         "description": { "type": ["string", "null"], "maxLength": 1000 },
         "stars": { "type": ["integer", "null"], "minimum": 0 },
-        "evaluation_status": { "type": ["string", "null"], "enum": ["validated_unpublished", "partial", "unavailable", null] },
+        "evaluation_status": { "type": ["string", "null"], "enum": ["validated_unpublished", "validated_published", "partial", "unavailable", null] },
         "score_status": { "enum": ["pending", "unavailable"] },
         "next_attempt_at": { "type": "string", "format": "date-time" },
         "updated_at": { "type": "string", "format": "date-time" }
@@ -80,7 +80,7 @@
         "default_branch": { "type": ["string", "null"], "minLength": 1, "maxLength": 255 },
         "head_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
         "collection_status": { "enum": ["queued", "collecting", "partial", "complete", "unavailable"] },
-        "evaluation_status": { "type": ["string", "null"], "enum": ["validated_unpublished", "partial", "unavailable", null] },
+        "evaluation_status": { "type": ["string", "null"], "enum": ["validated_unpublished", "validated_published", "partial", "unavailable", null] },
         "score_status": { "enum": ["pending", "unavailable"] },
         "updated_at": { "type": "string", "format": "date-time" }
       }

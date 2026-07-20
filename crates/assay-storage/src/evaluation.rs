@@ -70,6 +70,14 @@ impl Storage {
         .execute(&mut *tx)
         .await?;
         let validated = evaluation.status == "validated_unpublished";
+        if validated {
+            crate::approval::auto_publish_validated_evaluation(
+                &mut tx,
+                id,
+                source.source_snapshot_id,
+            )
+            .await?;
+        }
         record_stage(
             &mut tx,
             job,

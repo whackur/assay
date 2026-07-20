@@ -7,6 +7,8 @@ export function hostedEvaluationLabel(status: HostedEvaluationStatus): string {
   switch (status) {
     case "validated_unpublished":
       return "Validated judgment (not published)";
+    case "validated_published":
+      return "Published AI analysis";
     case "partial":
       return "Partially evaluated";
     case "unavailable":
