@@ -60,7 +60,7 @@ pub use hosted::{
 };
 pub use hosted_workflow::{
     HostedClaimedJob, HostedEvaluationAttempt, HostedEvaluationInput, HostedEvaluationPort,
-    HostedFailure, HostedFailureScope, HostedPortError, HostedPortErrorKind,
+    HostedFailure, HostedFailureScope, HostedPortError, HostedPortErrorKind, HostedScoreArtifact,
     HostedSourceCollection, HostedSourceCollectionPort, HostedStoredSource, HostedWorkflow,
     HostedWorkflowOutcome, HostedWorkflowPolicy, HostedWorkflowStage, HostedWorkflowStore,
 };

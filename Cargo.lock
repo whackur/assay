@@ -229,6 +229,7 @@ dependencies = [
 name = "assay-storage"
 version = "0.1.0"
 dependencies = [
+ "assay-domain",
  "assay-project-intelligence",
  "hex",
  "serde",

@@ -1,4 +1,5 @@
 use serde_json::Value;
+use std::str::FromStr;
 use uuid::Uuid;
 
 use crate::error::StorageError;
@@ -131,10 +132,12 @@ impl Storage {
         };
         let mut tx = self.pool.begin().await?;
         fence_and_renew(&mut tx, job).await?;
-        let row = sqlx::query_as::<_, (Uuid, Value)>(
-            r#"SELECT ss.metadata_observation_id, go.normalized_facts
+        let row = sqlx::query_as::<_, (Uuid, String, String, String, Value)>(
+            r#"SELECT ss.metadata_observation_id, gr.canonical_owner,
+                       gr.canonical_name, ss.commit_sha, go.normalized_facts
                  FROM source_snapshots ss
                  JOIN github_observations go ON go.id = ss.metadata_observation_id
+                 JOIN github_repositories gr ON gr.provider_repository_id = ss.provider_repository_id
                 WHERE ss.id = $1"#,
         )
         .bind(source_snapshot_id)
@@ -142,12 +145,22 @@ impl Storage {
         .await?;
         tx.commit().await?;
         Ok(row.map(
-            |(source_observation_id, normalized_facts)| StoredEvaluationInput {
-                source: StoredSource {
-                    source_snapshot_id,
-                    source_observation_id,
-                },
-                normalized_facts,
+            |(source_observation_id, owner, repository, commit_sha, normalized_facts)| {
+                StoredEvaluationInput {
+                    source: StoredSource {
+                        source_snapshot_id,
+                        source_observation_id,
+                    },
+                    project_source: assay_domain::RepositorySource::hosted(
+                        "github",
+                        &owner,
+                        &repository,
+                    )
+                    .expect("stored repository identity is canonical"),
+                    revision: assay_domain::RevisionId::from_str(&commit_sha)
+                        .expect("stored commit is canonical"),
+                    normalized_facts,
+                }
             },
         ))
     }

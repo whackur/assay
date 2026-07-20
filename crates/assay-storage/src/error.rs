@@ -41,6 +41,7 @@ impl From<sqlx::Error> for AdmissionError {
 pub enum StorageError {
     Database(sqlx::Error),
     InvalidEvaluation,
+    ScoreSnapshotConflict,
     PublicationNotFound,
     PublicationNotSafe,
     LeaseLost,
@@ -52,6 +53,9 @@ impl fmt::Display for StorageError {
             Self::Database(_) => formatter.write_str("hosted storage unavailable"),
             Self::InvalidEvaluation => {
                 formatter.write_str("hosted evaluation violates persistence rules")
+            }
+            Self::ScoreSnapshotConflict => {
+                formatter.write_str("hosted score snapshot conflicts with existing provenance")
             }
             Self::PublicationNotFound => formatter.write_str("publication target was not found"),
             Self::PublicationNotSafe => formatter.write_str("evaluation is not safe to publish"),
@@ -65,6 +69,7 @@ impl Error for StorageError {
         match self {
             Self::Database(error) => Some(error),
             Self::InvalidEvaluation
+            | Self::ScoreSnapshotConflict
             | Self::PublicationNotFound
             | Self::PublicationNotSafe
             | Self::LeaseLost => None,

@@ -63,6 +63,8 @@ pub struct StoredSource {
 #[derive(Clone, Debug)]
 pub struct StoredEvaluationInput {
     pub source: StoredSource,
+    pub project_source: assay_domain::RepositorySource,
+    pub revision: assay_domain::RevisionId,
     pub normalized_facts: Value,
 }
 

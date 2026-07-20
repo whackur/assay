@@ -1,3 +1,4 @@
+use assay_project_intelligence::HostedScoreArtifact;
 use uuid::Uuid;
 
 use crate::error::StorageError;
@@ -13,19 +14,59 @@ impl Storage {
         job: &ClaimedJob,
         source: &StoredSource,
         evaluation: &EvaluationAttempt,
+        score: &HostedScoreArtifact,
     ) -> Result<Uuid, StorageError> {
         validate_evaluation_attempt(evaluation)?;
         let mut tx = self.pool.begin().await?;
         fence_and_renew(&mut tx, job).await?;
-        let id = insert_evaluation_attempt(&mut tx, job, source, evaluation).await?;
+        let id = insert_evaluation_attempt(&mut tx, job, source, evaluation, score).await?;
+        let compiler_version = score.snapshot["compiler"]["version"]
+            .as_str()
+            .unwrap_or("unknown");
+        let rule_set_hash = score.snapshot["compiler"]["rule_set_hash"]
+            .as_str()
+            .unwrap_or("unknown");
+        let snapshot_hash = sha256_hex(canonical_json(&score.snapshot).as_bytes());
+        sqlx::query(
+            r#"INSERT INTO hosted_score_snapshots
+                 (evaluation_snapshot_id, source_snapshot_id, schema_version,
+                  compiler_version, rule_set_hash, content_hash, score_status, score_value, snapshot)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               ON CONFLICT (evaluation_snapshot_id, compiler_version, rule_set_hash) DO NOTHING"#,
+        )
+        .bind(id)
+        .bind(source.source_snapshot_id)
+        .bind(score.snapshot["schema_version"].as_str().unwrap_or("unknown"))
+        .bind(compiler_version)
+        .bind(rule_set_hash)
+        .bind(&snapshot_hash)
+        .bind(&score.status)
+        .bind(score.value)
+        .bind(&score.snapshot)
+        .execute(&mut *tx)
+        .await?;
+        let persisted_hash: String = sqlx::query_scalar(
+            r#"SELECT content_hash FROM hosted_score_snapshots
+                WHERE evaluation_snapshot_id = $1 AND compiler_version = $2
+                  AND rule_set_hash = $3"#,
+        )
+        .bind(id)
+        .bind(compiler_version)
+        .bind(rule_set_hash)
+        .fetch_one(&mut *tx)
+        .await?;
+        if persisted_hash != snapshot_hash {
+            return Err(StorageError::ScoreSnapshotConflict);
+        }
         sqlx::query(
             r#"UPDATE hosted_source_status SET latest_evaluation_snapshot_id = $2,
                       publication_status = 'hidden', publication_approval_id = NULL,
-                      score_status = 'unavailable', updated_at = now()
+                      score_status = $3, updated_at = now()
                 WHERE latest_source_snapshot_id = $1"#,
         )
         .bind(source.source_snapshot_id)
         .bind(id)
+        .bind(&score.status)
         .execute(&mut *tx)
         .await?;
         let validated = evaluation.status == "validated_unpublished";
@@ -79,7 +120,12 @@ impl Storage {
         validate_evaluation_attempt(evaluation)?;
         let mut tx = self.pool.begin().await?;
         fence_and_renew(&mut tx, job).await?;
-        let id = insert_evaluation_attempt(&mut tx, job, source, evaluation).await?;
+        let unavailable = HostedScoreArtifact {
+            status: "unavailable".to_owned(),
+            value: None,
+            snapshot: serde_json::json!({}),
+        };
+        let id = insert_evaluation_attempt(&mut tx, job, source, evaluation, &unavailable).await?;
         sqlx::query(
             r#"UPDATE hosted_source_status SET latest_evaluation_snapshot_id = $2,
                       publication_status = 'hidden', publication_approval_id = NULL,
@@ -108,6 +154,7 @@ async fn insert_evaluation_attempt(
     job: &ClaimedJob,
     source: &StoredSource,
     evaluation: &EvaluationAttempt,
+    score: &HostedScoreArtifact,
 ) -> Result<Uuid, sqlx::Error> {
     let content = canonical_json(&serde_json::json!({
         "job_id": job.job_id,
@@ -128,7 +175,7 @@ async fn insert_evaluation_attempt(
         "status": evaluation.status,
         "error_code": evaluation.error_code,
         "judgment": evaluation.judgment,
-        "score_status": "unavailable"
+        "score_status": score.status
     }));
     let content_hash = sha256_hex(content.as_bytes());
     sqlx::query(
@@ -139,7 +186,7 @@ async fn insert_evaluation_attempt(
                evidence_bundle_hash, usage, latency_ms, source_observation_id,
                status, error_code, judgment, score_status, content_hash)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-                    $14, $15, $16, $17, $18, $19, 'unavailable', $20)
+                    $14, $15, $16, $17, $18, $19, $20, $21)
             ON CONFLICT (source_snapshot_id, provider_id, model, evaluator_profile, rubric_version, content_hash)
             DO NOTHING"#,
     )
@@ -162,6 +209,7 @@ async fn insert_evaluation_attempt(
     .bind(&evaluation.status)
     .bind(&evaluation.error_code)
     .bind(&evaluation.judgment)
+    .bind(&score.status)
     .bind(&content_hash)
     .execute(&mut **tx)
     .await?;

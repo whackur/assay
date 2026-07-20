@@ -98,7 +98,7 @@
         "profile": { "$ref": "#/$defs/versionIdentifier" },
         "provider": {
           "type": "string",
-          "enum": ["deterministic", "openai_api", "codex_cli", "codex_oauth"]
+          "enum": ["deterministic", "openai_api", "ollama_compatible", "codex_cli", "codex_oauth"]
         },
         "model": {
           "type": ["string", "null"],

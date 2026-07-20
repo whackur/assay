@@ -1,3 +1,4 @@
+use assay_domain::{RepositorySource, RevisionId, RubricJudgmentSet};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -53,6 +54,8 @@ pub struct HostedStoredSource {
 #[derive(Clone, Debug)]
 pub struct HostedEvaluationInput {
     pub source: HostedStoredSource,
+    pub project_source: RepositorySource,
+    pub revision: RevisionId,
     pub normalized_facts: Value,
 }
 
@@ -72,6 +75,7 @@ pub struct HostedEvaluationAttempt {
     pub status: String,
     pub error_code: Option<String>,
     pub judgment: Option<Value>,
+    pub validated_judgments: Option<RubricJudgmentSet>,
 }
 
 impl std::fmt::Debug for HostedEvaluationAttempt {
@@ -95,8 +99,22 @@ impl std::fmt::Debug for HostedEvaluationAttempt {
                 "judgment",
                 &self.judgment.as_ref().map(|_| "<validated-ai-judgment>"),
             )
+            .field(
+                "validated_judgments",
+                &self
+                    .validated_judgments
+                    .as_ref()
+                    .map(|_| "<typed-validated-ai-judgment>"),
+            )
             .finish()
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct HostedScoreArtifact {
+    pub status: String,
+    pub value: Option<f64>,
+    pub snapshot: Value,
 }
 
 #[derive(Clone, Debug)]

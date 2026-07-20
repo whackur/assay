@@ -27,6 +27,8 @@ impl HostedWorkflowStore for Storage {
             .map(|input| {
                 input.map(|input| HostedEvaluationInput {
                     source: workflow_source(&input.source),
+                    project_source: input.project_source,
+                    revision: input.revision,
                     normalized_facts: input.normalized_facts,
                 })
             })
@@ -77,12 +79,14 @@ impl HostedWorkflowStore for Storage {
         job: &HostedClaimedJob,
         source: &HostedStoredSource,
         attempt: &HostedEvaluationAttempt,
+        score: &assay_project_intelligence::HostedScoreArtifact,
     ) -> Result<(), HostedPortError> {
         Storage::store_evaluation(
             self,
             &storage_job(job),
             &storage_source(source),
             &storage_attempt(attempt),
+            score,
         )
         .await
         .map(|_| ())
@@ -120,6 +124,7 @@ fn workflow_error(error: StorageError) -> HostedPortError {
         StorageError::LeaseLost => HostedPortError::lease_lost(),
         StorageError::Database(_)
         | StorageError::InvalidEvaluation
+        | StorageError::ScoreSnapshotConflict
         | StorageError::PublicationNotFound
         | StorageError::PublicationNotSafe => HostedPortError::unavailable(),
     }

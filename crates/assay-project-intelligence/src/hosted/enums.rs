@@ -49,6 +49,9 @@ pub enum HostedEvaluationStatus {
 #[serde(rename_all = "snake_case")]
 pub enum HostedScoreStatus {
     Pending,
+    Complete,
+    Partial,
+    Insufficient,
     Unavailable,
 }
 
@@ -103,5 +106,8 @@ storage_enum!(HostedEvaluationStatus, {
 });
 storage_enum!(HostedScoreStatus, {
     "pending" => HostedScoreStatus::Pending,
+    "complete" => HostedScoreStatus::Complete,
+    "partial" => HostedScoreStatus::Partial,
+    "insufficient" => HostedScoreStatus::Insufficient,
     "unavailable" => HostedScoreStatus::Unavailable,
 });

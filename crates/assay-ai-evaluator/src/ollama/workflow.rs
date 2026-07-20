@@ -53,6 +53,9 @@ where
                 })?;
             match snapshot.outcome() {
                 SnapshotOutcome::Validated(judgment) if judgment.is_usable() => {
+                    let validated_judgments = judgment.to_rubric_judgment_set().map_err(|_| {
+                        HostedFailure::new("validated_judgment_conversion_failed", false)
+                    })?;
                     let judgment = serde_json::to_value(judgment)
                         .expect("validated judgments must be JSON serializable");
                     Ok(workflow_attempt(
@@ -60,10 +63,11 @@ where
                         "validated_unpublished",
                         None,
                         Some(judgment),
+                        Some(validated_judgments),
                     ))
                 }
                 SnapshotOutcome::Validated(_) => {
-                    Ok(workflow_attempt(&snapshot, "unavailable", None, None))
+                    Ok(workflow_attempt(&snapshot, "unavailable", None, None, None))
                 }
                 SnapshotOutcome::Failed(kind) => {
                     let disposition = classify_ollama_failure(*kind);
@@ -78,6 +82,7 @@ where
                             "partial",
                             Some(disposition.code()),
                             None,
+                            None,
                         )));
                         Err(failure)
                     } else {
@@ -85,6 +90,7 @@ where
                             &snapshot,
                             "unavailable",
                             Some(disposition.code()),
+                            None,
                             None,
                         ))
                     }
@@ -112,6 +118,7 @@ fn unavailable_attempt(model: &str, code: &str) -> HostedEvaluationAttempt {
         status: "unavailable".to_owned(),
         error_code: Some(code.to_owned()),
         judgment: None,
+        validated_judgments: None,
     }
 }
 
@@ -120,6 +127,7 @@ fn workflow_attempt(
     status: &str,
     error_code: Option<&str>,
     judgment: Option<serde_json::Value>,
+    validated_judgments: Option<assay_domain::RubricJudgmentSet>,
 ) -> HostedEvaluationAttempt {
     let provenance = snapshot.provenance();
     let sampling = provenance.sampling();
@@ -150,5 +158,6 @@ fn workflow_attempt(
         status: status.to_owned(),
         error_code: error_code.map(str::to_owned),
         judgment,
+        validated_judgments,
     }
 }
