@@ -1,4 +1,4 @@
-use std::{env, process::ExitCode, time::Duration};
+use std::{env, process::ExitCode, sync::Arc, time::Duration};
 
 use assay_ai_evaluator::{
     HostedOllamaWorkflowEvaluator, OllamaCompatibleConfig, ProviderSecret, SecretError, SecretName,
@@ -41,13 +41,43 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     storage.migrate().await?;
 
     let config = WorkerConfig::from_env()?;
-    let collector = HostedGitHubWorkflowCollector::new(config.github_token);
-    let evaluator = HostedOllamaWorkflowEvaluator::new(config.ollama, EnvironmentSecretStore);
-    let workflow = HostedWorkflow::new(&storage, &collector, &evaluator, config.policy);
-    let worker_id = format!("worker-{}", std::process::id());
+    let concurrency = bounded_env("ASSAY_WORKER_CONCURRENCY", 3, 1, 3)? as usize;
 
+    // Deps are shared read-only across loops; each loop claims jobs under its own
+    // fenced worker id so concurrent claims are safe (see storage SKIP LOCKED).
+    let storage = Arc::new(storage);
+    let collector = Arc::new(HostedGitHubWorkflowCollector::new(config.github_token));
+    let evaluator = Arc::new(HostedOllamaWorkflowEvaluator::new(
+        config.ollama,
+        EnvironmentSecretStore,
+    ));
+    let policy = config.policy;
+    let pid = std::process::id();
+
+    let mut loops = tokio::task::JoinSet::new();
+    for slot in 0..concurrency {
+        let storage = Arc::clone(&storage);
+        let collector = Arc::clone(&collector);
+        let evaluator = Arc::clone(&evaluator);
+        let worker_id = format!("worker-{pid}-{slot}");
+        loops.spawn(async move {
+            worker_loop(&storage, &collector, &evaluator, policy, &worker_id).await;
+        });
+    }
+    while loops.join_next().await.is_some() {}
+    Ok(())
+}
+
+async fn worker_loop(
+    storage: &Storage,
+    collector: &HostedGitHubWorkflowCollector,
+    evaluator: &HostedOllamaWorkflowEvaluator<EnvironmentSecretStore>,
+    policy: HostedWorkflowPolicy,
+    worker_id: &str,
+) {
+    let workflow = HostedWorkflow::new(storage, collector, evaluator, policy);
     loop {
-        match workflow.run_once(&worker_id).await {
+        match workflow.run_once(worker_id).await {
             Ok(HostedWorkflowOutcome::Idle) => tokio::time::sleep(Duration::from_secs(3)).await,
             Ok(HostedWorkflowOutcome::RetryScheduled) => {
                 eprintln!("hosted job scheduled for bounded retry");
@@ -151,5 +181,15 @@ mod tests {
     #[test]
     fn worker_policy_configuration_is_bounded() {
         assert!(bounded_env("ASSAY_TEST_UNSET_BOUND", 8, 1, 10).is_ok());
+    }
+
+    #[test]
+    fn worker_concurrency_default_is_three() {
+        assert_eq!(bounded_env("ASSAY_TEST_UNSET_CONCURRENCY", 3, 1, 3).unwrap(), 3);
+    }
+
+    #[test]
+    fn worker_concurrency_rejects_out_of_range() {
+        assert!(bounded_env("ASSAY_TEST_OVER_CONCURRENCY", 4, 1, 3).is_err());
     }
 }
