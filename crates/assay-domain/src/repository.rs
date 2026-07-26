@@ -66,12 +66,12 @@ enum RepositorySourceData {
 pub struct RepositorySource(RepositorySourceData);
 
 impl RepositorySource {
-    /// Creates a local source identified by a content-derived identifier.
+    /// Local source identified by a content-derived identifier.
     pub const fn local(repository_id: ContentHash) -> Self {
         Self(RepositorySourceData::Local { repository_id })
     }
 
-    /// Creates a canonical provider-neutral hosted repository locator.
+    /// Canonical provider-neutral hosted repository locator.
     pub fn hosted(
         provider: &str,
         namespace: &str,
@@ -84,7 +84,7 @@ impl RepositorySource {
         }))
     }
 
-    /// Returns the content-derived local repository identifier, when local.
+    /// Content-derived local repository identifier, when local.
     pub const fn local_repository_id(&self) -> Option<&ContentHash> {
         match &self.0 {
             RepositorySourceData::Local { repository_id } => Some(repository_id),
@@ -92,7 +92,7 @@ impl RepositorySource {
         }
     }
 
-    /// Returns canonical provider, namespace, and repository components, when hosted.
+    /// Canonical provider, namespace, and repository components, when hosted.
     pub fn hosted_locator(&self) -> Option<(&str, &str, &str)> {
         match &self.0 {
             RepositorySourceData::Hosted {

@@ -35,7 +35,7 @@ pub enum EvaluationErrorKind {
 }
 
 impl EvaluationErrorKind {
-    /// Returns the stable machine-readable status code for this category.
+    /// Stable machine-readable status code for this category.
     pub const fn code(self) -> &'static str {
         match self {
             Self::EmptyEvidenceBundle => "empty_evidence_bundle",
@@ -82,7 +82,7 @@ impl EvaluationError {
         Self { kind }
     }
 
-    /// Returns the stable machine-readable failure category.
+    /// Stable machine-readable failure category.
     pub const fn kind(&self) -> EvaluationErrorKind {
         self.kind
     }

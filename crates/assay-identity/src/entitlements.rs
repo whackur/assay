@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
-/// A local Assay role. Authorization is always local, never an upstream role.
+/// Local Assay role. Authorization is always local, never an upstream role.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LocalRole {
@@ -10,7 +10,7 @@ pub enum LocalRole {
     Administrator,
 }
 
-/// A local feature entitlement. API handlers authorize the specific action.
+/// Local feature entitlement. API handlers authorize the specific action.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Entitlement {
@@ -29,7 +29,7 @@ pub enum Entitlement {
 }
 
 impl Entitlement {
-    /// Returns the stable dotted entitlement identifier.
+    /// Stable dotted entitlement identifier.
     pub const fn code(self) -> &'static str {
         match self {
             Self::AnalysisPublicSubmit => "analysis.public.submit",
@@ -55,7 +55,6 @@ pub struct EntitlementPolicy {
 }
 
 impl EntitlementPolicy {
-    /// Builds a policy from explicit role bundles.
     pub fn new(grants: BTreeMap<LocalRole, BTreeSet<Entitlement>>) -> Self {
         Self { grants }
     }
@@ -67,7 +66,7 @@ impl EntitlementPolicy {
             .is_some_and(|set| set.contains(&entitlement))
     }
 
-    /// Returns the entitlements granted to a role in canonical order.
+    /// Entitlements granted to a role in canonical order.
     pub fn entitlements(&self, role: LocalRole) -> Vec<Entitlement> {
         self.grants
             .get(&role)
@@ -77,7 +76,7 @@ impl EntitlementPolicy {
 }
 
 impl Default for EntitlementPolicy {
-    /// The initial-product bundles: members get non-admin features, admins add operations.
+    /// Initial-product bundles: members get non-admin features, admins add operations.
     fn default() -> Self {
         let member = BTreeSet::from([
             Entitlement::AnalysisPublicSubmit,

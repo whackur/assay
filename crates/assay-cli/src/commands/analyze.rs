@@ -29,16 +29,9 @@ pub(crate) fn analyze(arguments: AnalyzeArgs) -> Result<Outcome, RunError> {
         arguments.no_color,
         arguments.non_interactive,
     );
-    // Consent gating runs before provider construction (ADR 0012). The local
-    // slice exposes no consent-granting surface yet, so no matching
-    // `ConsentGrant` can exist and no external provider is ever constructed.
-    // The deterministic evaluator runs without external transmission and
-    // produces a validated judgment set that the score compiler consumes; the
-    // recorded report keeps its `ai_evaluation` section reflecting the consent
-    // posture.
+    // ADR 0012: consent gating runs before any provider construction.
     let consent = evaluation::evaluation_consent(arguments.evaluator.id());
-    // Validate the token variable *name* eagerly; the value is never read here.
-    // An already-cloned local repository is analyzed without credentials.
+    // Token variable name is validated eagerly; value is never read.
     if let Some(name) = &arguments.github_token_env {
         GithubTokenEnvVar::parse(name).map_err(|_| invalid_github_token_env())?;
     }
@@ -79,14 +72,7 @@ pub(crate) fn analyze(arguments: AnalyzeArgs) -> Result<Outcome, RunError> {
     validate("project-analysis", &value)?;
     validate_project_bundle_consistency(&value).map_err(|_| bundle_error())?;
 
-    // WIRE-001: run the deterministic evaluator and score compiler, then embed
-    // the project-evaluation output in the analysis bundle. The deterministic
-    // evaluator performs no external transmission, so it runs without consent.
-    // External AI providers remain consent-gated and are not constructed here.
-    // Per the spec, a failed stage does not fail the whole run: the evaluation
-    // field stays absent when the deterministic evaluator cannot produce a
-    // valid evaluation (for example, when the bundle exceeds the provider
-    // output bound), and the analysis remains schema-valid without it.
+    // WIRE-001: deterministic evaluator runs without consent; a failed stage doesn't fail the run.
     if evaluation::deterministic_evaluation_allowed(&consent)
         && let Ok(classification) = evaluation::classification_for_compilation(&evidence)
         && let Ok(evaluation_value) = evaluation::compile_deterministic_evaluation(

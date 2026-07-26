@@ -6,7 +6,7 @@ use crate::{
     source::{CanonicalGitHubRepository, RepositoryInputError},
 };
 
-/// A user-selected revision that must resolve to a full immutable object ID.
+/// User-selected revision that must resolve to a full immutable object ID.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RevisionSelector {
     /// Resolve the repository's reported default branch.
@@ -16,7 +16,7 @@ pub enum RevisionSelector {
 }
 
 impl RevisionSelector {
-    /// Creates a bounded ref selector. Its value is percent-encoded in requests.
+    /// Creates a bounded ref selector. Value is percent-encoded in requests.
     pub fn named(value: &str) -> Result<Self, RepositoryInputError> {
         if value.is_empty()
             || value.len() > 255
@@ -28,7 +28,7 @@ impl RevisionSelector {
     }
 }
 
-/// A GitHub source pinned to a stable provider ID and immutable revision.
+/// GitHub source pinned to a stable provider ID and immutable revision.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ResolvedGitHubSource {
     pub(crate) repository_id: ProviderRepositoryId,
@@ -41,37 +41,35 @@ pub struct ResolvedGitHubSource {
 }
 
 impl ResolvedGitHubSource {
-    /// Returns GitHub's stable numeric repository identifier.
     pub const fn repository_id(&self) -> ProviderRepositoryId {
         self.repository_id
     }
 
-    /// Returns the provider-confirmed canonical repository.
     pub const fn repository(&self) -> &CanonicalGitHubRepository {
         &self.repository
     }
 
-    /// Returns the full immutable commit identifier.
+    /// Full immutable commit identifier.
     pub const fn revision(&self) -> &RevisionId {
         &self.revision
     }
 
-    /// Returns the ref used for immutable resolution.
+    /// Ref used for immutable resolution.
     pub fn selected_ref(&self) -> &str {
         &self.selected_ref
     }
 
-    /// Returns rate-limit state from the revision response.
+    /// Rate-limit state from the revision response.
     pub const fn rate_limit(&self) -> &RateLimitState {
         &self.rate_limit
     }
 
-    /// Returns the bounded normalized public metadata projection.
+    /// Bounded normalized public metadata projection.
     pub const fn metadata(&self) -> &GitHubRepositoryMetadata {
         &self.metadata
     }
 
-    /// Returns the metadata response ETag when GitHub supplied one.
+    /// Metadata response ETag when GitHub supplied one.
     pub fn metadata_etag(&self) -> Option<&str> {
         self.metadata_etag.as_deref()
     }

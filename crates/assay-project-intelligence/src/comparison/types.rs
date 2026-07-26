@@ -19,12 +19,7 @@ impl CohortMode {
         }
     }
 
-    /// Returns the closed canonical facet set every comparison must enumerate.
-    ///
-    /// The specification's similarity dimensions are contract fields, not
-    /// seed-dependent extras: a facet without data is explicit `unavailable`.
-    /// Curated comparison carries the five criteria of specification 7.3,
-    /// including maintenance evidence.
+    /// Returns the closed canonical facet set every comparison must enumerate. A facet without data is explicit `unavailable`.
     pub const fn canonical_facets(self) -> &'static [&'static str] {
         match self {
             Self::FunctionalCohort => &[
@@ -105,13 +100,7 @@ pub struct ComparisonProfile {
 }
 
 impl ComparisonProfile {
-    /// Validates the seed profile, requiring at least one non-empty facet.
-    ///
-    /// Facets are restricted to the mode's closed canonical set; custom facets
-    /// are rejected so the published contract stays enumerable. Tokens are
-    /// canonical snake_case machine codes so the comparison stays portable and
-    /// free of raw source text. Empty token sets are dropped rather than
-    /// compared as a zero.
+    /// Validates the seed profile, requiring at least one non-empty facet. Facets are restricted to the mode's canonical set; tokens are canonical snake_case codes; empty token sets are dropped.
     pub fn new(
         mode: CohortMode,
         facet_tokens: Vec<(String, Vec<String>)>,
@@ -147,10 +136,7 @@ pub struct CandidateDescriptor {
 }
 
 impl CandidateDescriptor {
-    /// Validates one discovered candidate.
-    ///
-    /// A candidate must be a hosted GitHub repository and must cite the search
-    /// evidence that surfaced it. `stars` is retained only as ordering context.
+    /// Validates one discovered candidate. Must be a hosted GitHub repository citing its search evidence; `stars` is ordering context only.
     pub fn new(
         source: RepositorySource,
         revision: RevisionId,
@@ -202,20 +188,13 @@ impl CandidateSearchOutcome {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CandidateSearchError;
 
-/// The narrow, injectable candidate-search boundary.
-///
-/// The real implementation queries public GitHub search; deterministic fakes
-/// implement it in tests. The port is invoked once per analyzed project and is
-/// never handed a query derived from a discovered candidate.
+/// The narrow, injectable candidate-search boundary. Invoked once per analyzed project; never handed a query derived from a discovered candidate.
 pub trait CandidateSearch {
     /// Returns candidates for exactly one seed query.
     fn search(&self, query: &CohortQuery) -> Result<CandidateSearchOutcome, CandidateSearchError>;
 }
 
-/// A read-only query derived solely from the seed project.
-///
-/// Only [`SeedProject::query`] constructs this, and a discovered candidate never
-/// yields one, so the search port cannot be re-entered from a candidate.
+/// A read-only query derived solely from the seed project. Only [`SeedProject::query`] constructs this, so the search port cannot be re-entered from a candidate.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CohortQuery {
     pub(crate) mode: CohortMode,

@@ -20,8 +20,7 @@ fn fixed_command() -> Command {
     command
         .env_clear()
         .env("ASSAY_TEST_FIXED_TIME", "2026-01-02T03:04:06Z");
-    // Windows sockets fail to initialize without `SystemRoot`, so preserve it
-    // after clearing the environment. It carries no repository-derived input.
+    // Windows sockets need `SystemRoot`; preserve it after env_clear (carries no repo-derived input).
     #[cfg(windows)]
     if let Some(root) = std::env::var_os("SystemRoot") {
         command.env("SystemRoot", root);
@@ -29,8 +28,7 @@ fn fixed_command() -> Command {
     command
 }
 
-// Spawns `serve --once` on an ephemeral loopback port, issues one GET, and
-// returns the raw HTTP response.
+// Spawns `serve --once` on an ephemeral loopback port, issues one GET, returns the raw HTTP response.
 fn serve_once_get(history: &std::path::Path, path: &str) -> String {
     let mut child = fixed_command()
         .arg("serve")

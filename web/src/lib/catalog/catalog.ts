@@ -1,6 +1,4 @@
-// Public re-export barrel for catalog presentation. Splits live in ./catalog/*
-// by responsibility (entry projection, score summary, filter/sort); this file
-// preserves the "@/lib/catalog/catalog" import path every consumer uses.
+// Public re-export barrel for catalog presentation. Splits live in ./catalog/* by responsibility (entry projection, score summary, filter/sort); this file preserves the "@/lib/catalog/catalog" import path consumers use.
 
 export {
   isPublicCatalogEntry,

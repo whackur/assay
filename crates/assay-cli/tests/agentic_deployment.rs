@@ -1,11 +1,5 @@
-//! Integration tests for the concrete agentic deployment adapters: the
-//! Git-backed snapshot workspace and the bounded agent-CLI runner.
-//!
-//! The runner tests use the trusted Git executable as a stand-in agent
-//! binary so they stay portable: probing exercises the real subprocess
-//! mechanics, and a run against an executable that does not understand the
-//! agent contract must surface an explicit failure, never a fabricated
-//! judgment.
+//! Integration tests for the agentic deployment adapters: Git-backed snapshot workspace and bounded agent-CLI runner.
+//! Runner tests use the trusted Git executable as a stand-in agent binary to stay portable while exercising real subprocess mechanics.
 
 use std::{fs, path::PathBuf, process::Command, time::Duration};
 
@@ -54,16 +48,12 @@ fn workspace_materializes_the_exact_tree_with_control_inputs_and_disposes() {
         .materialize(&control_inputs(&commit))
         .expect("materialization must succeed");
 
-    // The snapshot is the exact tree of the analyzed revision: the committed
-    // files exist, the live working copy is untouched, and history (.git) is
-    // not part of the transmitted surface.
+    // Snapshot is the exact analyzed revision: committed files exist, working copy untouched, .git not transmitted.
     assert!(prepared.snapshot_dir().join("README.md").is_file());
     assert!(!prepared.snapshot_dir().join(".git").exists());
     assert_ne!(prepared.snapshot_dir(), fixture.path());
 
-    // The control directory carries the instructions, the canonical payload,
-    // and the mandatory evidence list; the output path is designated inside
-    // the only writable location and is not pre-created.
+    // Control dir carries instructions, payload, and evidence list; output path is the only writable location and is not pre-created.
     let instructions = fs::read_to_string(prepared.control_dir().join("instructions.txt")).unwrap();
     assert!(instructions.contains(AGENT_INSTRUCTIONS));
     assert!(instructions.contains("untrusted data"));
@@ -100,8 +90,7 @@ fn workspace_rejects_a_non_commit_revision_before_any_git_command() {
 
 #[test]
 fn runner_probe_uses_the_trusted_executable_without_a_path_search() {
-    // Git stands in for an agent CLI: `--version` succeeds and yields a
-    // non-empty probed version through the real subprocess machinery.
+    // Git stands in for an agent CLI: `--version` succeeds via real subprocess machinery.
     let runner =
         CodexCliRunner::from_trusted_executable(trusted_git(), Duration::from_secs(30), 64 * 1024)
             .expect("absolute executable with explicit bounds");
@@ -132,8 +121,7 @@ fn incompatible_agent_run_is_an_explicit_failure_not_a_fabricated_judgment() {
         control.join("judgment.json"),
     );
 
-    // Git does not understand the agent contract, exits non-zero, and writes
-    // no judgment; the runner must report failure rather than invent bytes.
+    // Git doesn't understand the agent contract; the runner must fail rather than fabricate a judgment.
     let runner =
         CodexCliRunner::from_trusted_executable(trusted_git(), Duration::from_secs(30), 64 * 1024)
             .expect("absolute executable with explicit bounds");

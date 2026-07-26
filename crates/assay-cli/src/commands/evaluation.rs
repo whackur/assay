@@ -1,11 +1,5 @@
-//! WIRE-001: wires the manifest-to-bundle adapter, the deterministic
-//! evaluator, and the score compiler into `assay project analyze`.
-//!
-//! The chain is deterministic and network-free by default. Private-source AI
-//! processing requires explicit consent; without it the evaluation section
-//! stays `disabled` with `user_consent_required` and no external provider is
-//! constructed. The public numeric Assay Score remains behind the
-//! sufficiency and calibration gates in the compiler.
+//! WIRE-001: wires manifest-to-bundle adapter, deterministic evaluator, and score compiler into `assay project analyze`.
+//! Network-free by default; private-source AI requires explicit consent, else the evaluation section stays `disabled`.
 
 use assay_ai_evaluator::{
     AdapterPrivacy, DeterministicFakeProvider, Evaluator as AiEvaluator, QualitativeRubric,
@@ -21,12 +15,7 @@ use assay_project_intelligence::{
 use crate::errors::{RunError, analysis_failed};
 
 /// Runs the deterministic evaluator and score compiler over one manifest.
-///
-/// Returns the compiled evaluation machine value on success. The evaluation is
-/// deterministic and performs no network I/O. Private-source evidence stays
-/// `PrivateLocal` with `NotUsed` external transmission, so no consent grant is
-/// required for the deterministic path; external providers remain consent-gated
-/// and are not constructed here.
+/// Deterministic, no network I/O; external providers stay consent-gated.
 pub(crate) fn compile_deterministic_evaluation(
     manifest: &ProjectEvidenceManifest,
     classification: &ProjectClassification,
@@ -68,28 +57,17 @@ pub(crate) fn compile_deterministic_evaluation(
     Ok(compiled.to_machine_value())
 }
 
-/// Returns the consent posture governing one analysis run. The local slice
-/// exposes no consent-granting surface yet, so every selectable evaluator ID
-/// starts from the no-grant default: the deterministic evaluator runs without
-/// external transmission, and the AI evaluator IDs require an explicit informed
-/// grant that no local surface can produce yet, so they stay consent-gated.
+/// Consent posture for one analysis run. No local consent-granting surface yet, so AI evaluator IDs stay consent-gated.
 pub(crate) fn evaluation_consent(_evaluator_id: &str) -> ConsentState {
     ConsentState::default()
 }
 
-/// Returns true when the deterministic evaluator may run for this consent
-/// posture. The deterministic evaluator performs no external transmission, so
-/// it runs without consent. External providers require an explicit grant.
+/// True when the deterministic evaluator may run; it performs no external transmission, so no consent required.
 pub(crate) fn deterministic_evaluation_allowed(_consent: &ConsentState) -> bool {
     true
 }
 
-/// Builds a classification input for the score compiler from the manifest.
-///
-/// The deterministic classifier does not yet resolve a project type or maturity
-/// from the manifest, so the classification is unavailable and the compiler
-/// keeps the score unscored rather than inventing one. A future deterministic
-/// rule will populate this without a provider.
+/// Builds a classification input for the score compiler. Classification is unavailable until a future deterministic rule resolves it.
 pub(crate) fn classification_for_compilation(
     manifest: &ProjectEvidenceManifest,
 ) -> Result<ProjectClassification, RunError> {

@@ -6,11 +6,9 @@ use crate::judgment_applicability::RubricApplicability;
 use crate::judgment_criterion::RubricCriterionId;
 
 /// One validated qualitative rubric judgment consumed by the score compiler.
-///
-/// This is the provider-independent contract the deterministic compiler reads.
-/// It carries bounded ratings and citations only; it can never carry a final
-/// dimension or overall score, so a provider cannot emit or override a published
-/// score through it.
+/// Provider-independent contract the deterministic compiler reads. Carries
+/// bounded ratings and citations only — can never carry a final dimension or
+/// overall score, so a provider cannot emit or override a published score.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct RubricJudgment {
     criterion_id: RubricCriterionId,
@@ -23,10 +21,9 @@ pub struct RubricJudgment {
 
 impl RubricJudgment {
     /// Validates one bounded, cited rubric judgment.
-    ///
-    /// A `NotApplicable` criterion carries no rating and may cite no evidence.
-    /// Every other applicability requires a rating within the inclusive scale
-    /// and at least one citation.
+    /// `NotApplicable` carries no rating and may cite no evidence; every other
+    /// applicability requires a rating within the inclusive scale and at least
+    /// one citation.
     pub fn new(
         criterion_id: RubricCriterionId,
         applicability: RubricApplicability,
@@ -92,32 +89,32 @@ impl RubricJudgment {
         })
     }
 
-    /// Returns the stable dotted criterion identifier.
+    /// Stable dotted criterion identifier.
     pub const fn criterion_id(&self) -> &RubricCriterionId {
         &self.criterion_id
     }
 
-    /// Returns criterion applicability without inventing a zero score.
+    /// Criterion applicability without inventing a zero score.
     pub const fn applicability(&self) -> RubricApplicability {
         self.applicability
     }
 
-    /// Returns the bounded rating, absent only when not applicable.
+    /// Bounded rating, absent only when not applicable.
     pub const fn rating(&self) -> Option<u8> {
         self.rating
     }
 
-    /// Returns the inclusive rating upper bound.
+    /// Inclusive rating upper bound.
     pub const fn rating_scale(&self) -> u8 {
         self.rating_scale
     }
 
-    /// Returns validated provider confidence in the closed unit interval.
+    /// Validated provider confidence in the closed unit interval.
     pub const fn confidence(&self) -> f64 {
         self.confidence
     }
 
-    /// Returns cited evidence identifiers in canonical order.
+    /// Cited evidence identifiers in canonical order.
     pub fn evidence_ids(&self) -> &[EvidenceId] {
         &self.evidence_ids
     }

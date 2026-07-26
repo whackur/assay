@@ -1,7 +1,4 @@
-// Defensive narrowing of untyped API/fixture JSON into the versioned contract.
-// It checks presence and shape of load-bearing fields only; it never fills in
-// or derives score values. Per-schema parsers live in ./parse-* modules and
-// re-export here so callers keep the "@/lib/contract/parse" import path.
+// Defensive narrowing of untyped API/fixture JSON into the versioned contract. Checks presence and shape of load-bearing fields only; never fills in or derives score values. Per-schema parsers live in ./parse-* and re-export here so callers keep the "@/lib/contract/parse" import path.
 
 import type {
   ProjectComparison,

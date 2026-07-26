@@ -22,15 +22,7 @@ pub(crate) struct RepositoryFeatureExpectation {
 }
 
 /// Derives one feature solely from records in the public evidence bundle.
-///
-/// A payload-free `path_length_limit` envelope deliberately hides the path, so
-/// this boundary cannot reproduce whether that record was a direct name or
-/// category match. The conservative policy is to treat every opaque envelope
-/// in the applicable evidence layer as a global uncertainty cause whenever no
-/// reliable public match exists. A reliable match takes precedence and cites
-/// only the matching factual records. An opaque cause means that absence cannot
-/// be established; it does not claim that the hidden record contains the
-/// feature.
+/// A payload-free `path_length_limit` envelope hides the path, so this boundary cannot tell a direct name match from a category match. Conservative policy: treat every opaque envelope in the applicable layer as a global uncertainty cause when no reliable public match exists. A reliable match takes precedence and cites only matching factual records. An opaque cause means absence cannot be established, not that the hidden record contains the feature.
 pub(crate) fn derive_repository_feature<'a>(
     feature: &str,
     evidence: impl IntoIterator<Item = &'a Value>,
@@ -183,8 +175,7 @@ mod tests {
 
     #[test]
     fn path_features_cite_every_payload_free_raw_envelope_in_sorted_order() {
-        // One hidden path is a direct-looking match and one is unrelated, but
-        // the public payload-free envelopes are intentionally indistinguishable.
+        // One hidden path looks like a direct match and one is unrelated; payload-free envelopes are intentionally indistinguishable.
         let evidence = [
             envelope("evidence:tracked-file:v1-z", "tracked_file"),
             envelope("evidence:tracked-file:v1-a", "tracked_file"),

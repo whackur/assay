@@ -46,7 +46,7 @@ impl Evaluator {
         self.validate_bytes(&bytes, bundle)
     }
 
-    /// Returns the immutable rubric bound to this evaluator.
+    /// Immutable rubric bound to this evaluator.
     pub(crate) const fn rubric(&self) -> QualitativeRubric {
         self.rubric
     }

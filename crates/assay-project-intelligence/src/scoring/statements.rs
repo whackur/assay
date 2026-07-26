@@ -31,10 +31,7 @@ impl CitedStatement {
     }
 }
 
-/// Separately supplied cited context for the Potential forecast.
-///
-/// The compiler validates citations and passes the narrative through; it does
-/// not invent Potential prose.
+/// Separately supplied cited context for the Potential forecast. The compiler validates citations and passes the narrative through; it does not invent Potential prose.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PotentialContext {
     pub(crate) assumptions: Vec<CitedStatement>,

@@ -5,11 +5,7 @@ import { resolvePanel } from "@/lib/admin/panel";
 import { ssoEnabled } from "@/lib/admin/sso";
 import { LoginForm } from "@/components/admin/LoginForm";
 
-// Admin sign-in under the secret /panel-<slug> path. The form renders whether
-// or not an administrator exists yet, so the page itself never reveals the
-// deployment's setup state; an unconfigured deployment simply rejects the
-// sign-in attempt. In SSO mode sign-in belongs to the identity provider, so
-// this page is a plain 404 like any other missing route.
+// Admin sign-in under the secret /panel-<slug> path. The form renders whether or not an administrator exists yet, so the page itself never reveals the deployment's setup state; an unconfigured deployment simply rejects the sign-in attempt. In SSO mode sign-in belongs to the identity provider, so this page is a plain 404 like any other missing route.
 
 export const dynamic = "force-dynamic";
 

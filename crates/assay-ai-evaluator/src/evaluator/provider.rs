@@ -7,17 +7,16 @@ use super::types::ProviderExecutionBoundary;
 
 /// Adapter boundary shared by deterministic and future external providers.
 pub trait EvaluationProvider {
-    /// Returns a stable adapter identifier for provenance outside this result.
     fn provider_id(&self) -> &'static str;
 
-    /// Declares whether evidence stays local or crosses a provider boundary.
+    /// Whether evidence stays local or crosses a provider boundary.
     fn execution_boundary(&self) -> ProviderExecutionBoundary;
 
-    /// Declares the widest content surface this provider can transmit: the
-    /// bounded bundle alone, or the whole analyzed worktree snapshot.
+    /// Widest content surface this provider can transmit: bounded bundle alone,
+    /// or the whole analyzed worktree snapshot.
     fn transmission_surface(&self) -> TransmissionSurface;
 
-    /// Returns untrusted structured bytes. The evaluator validates all fields.
+    /// Untrusted structured bytes. The evaluator validates all fields.
     fn evaluate(&self, request: &ProviderRequest<'_>) -> Result<Vec<u8>, ProviderError>;
 }
 
@@ -39,7 +38,7 @@ impl DeterministicFakeProvider {
         }
     }
 
-    /// Returns fixed untrusted bytes for negative contract tests.
+    /// Fixed untrusted bytes for negative contract tests.
     pub fn from_raw_response(response: Vec<u8>) -> Self {
         Self {
             response: FakeResponse::Raw(response),

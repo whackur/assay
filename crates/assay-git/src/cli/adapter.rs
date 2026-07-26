@@ -22,9 +22,8 @@ pub struct GitCliAdapter {
 
 impl GitCliAdapter {
     /// Probes one deployment-trusted absolute executable exactly once.
-    ///
-    /// The probe requires Git 2.47 or newer and the global
-    /// `--no-lazy-fetch` option. Repository content never selects this path.
+    /// Requires Git 2.47+ and the global `--no-lazy-fetch` option. Repository
+    /// content never selects this path.
     pub fn from_trusted_executable(
         executable: PathBuf,
         limits: CollectionLimits,

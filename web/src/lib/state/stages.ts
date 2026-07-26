@@ -1,5 +1,4 @@
-// Named analysis stages from specification 12.5. Progress is expressed as the
-// current named stage plus elapsed time, never a fabricated percentage.
+// Named analysis stages from spec 12.5. Progress is expressed as the current named stage plus elapsed time, never a fabricated percentage.
 
 export const ANALYSIS_STAGES = [
   "queued",

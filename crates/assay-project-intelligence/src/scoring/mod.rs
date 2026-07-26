@@ -1,18 +1,6 @@
 //! Deterministic project score compiler.
-//!
-//! The compiler combines deterministic per-dimension rule contributions with
-//! validated qualitative rubric judgments into dimensioned, confidence-aware
-//! scores that implement `schemas/project-evaluation/v1.json`. It performs no
-//! filesystem, process, network, clock, or model-provider I/O; identical input
-//! yields byte-identical output.
-//!
-//! A provider can influence a score only through a bounded [`RubricJudgment`]
-//! rating; it can never emit or override a dimension or the overall Assay Score.
-//! `not_applicable` and unavailable checks never become a zero score. Popularity
-//! signals such as stars, forks, and downloads have no input to the compiler and
-//! therefore cannot raise a score. Potential is compiled separately and is never
-//! included in the Assay Score. Weights and the sufficiency rule are versioned
-//! policy data folded into the published rule-set hash, not scattered constants.
+//! Combines deterministic per-dimension rule contributions with validated rubric judgments into dimensioned, confidence-aware scores implementing `schemas/project-evaluation/v1.json`. No I/O; byte-identical for identical input.
+//! A provider influences a score only through a bounded [`RubricJudgment`] rating — never emits or overrides a dimension or the overall Assay Score. `not_applicable` and unavailable checks never become zero. Popularity signals have no input. Potential is compiled separately, never included in the Assay Score. Weights and the sufficiency rule are versioned policy folded into the published rule-set hash.
 
 mod classification;
 mod compile_stages;

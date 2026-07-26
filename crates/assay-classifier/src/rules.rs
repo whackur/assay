@@ -1,8 +1,6 @@
 //! Built-in v1 path classification dispatcher.
-//!
-//! Applies the v1 path matchers in precedence order and emits the matching
-//! rule identifier, category, and confidence. The matchers themselves live in
-//! `matchers.rs`; this module owns only the precedence and rule identifiers.
+//! Applies v1 path matchers in precedence order and emits the matching rule
+//! identifier, category, and confidence. Matchers live in `matchers.rs`.
 
 use crate::{
     categories::{ClassificationCategory, ClassificationTag},

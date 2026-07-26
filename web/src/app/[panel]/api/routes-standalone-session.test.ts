@@ -1,6 +1,4 @@
-// Route-level contract tests for catalog visibility and logout in standalone
-// mode. Setup and login tests live in routes-standalone.test.ts; shared
-// helpers live in routes.helpers.ts.
+// Route-level contract tests for catalog visibility and logout in standalone mode. Setup and login tests live in routes-standalone.test.ts; shared helpers live in routes.helpers.ts.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";

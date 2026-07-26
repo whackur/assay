@@ -64,22 +64,22 @@ impl ObjectMetadata {
         }
     }
 
-    /// Returns availability independently from the overall snapshot status.
+    /// Availability independently from the overall snapshot status.
     pub const fn status(&self) -> EvidenceStatus {
         self.status
     }
 
-    /// Returns the object size when it was obtained safely.
+    /// Object size when it was obtained safely.
     pub const fn size(&self) -> Option<u64> {
         self.size
     }
 
-    /// Returns a SHA-256 digest when the complete bounded object was read.
+    /// SHA-256 digest when the complete bounded object was read.
     pub const fn content_hash(&self) -> Option<&ContentHash> {
         self.content_hash.as_ref()
     }
 
-    /// Returns a stable reason for partial, unavailable, or unsupported data.
+    /// Stable reason for partial, unavailable, or unsupported data.
     pub const fn issue(&self) -> Option<ObjectIssue> {
         self.issue
     }
@@ -112,27 +112,25 @@ impl TrackedEntry {
         }
     }
 
-    /// Returns the byte-exact repository-relative path.
+    /// Byte-exact repository-relative path.
     pub const fn path(&self) -> &crate::RepositoryPath {
         &self.path
     }
 
-    /// Returns the tracked Git mode.
     pub const fn mode(&self) -> EntryMode {
         self.mode
     }
 
-    /// Returns the referenced Git object kind.
     pub const fn kind(&self) -> ObjectKind {
         self.kind
     }
 
-    /// Returns the referenced immutable Git object ID.
+    /// Referenced immutable Git object ID.
     pub const fn object_id(&self) -> &crate::GitObjectId {
         &self.object_id
     }
 
-    /// Returns bounded content metadata without source bytes.
+    /// Bounded content metadata without source bytes.
     pub const fn content(&self) -> &ObjectMetadata {
         &self.content
     }

@@ -1,9 +1,8 @@
 //! Classification decision and complete result types.
 //!
-//! Split from `lib.rs` so the output contract stays separate from the policy
-//! evaluation that produces it. `ClassificationDecision` is the explainable
-//! intermediate value returned by policy adapters; `FileClassification` is the
-//! versioned, provenance-attached final result.
+//! `ClassificationDecision` is the explainable intermediate value returned by
+//! policy adapters; `FileClassification` is the versioned, provenance-attached
+//! final result.
 
 use std::{collections::BTreeSet, fmt};
 
@@ -13,9 +12,7 @@ use crate::{
 };
 
 /// Complete, explainable classification of one file.
-///
-/// This output measures policy evidence only. It cannot establish source
-/// correctness, value, intent, semantic impact, or contributor performance.
+/// Measures policy evidence only — cannot establish correctness, value, intent, semantic impact, or contributor performance.
 #[derive(Clone, Eq, PartialEq)]
 pub struct FileClassification {
     policy_version: crate::identifiers::PolicyVersion,
@@ -28,10 +25,8 @@ pub struct FileClassification {
 }
 
 /// Explainable decision returned by a classification policy.
-///
-/// The decision does not carry policy identity itself. Callers use
-/// [`crate::classify_with_policy`] so the policy's validated version is attached to
-/// the final result and cannot be omitted by a policy implementation.
+/// Carries no policy identity itself; `classify_with_policy` attaches the
+/// policy's validated version so it cannot be omitted by an adapter.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassificationDecision {
     pub(crate) category: ClassificationCategory,
@@ -42,10 +37,8 @@ pub struct ClassificationDecision {
 }
 
 impl ClassificationDecision {
-    /// Creates an explainable decision for a versioned policy adapter.
-    ///
-    /// Tags are sorted and deduplicated. The primary policy rule is retained
-    /// as evidence automatically if the adapter does not supply it.
+    /// Tags are sorted and deduplicated; the primary rule is retained as
+    /// evidence automatically if the adapter does not supply it.
     pub fn new(
         category: ClassificationCategory,
         tags: impl IntoIterator<Item = crate::categories::ClassificationTag>,
@@ -108,38 +101,32 @@ impl FileClassification {
         }
     }
 
-    /// Returns the validated identity of the complete policy that produced
-    /// this result.
     pub const fn policy_version(&self) -> &crate::identifiers::PolicyVersion {
         &self.policy_version
     }
 
-    /// Returns the single primary category.
     pub const fn category(&self) -> ClassificationCategory {
         self.category
     }
 
-    /// Returns stable, sorted secondary tags.
     pub fn tags(&self) -> &[crate::categories::ClassificationTag] {
         &self.tags
     }
 
-    /// Returns the primary versioned rule identifier.
     pub const fn rule_id(&self) -> &RuleId {
         &self.rule_id
     }
 
-    /// Returns policy confidence, not a quality score.
+    /// Policy confidence, not a quality score.
     pub const fn confidence(&self) -> Confidence {
         self.confidence
     }
 
-    /// Returns non-sensitive rule and attribute provenance.
+    /// Non-sensitive rule and attribute provenance.
     pub fn evidence(&self) -> &[ClassificationEvidence] {
         &self.evidence
     }
 
-    /// Returns whether resolved Git attribute facts were available.
     pub const fn attribute_availability(&self) -> AttributeAvailability {
         self.attribute_availability
     }

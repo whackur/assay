@@ -1,15 +1,7 @@
 import { constantTimeEquals } from "@/lib/admin/auth";
 import { defaultDataDir, getBootstrap } from "@/lib/admin/store";
 
-// The admin area lives only under a secret per-deployment path segment,
-// /panel-<slug> (Jenkins-style defense in depth: a capability URL on top of —
-// never instead of — real session authentication). Every admin page and route
-// handler resolves the incoming [panel] segment through this helper and
-// renders the app's ordinary 404 when it does not match, so /admin, /setup,
-// and wrong-slug guesses are indistinguishable from any other missing page.
-//
-// Operator recovery: the slug and (until setup completes) the one-time setup
-// token are stored server-side in <data dir>/admin.json.
+// Admin area lives under a secret per-deployment path segment /panel-<slug>: a capability URL layered on top of (never instead of) session auth. Wrong-slug guesses render the ordinary 404 so /admin, /setup, and misses are indistinguishable from any other missing page. Slug and one-time setup token live in <data dir>/admin.json.
 
 export const PANEL_PREFIX = "panel-";
 
@@ -27,8 +19,7 @@ export async function resolvePanel(
   try {
     bootstrap = await getBootstrap(defaultDataDir());
   } catch {
-    // An unreadable store must fail closed as a plain 404, never a 500 that
-    // singles the admin path out from the rest of the site.
+    // Unreadable store fails closed as a plain 404, never a 500 that singles the admin path out.
     return null;
   }
   const expected = `${PANEL_PREFIX}${bootstrap.adminSlug}`;

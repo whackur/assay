@@ -1,6 +1,4 @@
-// Atomic load/save and the single-process serialization queue. Writes go
-// through a temp file + rename so a crash never leaves a half-written store.
-// Single-process semantics only — honest for the current standalone deployment.
+// Atomic load/save and single-process serialization queue. Writes go through temp file + rename so a crash never leaves a half-written store. Single-process semantics only — honest for the current standalone deployment.
 
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import {
@@ -36,9 +34,7 @@ async function save(dir: string, state: AdminState): Promise<void> {
   await rename(temp, target);
 }
 
-// All read-modify-write cycles are chained through one promise so two
-// concurrent requests cannot both observe "no admin yet" and both win a
-// load → mutate → save race. Single-process semantics, like the store itself.
+// All read-modify-write cycles chain through one promise so two concurrent requests cannot both observe "no admin yet" and both win a load→mutate→save race. Single-process semantics, like the store itself.
 let writeChain: Promise<unknown> = Promise.resolve();
 
 function serialized<T>(fn: () => Promise<T>): Promise<T> {

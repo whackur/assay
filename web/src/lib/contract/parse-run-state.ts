@@ -1,7 +1,4 @@
-// Parser for schemas/run-state/v1.json. Validates stage state invariants:
-// complete stages carry no reason, partial/unavailable stages require a
-// reason, unavailable stages have no snapshot and exhausted retries, and
-// purged runs drop every snapshot.
+// Parser for schemas/run-state/v1.json. Validates stage state invariants: complete stages carry no reason, partial/unavailable stages require a reason, unavailable stages have no snapshot and exhausted retries, and purged runs drop every snapshot.
 
 import type { RunState, StageState } from "@/lib/contract/types";
 import {

@@ -5,7 +5,7 @@ use crate::cache::{
     version::{CacheVersion, GitHubObjectId},
 };
 
-/// The content identity for one versioned blob analysis.
+/// Content identity for one versioned blob analysis.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BlobAnalysisKey {
     blob: GitHubObjectId,
@@ -36,33 +36,30 @@ impl BlobAnalysisKey {
         }
     }
 
-    /// Returns the immutable blob object identifier.
     pub const fn blob(&self) -> &GitHubObjectId {
         &self.blob
     }
 
-    /// Returns the analyzer version.
     pub const fn analyzer_version(&self) -> &CacheVersion {
         &self.analyzer_version
     }
 
-    /// Returns the rule-set hash.
     pub const fn rule_set_hash(&self) -> &RuleSetHash {
         &self.rule_set_hash
     }
 
-    /// Returns the stable SHA-256 cache digest.
+    /// Stable SHA-256 cache digest.
     pub const fn digest(&self) -> &ContentHash {
         &self.digest
     }
 }
 
-/// A read-only blob-analysis cache result.
+/// Read-only blob-analysis cache result.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BlobCacheState {
-    /// The matching blob analysis can be reused.
+    /// Matching blob analysis can be reused.
     Hit,
-    /// The matching blob requires analysis.
+    /// Matching blob requires analysis.
     Miss,
     /// Cache availability is unknown; analysis may proceed without reuse.
     Unavailable,
@@ -70,6 +67,5 @@ pub enum BlobCacheState {
 
 /// Read-only lookup boundary for blob-hash incremental analysis.
 pub trait BlobCacheLookup {
-    /// Looks up a blob by object hash, analyzer version, and rules.
     fn lookup(&self, key: &BlobAnalysisKey) -> BlobCacheState;
 }

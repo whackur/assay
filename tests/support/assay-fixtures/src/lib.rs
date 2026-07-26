@@ -1,7 +1,4 @@
-//! Deterministic temporary Git repositories for Assay integration tests.
-//!
-//! This crate is test support only. It creates synthetic repository histories
-//! without installing, importing, building, testing, or executing their files.
+//! Deterministic temporary Git repositories for Assay integration tests. Test support only: creates synthetic repository histories without installing, importing, building, testing, or executing their files.
 
 #![forbid(unsafe_code)]
 
@@ -52,12 +49,7 @@ impl RepositoryFixtureBuilder {
         self
     }
 
-    /// Overrides one inherited environment variable for each Git child.
-    ///
-    /// Fixed fixture isolation variables take precedence over these values.
-    /// Keys beginning with `GIT_` (case-insensitively) are ignored entirely.
-    /// This supports parallel-safe tests of hostile host configuration without
-    /// mutating the test process environment.
+    /// Overrides one inherited environment variable for each Git child. Fixed fixture isolation variables take precedence; keys beginning with `GIT_` (case-insensitively) are ignored. Supports parallel-safe tests of hostile host configuration without mutating the test process environment.
     pub fn command_environment(
         mut self,
         key: impl AsRef<std::ffi::OsStr>,

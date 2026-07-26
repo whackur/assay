@@ -1,6 +1,6 @@
 //! Versioned local report envelope rendered by `assay serve`.
 //!
-//! It wraps the deterministic project-analysis payload with private-feature
+//! Wraps the deterministic project-analysis payload with private-feature
 //! section reports and privacy metadata. A local report is always
 //! `private_local` and never catalog-eligible, so private source or its
 //! derivatives cannot enter the public catalog or comparison corpus.
@@ -63,9 +63,7 @@ pub struct LocalReport {
 
 impl LocalReport {
     /// Builds a report from a project-analysis payload and a consent posture.
-    ///
-    /// The analysis source must be `local`; hosted sources are rejected because
-    /// the local dashboard renders only local, non-catalog records.
+    /// The analysis source must be `local`; hosted sources are rejected.
     pub fn from_analysis(
         analysis: Value,
         consent: &ConsentState,

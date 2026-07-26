@@ -3,12 +3,11 @@
 //! The CLI produces a [`ProjectEvidenceManifest`] from
 //! `assay-project-intelligence` and the AI evaluator consumes an
 //! [`EvidenceBundle`]. This module bridges the two without exposing raw source,
-//! diffs, host paths, or person-level language: every manifest fact becomes
-//! one bounded [`EvidenceDescriptor`] whose statement is derived from the
-//! fact's kind and availability, never from the underlying content.
-//!
-//! The adapter is deterministic and performs no I/O. Identical manifests yield
-//! byte-identical bundles, so the downstream bundle hash is stable.
+//! diffs, host paths, or person-level language: every manifest fact becomes one
+//! bounded [`EvidenceDescriptor`] whose statement is derived from the fact's
+//! kind and availability, never from the underlying content. Deterministic and
+//! performs no I/O — identical manifests yield byte-identical bundles, so the
+//! downstream bundle hash is stable.
 
 mod statement;
 
@@ -28,9 +27,8 @@ pub struct AdapterPrivacy {
 }
 
 impl AdapterPrivacy {
-    /// Local private evidence with no external transmission. The default for
-    /// `assay project analyze` running the deterministic evaluator without
-    /// consent: evidence stays on the machine and no provider is constructed.
+    /// Local private evidence with no external transmission. Default for
+    /// `assay project analyze` running the deterministic evaluator without consent.
     pub const fn local_deterministic() -> Self {
         Self {
             scope: EvidenceScope::PrivateLocal,
@@ -38,12 +36,10 @@ impl AdapterPrivacy {
         }
     }
 
-    /// Returns the privacy scope.
     pub const fn scope(self) -> EvidenceScope {
         self.scope
     }
 
-    /// Returns the external-transmission policy.
     pub const fn transmission(self) -> ExternalTransmission {
         self.transmission
     }

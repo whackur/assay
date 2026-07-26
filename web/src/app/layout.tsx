@@ -29,9 +29,7 @@ export const metadata: Metadata = {
     "Submit a public GitHub repository and inspect durable collection status. Scored reports remain clearly labeled samples until the full evaluation pipeline runs.",
 };
 
-// Nothing in the public chrome reads deployment state: the admin area lives
-// only under its secret per-deployment path (see src/lib/admin/panel.ts), so
-// the public site looks identical whether or not an administrator exists.
+// Nothing in the public chrome reads deployment state: the admin area lives only under its secret per-deployment path (see src/lib/admin/panel.ts), so the public site looks identical whether or not an administrator exists.
 
 export default function RootLayout({
   children,

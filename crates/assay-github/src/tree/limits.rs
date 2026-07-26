@@ -38,22 +38,18 @@ impl TreeCollectionLimits {
         })
     }
 
-    /// Returns the maximum number of entries processed in detail.
     pub const fn max_entries(self) -> usize {
         self.max_entries
     }
 
-    /// Returns the maximum response bytes read.
     pub const fn max_response_bytes(self) -> usize {
         self.max_response_bytes
     }
 
-    /// Returns the maximum bytes in one retained path.
     pub const fn max_path_bytes(self) -> usize {
         self.max_path_bytes
     }
 
-    /// Returns the maximum retained project boundaries.
     pub const fn max_boundaries(self) -> usize {
         self.max_boundaries
     }
@@ -79,10 +75,10 @@ pub enum CollectionStatus {
     Partial,
 }
 
-/// A reason why a successful tree collection is partial.
+/// Reason why a successful tree collection is partial.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum TreePartialReason {
-    /// GitHub reported that its recursive tree response was truncated.
+    /// GitHub reported its recursive tree response was truncated.
     ProviderTruncated,
     /// More entries existed than the configured detail bound.
     EntryLimit,

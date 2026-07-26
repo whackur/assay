@@ -17,13 +17,12 @@ pub enum ExternalTransmission {
     ConsentedPrivate,
 }
 
-/// The transmission *surface* a consent acknowledgement covers (ADR 0012).
-///
-/// `BundleOnly` is the API-key family surface: only the bounded evidence
-/// bundle can reach an external provider. `WorktreeSnapshot` is the agentic
-/// family surface: the agent may read and transmit any file of the analyzed
-/// revision, so consent must acknowledge this broader surface by name even
-/// for public repositories.
+/// Transmission surface a consent acknowledgement covers (ADR 0012).
+/// `BundleOnly` is the API-key family surface: only the bounded evidence bundle
+/// can reach an external provider. `WorktreeSnapshot` is the agentic family
+/// surface: the agent may read and transmit any file of the analyzed revision,
+/// so consent must acknowledge this broader surface by name even for public
+/// repositories.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TransmissionSurface {

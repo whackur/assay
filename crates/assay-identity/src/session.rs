@@ -7,10 +7,9 @@ use crate::{
 const SESSION_SECRET_BYTES: usize = 32;
 const SESSION_ID_BYTES: usize = 16;
 
-/// The opaque session cookie value. Secret material; never derives Debug or serde.
-///
-/// This is the only bearer credential a browser holds. No upstream access or
-/// refresh token is ever stored in a session or handed to the browser.
+/// Opaque session cookie value. Secret material; never derives Debug or serde.
+/// The only bearer credential a browser holds; no upstream access or refresh
+/// token is ever stored in a session or handed to the browser.
 #[derive(Clone)]
 pub struct SessionSecret(String);
 
@@ -27,18 +26,17 @@ impl fmt::Debug for SessionSecret {
     }
 }
 
-/// A non-secret session identifier for lineage and audit references.
+/// Non-secret session identifier for lineage and audit references.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct SessionId(String);
 
 impl SessionId {
-    /// Returns the non-secret session identifier.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 }
 
-/// The lifecycle state of an opaque Assay session.
+/// Lifecycle state of an opaque Assay session.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SessionState {
     Active,
@@ -58,7 +56,7 @@ fn generate(entropy: &dyn EntropySource, len: usize) -> String {
     base64url_no_pad(&bytes)
 }
 
-/// An opaque, rotatable Assay session that never holds an upstream token.
+/// Opaque, rotatable Assay session that never holds an upstream token.
 #[derive(Clone, Debug)]
 pub struct Session {
     id: SessionId,
@@ -71,7 +69,6 @@ pub struct Session {
 }
 
 impl Session {
-    /// Establishes a fresh active session bound to an account key.
     pub fn establish(
         account: AccountKey,
         established_at: UnixTime,
@@ -90,37 +87,30 @@ impl Session {
         }
     }
 
-    /// Returns the non-secret session identifier.
     pub const fn id(&self) -> &SessionId {
         &self.id
     }
 
-    /// Returns the opaque cookie secret.
     pub const fn secret(&self) -> &SessionSecret {
         &self.secret
     }
 
-    /// Returns the bound account key.
     pub const fn account(&self) -> &AccountKey {
         &self.account
     }
 
-    /// Returns the current lifecycle state.
     pub const fn state(&self) -> SessionState {
         self.state
     }
 
-    /// Returns the absolute expiry in seconds.
     pub const fn expires_at(&self) -> i64 {
         self.expires_at
     }
 
-    /// Returns the number of rotations applied to this session identity.
     pub const fn rotation_count(&self) -> u32 {
         self.rotation_count
     }
 
-    /// Returns whether the session is usable at the given instant.
     pub fn is_valid(&self, now: UnixTime) -> bool {
         self.state == SessionState::Active && now.as_seconds() < self.expires_at
     }
@@ -149,7 +139,6 @@ impl Session {
         })
     }
 
-    /// Revokes the session immediately.
     pub fn revoke(&mut self) {
         self.state = SessionState::Revoked;
     }

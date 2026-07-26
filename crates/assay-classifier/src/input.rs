@@ -11,8 +11,7 @@ pub struct FileClassificationInput {
 }
 
 impl FileClassificationInput {
-    /// Validates a repository-relative path and combines it with already
-    /// resolved Git attribute facts.
+    /// Validates a repository-relative path and combines it with already resolved Git attribute facts.
     pub fn try_new(
         path: impl TryInto<PortablePath, Error = crate::ClassificationError>,
         attributes: LinguistAttributeFacts,
@@ -23,12 +22,12 @@ impl FileClassificationInput {
         })
     }
 
-    /// Returns the portable path for policy evaluation.
+    /// Portable path for policy evaluation.
     pub const fn path(&self) -> &PortablePath {
         &self.path
     }
 
-    /// Returns resolved Linguist attribute facts.
+    /// Resolved Linguist attribute facts.
     pub const fn attributes(&self) -> LinguistAttributeFacts {
         self.attributes
     }

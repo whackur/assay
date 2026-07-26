@@ -28,8 +28,7 @@ impl BuiltInPolicy {
         }
     }
 
-    /// Classifies one file through the same version-preserving entry point
-    /// used by external policies.
+    /// Classifies one file through the same version-preserving entry point used by external policies.
     pub fn classify(self, input: &FileClassificationInput) -> crate::FileClassification {
         crate::classify_with_policy(&self, input)
     }
@@ -59,8 +58,8 @@ fn evaluate_v1(input: &FileClassificationInput) -> ClassificationDecision {
         vendored_rules_enabled,
     );
 
-    // When both attributes are true, generated is the deterministic primary
-    // category and vendored remains visible as a secondary tag and evidence.
+    // When both attributes are true, generated is the deterministic primary category;
+    // vendored remains visible as a secondary tag and evidence.
     let decision = if attributes.generated() == Some(true) {
         ClassificationDecision::built_in(
             ClassificationCategory::Generated,

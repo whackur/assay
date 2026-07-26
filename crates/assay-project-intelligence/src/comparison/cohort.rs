@@ -74,11 +74,7 @@ impl CohortComparison {
     }
 }
 
-/// Discovers and compares a one-depth functional cohort for one seed project.
-///
-/// The search port is invoked exactly once with the seed query. Discovered
-/// candidates are compared but never re-searched, so discovery terminates at one
-/// depth by construction.
+/// Discovers and compares a one-depth functional cohort. The search port is invoked once with the seed query; candidates are compared but never re-searched.
 pub fn discover_cohort(
     seed: &SeedProject,
     search: &impl CandidateSearch,
@@ -125,9 +121,7 @@ pub fn discover_cohort(
             continue;
         }
         let candidate = compare_candidate(seed, descriptor, policy);
-        // A candidate must earn at least one cited selection reason; a zero
-        // overlap or facet-less result is an explicit insufficiency, not a
-        // zero-similarity detailed entry.
+        // A candidate must earn at least one cited selection reason; zero overlap is an explicit insufficiency, not a zero-similarity entry.
         if candidate.overall_similarity_bp.is_none() || candidate.selection_reasons.is_empty() {
             limitations.push((
                 "candidate_similarity_insufficient".to_owned(),
@@ -191,8 +185,7 @@ fn compare_candidate(
     let mut available = 0usize;
     let mut selection_reasons = Vec::new();
 
-    // Every canonical facet is enumerated; a side without tokens for a facet
-    // makes that facet explicitly unavailable, never a zero.
+    // Every canonical facet is enumerated; a side without tokens for a facet is explicitly unavailable, never a zero.
     let canonical = seed.profile.mode.canonical_facets();
     for &facet in canonical {
         let similarity = match (seed.profile.facets.get(facet), descriptor.facets.get(facet)) {
@@ -242,8 +235,7 @@ fn differentiators(
     seed: &SeedProject,
     descriptor: &CandidateDescriptor,
 ) -> (Vec<Differentiator>, Vec<Differentiator>) {
-    // Non-canonical candidate facets are ignored entirely so their tokens
-    // never leak into public differentiator output.
+    // Non-canonical candidate facets are ignored so their tokens never leak into public differentiator output.
     let canonical = seed.profile.mode.canonical_facets();
     let seed_tokens = union_tokens(&seed.profile.facets, canonical);
     let candidate_tokens = union_tokens(&descriptor.facets, canonical);

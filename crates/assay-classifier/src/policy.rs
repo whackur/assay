@@ -12,23 +12,18 @@ use crate::{
 };
 
 /// Adapter boundary for built-in or externally configured versioned policy.
-///
-/// Future repository, organization, or deployment policy adapters implement
-/// this trait. The built-in policy intentionally contains no project-specific
-/// names or organization-specific exceptions.
+/// The built-in policy intentionally contains no project-specific names or
+/// organization-specific exceptions.
 pub trait ClassificationPolicy {
-    /// Returns this policy's validated, explicit version identity.
     fn policy_version(&self) -> crate::identifiers::PolicyVersion;
 
     /// Evaluates a validated file input without I/O.
     fn evaluate(&self, input: &FileClassificationInput) -> ClassificationDecision;
 }
 
-/// Evaluates a policy and attaches its validated version to the result.
-///
-/// This is the enforced entry point for external policies: implementations
-/// return only a [`ClassificationDecision`], while this function preserves the
-/// policy identity, canonical Linguist facts, and input availability in
+/// Enforced entry point for external policies: implementations return only a
+/// [`ClassificationDecision`], while this function preserves the policy
+/// identity, canonical Linguist facts, and input availability in
 /// [`FileClassification`]. Canonical evidence and tags are deduplicated in a
 /// stable order.
 pub fn classify_with_policy(

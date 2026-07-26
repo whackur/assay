@@ -5,9 +5,7 @@ export const metadata: Metadata = {
   description: "Report a factual or provenance concern about an Assay evaluation.",
 };
 
-// The only feedback path in the first MVP (specification 13, interview 9).
-// Reactions, comments, bookmarks, follows, project claims, and formal appeals
-// are deferred. Users cannot edit or retry a score.
+// The only feedback path in the first MVP (spec 13, interview 9). Reactions, comments, bookmarks, follows, project claims, and formal appeals are deferred. Users cannot edit or retry a score.
 
 export default function ContactPage() {
   return (

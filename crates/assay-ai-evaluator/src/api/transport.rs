@@ -2,12 +2,10 @@ use std::{fmt, time::Duration};
 
 use super::secret::ProviderSecret;
 
-/// The provider-specific authorization header form, without the credential.
+/// Provider-specific authorization header form, without the credential.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AuthorizationScheme {
-    /// The HTTP header carrying the credential, for example `Authorization`.
     pub header_name: &'static str,
-    /// The fixed value prefix before the key material, for example `Bearer `.
     pub value_prefix: &'static str,
 }
 
@@ -21,27 +19,25 @@ pub struct OutboundRequest {
 }
 
 impl OutboundRequest {
-    /// Returns the fixed request endpoint.
     pub fn endpoint(&self) -> &str {
         &self.endpoint
     }
 
-    /// Returns the request body bytes, which never contain the credential.
+    /// Body bytes, which never contain the credential.
     pub fn body(&self) -> &[u8] {
         &self.body
     }
 
-    /// Returns the request timeout budget.
     pub const fn timeout(&self) -> Duration {
         self.timeout
     }
 
-    /// Returns the header name carrying the credential.
+    /// Header name carrying the credential.
     pub const fn authorization_header_name(&self) -> Option<&'static str> {
         self.header_name
     }
 
-    /// Returns the authorization header value; the only credential exposure.
+    /// Authorization header value; the only credential exposure.
     pub fn authorization(&self) -> Option<String> {
         self.authorization
             .as_ref()
@@ -62,7 +58,7 @@ impl fmt::Debug for OutboundRequest {
     }
 }
 
-/// A completed transport response. The status and body are untrusted.
+/// Completed transport response. Status and body are untrusted.
 pub struct TransportResponse {
     pub(crate) status: u16,
     pub(crate) body: Vec<u8>,
@@ -71,7 +67,6 @@ pub struct TransportResponse {
 }
 
 impl TransportResponse {
-    /// Builds a response from an observed status, body, and measured latency.
     pub fn new(status: u16, body: Vec<u8>, latency: Duration) -> Self {
         Self {
             status,

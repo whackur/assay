@@ -6,12 +6,9 @@ import { setSessionCookie } from "@/lib/admin/guard";
 import { resolvePanel } from "@/lib/admin/panel";
 import { ssoEnabled } from "@/lib/admin/sso";
 
-// Admin sign-in, reachable only under the secret /panel-<slug> path; a wrong
-// slug is a plain 404 before any credential handling happens. In SSO mode
-// local credentials do not exist, so the endpoint is a plain 404 as well.
+// Admin sign-in, reachable only under the secret /panel-<slug> path; a wrong slug is a plain 404 before any credential handling. In SSO mode local credentials do not exist, so the endpoint is a plain 404 as well.
 
-// A fixed dummy hash keeps the work factor constant when the username does not
-// match, so login timing does not reveal whether an account name exists.
+// A fixed dummy hash keeps the work factor constant when the username does not match, so login timing does not reveal whether an account name exists.
 const dummyHashPromise = hashPassword("assay-dummy-password-for-timing");
 
 interface RouteContext {
@@ -29,8 +26,7 @@ export async function POST(
   const dir = defaultDataDir();
   const admin = await getAdmin(dir);
   if (!admin) {
-    // Only holders of the secret path get this far, so pointing the operator
-    // back at the server-console setup URL leaks nothing to outsiders.
+    // Only holders of the secret path get this far, so pointing the operator back at the server-console setup URL leaks nothing to outsiders.
     return NextResponse.json(
       {
         error:
