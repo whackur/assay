@@ -18,7 +18,7 @@ impl RepositoryInputError {
         Self::new("revision selector is not canonical")
     }
 
-    /// Returns a non-sensitive machine-stable reason.
+    /// Non-sensitive machine-stable reason.
     pub const fn reason(self) -> &'static str {
         self.reason
     }
@@ -104,22 +104,22 @@ impl CanonicalGitHubRepository {
         })
     }
 
-    /// Returns the canonical lowercase owner.
+    /// Canonical lowercase owner.
     pub fn owner(&self) -> &str {
         &self.owner
     }
 
-    /// Returns the canonical lowercase repository name.
+    /// Canonical lowercase repository name.
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Returns the canonical `owner/repository` identifier.
+    /// Canonical `owner/repository` identifier.
     pub fn identifier(&self) -> &str {
         &self.identifier
     }
 
-    /// Returns the canonical public HTTPS URL.
+    /// Canonical public HTTPS URL.
     pub fn url(&self) -> &str {
         &self.url
     }

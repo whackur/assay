@@ -3,8 +3,7 @@
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 
-// basePath is the deployment's secret admin base ("/panel-<slug>"); the form
-// only ever talks to endpoints under it.
+// basePath is the deployment's secret admin base ("/panel-<slug>"); the form only ever talks to endpoints under it.
 export function LoginForm({ basePath }: { basePath: string }) {
   const router = useRouter();
   const usernameId = useId();
@@ -32,9 +31,7 @@ export function LoginForm({ basePath }: { basePath: string }) {
     const payload = (await response.json().catch(() => null)) as
       | { error?: string; setupRequired?: boolean }
       | null;
-    // setupRequired: no admin exists yet. The setup page needs the one-time
-    // token from the server console, so show the pointer instead of
-    // redirecting to a page that would 404 without it.
+    // setupRequired: no admin exists yet. The setup page needs the one-time token from the server console, so show the pointer instead of redirecting to a page that would 404 without it.
     setError(payload?.error ?? "Sign-in failed. Check the server logs.");
     setPending(false);
   }

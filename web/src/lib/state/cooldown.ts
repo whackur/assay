@@ -1,5 +1,4 @@
-// Refresh cooldown display from specification 12.3. This computes when a
-// resubmission becomes eligible; it is not the abuse quota and grants nothing.
+// Refresh cooldown display from spec 12.3. Computes when a resubmission becomes eligible; not the abuse quota and grants nothing.
 
 export type EvaluatorProfileKind = "anonymous" | "authenticated";
 

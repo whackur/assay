@@ -1,7 +1,6 @@
 import type { Score, Status } from "@/lib/contract/types";
 
-// Presentation-only mapping. Values come straight from the compiled contract;
-// this never derives, rounds policy, or infers a score.
+// Presentation-only mapping. Values come straight from the compiled contract; never derives, rounds policy, or infers a score.
 
 export type ConfidenceBand = "low" | "medium" | "high";
 

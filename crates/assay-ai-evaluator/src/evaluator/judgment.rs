@@ -10,7 +10,7 @@ use crate::{EvidenceScope, ExternalTransmission};
 
 use super::types::{Applicability, EvaluationStatus};
 
-/// A provider judgment accepted against the exact rubric and evidence bundle.
+/// Provider judgment accepted against the exact rubric and evidence bundle.
 #[derive(Clone, PartialEq, Serialize)]
 pub struct ValidatedJudgment {
     pub(crate) criterion_id: String,
@@ -38,43 +38,39 @@ impl std::fmt::Debug for ValidatedJudgment {
 }
 
 impl ValidatedJudgment {
-    /// Returns the stable project-level criterion ID.
     pub fn criterion_id(&self) -> &str {
         &self.criterion_id
     }
 
-    /// Returns criterion applicability.
     pub const fn applicability(&self) -> Applicability {
         self.applicability
     }
 
-    /// Returns the bounded rating, absent only when not applicable.
+    /// Absent only when not applicable.
     pub const fn rating(&self) -> Option<u8> {
         self.rating
     }
 
-    /// Returns the inclusive rating upper bound.
     pub const fn rating_scale(&self) -> u8 {
         self.rating_scale
     }
 
-    /// Returns provider confidence after range validation.
     pub const fn confidence(&self) -> f64 {
         self.confidence
     }
 
-    /// Returns citations proven to exist in the input bundle.
+    /// Citations proven to exist in the input bundle.
     pub fn evidence_ids(&self) -> &[EvidenceId] {
         &self.evidence_ids
     }
 
-    /// Returns bounded untrusted-provider prose for explanation only.
+    /// Untrusted provider prose for explanation only, never scoring.
     pub fn rationale(&self) -> &str {
         &self.rationale
     }
 }
 
-/// Numeric and citation-only view intended for deterministic score compilation.
+/// Numeric and citation-only view for deterministic score compilation.
 #[derive(Clone, Copy, Debug)]
 pub struct ScoringJudgment<'a> {
     criterion_id: &'a str,
@@ -86,32 +82,26 @@ pub struct ScoringJudgment<'a> {
 }
 
 impl<'a> ScoringJudgment<'a> {
-    /// Returns the stable project criterion ID.
     pub const fn criterion_id(&self) -> &'a str {
         self.criterion_id
     }
 
-    /// Returns applicability without provider prose.
     pub const fn applicability(&self) -> Applicability {
         self.applicability
     }
 
-    /// Returns the bounded rating.
     pub const fn rating(&self) -> Option<u8> {
         self.rating
     }
 
-    /// Returns the fixed rating scale.
     pub const fn rating_scale(&self) -> u8 {
         self.rating_scale
     }
 
-    /// Returns validated provider confidence.
     pub const fn confidence(&self) -> f64 {
         self.confidence
     }
 
-    /// Returns validated citations.
     pub const fn evidence_ids(&self) -> &'a [EvidenceId] {
         self.evidence_ids
     }
@@ -136,27 +126,23 @@ pub(crate) struct ValidatedPrivacy {
 }
 
 impl ValidatedJudgmentSet {
-    /// Returns whether this validated result contains a usable rubric judgment.
     pub(crate) const fn is_usable(&self) -> bool {
         self.status.is_usable()
     }
 
-    /// Returns the rubric version accepted by the validator.
     pub fn rubric_version(&self) -> &str {
         &self.rubric_version
     }
 
-    /// Returns the content hash bound to every accepted citation.
     pub fn evidence_bundle_hash(&self) -> &str {
         &self.evidence_bundle_hash
     }
 
-    /// Returns judgments in canonical criterion order.
     pub fn judgments(&self) -> &[ValidatedJudgment] {
         &self.judgments
     }
 
-    /// Returns a score-compiler view that cannot access provider rationale.
+    /// Score-compiler view with no access to provider rationale.
     pub fn scoring_judgments(&self) -> impl Iterator<Item = ScoringJudgment<'_>> {
         self.judgments.iter().map(|judgment| ScoringJudgment {
             criterion_id: &judgment.criterion_id,
@@ -168,12 +154,7 @@ impl ValidatedJudgmentSet {
         })
     }
 
-    /// Maps the validated result onto the shared domain judgment contract that
-    /// the deterministic score compiler consumes.
-    ///
-    /// Provider rationale is intentionally dropped; only bounded ratings and
-    /// citations cross into the compiler contract, so no provider prose or
-    /// provider-emitted score can reach a published score.
+    /// Drops provider rationale so no provider prose or score reaches a published score.
     pub fn to_rubric_judgment_set(&self) -> Result<RubricJudgmentSet, DomainValueError> {
         let judgments = self
             .scoring_judgments()

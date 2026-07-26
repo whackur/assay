@@ -13,8 +13,7 @@ impl Confidence {
     pub(crate) const MEDIUM: Self = Self(7_500);
     pub(crate) const LOW: Self = Self(5_000);
 
-    /// Creates confidence from integer basis points in the inclusive range
-    /// 0 through 10,000.
+    /// Confidence from integer basis points in the inclusive range 0 through 10,000.
     pub fn try_from_basis_points(value: u16) -> Result<Self, ClassificationError> {
         if value > 10_000 {
             return Err(ClassificationError::confidence(
@@ -24,7 +23,7 @@ impl Confidence {
         Ok(Self(value))
     }
 
-    /// Returns confidence in basis points, where 10,000 is 1.0.
+    /// Confidence in basis points, where 10,000 is 1.0.
     pub const fn basis_points(self) -> u16 {
         self.0
     }

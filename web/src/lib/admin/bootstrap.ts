@@ -3,17 +3,11 @@ import { defaultDataDir, getBootstrap } from "@/lib/admin/store";
 import { PANEL_PREFIX } from "@/lib/admin/panel";
 import { ssoEnabled } from "@/lib/admin/sso";
 
-// First-boot console banner (Jenkins initialAdminPassword pattern). While no
-// administrator exists, every server start prints the one-time setup URL —
-// secret panel slug plus setup token — to stdout, where only the operator
-// (terminal or `docker logs`) can read it. Nothing on the public site ever
-// links to or hints at the admin area.
+// First-boot console banner (Jenkins initialAdminPassword pattern): while no admin exists, every server start prints the one-time setup URL (slug + token) to stdout, where only the operator can read it. Nothing on the public site links to or hints at the admin area.
 
 export async function printFirstRunBannerIfNeeded(): Promise<void> {
   const dir = defaultDataDir();
-  // In SSO mode there is no local setup flow (the setup URL below would 404),
-  // but the operator still needs the secret panel path, which only lives in
-  // the store. Print that and stop.
+  // SSO mode has no local setup flow (setup URL would 404), but the operator still needs the secret panel path from the store.
   if (ssoEnabled()) {
     try {
       const bootstrap = await getBootstrap(dir);

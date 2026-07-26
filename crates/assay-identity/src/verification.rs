@@ -32,7 +32,7 @@ pub enum SignatureError {
     JwksUnavailable,
 }
 
-/// An authenticated assertion: the algorithm proven and the resulting claim set.
+/// Authenticated assertion: the algorithm proven and the resulting claim set.
 #[derive(Clone, Debug)]
 pub struct VerifiedAssertion {
     algorithm: SigningAlgorithm,
@@ -40,29 +40,25 @@ pub struct VerifiedAssertion {
 }
 
 impl VerifiedAssertion {
-    /// Wraps the algorithm a verifier proved and the claims it recovered.
     pub const fn new(algorithm: SigningAlgorithm, claims: VerifiedClaims) -> Self {
         Self { algorithm, claims }
     }
 
-    /// Returns the proven signing algorithm.
     pub const fn algorithm(&self) -> SigningAlgorithm {
         self.algorithm
     }
 
-    /// Returns the authenticated claims prior to policy validation.
+    /// Authenticated claims prior to policy validation.
     pub const fn claims(&self) -> &VerifiedClaims {
         &self.claims
     }
 }
 
-/// Signature and JWKS crypto seam. The concrete verifier lives outside this crate.
-///
-/// It proves the token signature over the issuer JWKS and reports the algorithm
-/// used; it does not decide whether that algorithm, issuer, audience, or time is
-/// acceptable. All policy checks stay in [`TokenValidator`].
+/// Signature and JWKS crypto seam. Concrete verifier lives outside this crate.
+/// Proves the token signature over the issuer JWKS and reports the algorithm;
+/// it does not decide whether algorithm, issuer, audience, or time is
+/// acceptable — all policy checks stay in [`TokenValidator`].
 pub trait SignatureVerifier {
-    /// Verifies one compact token and returns its authenticated assertion.
     fn verify(&self, token: &UpstreamIdToken) -> Result<VerifiedAssertion, SignatureError>;
 }
 
@@ -83,7 +79,7 @@ pub enum ValidationError {
 }
 
 impl ValidationError {
-    /// Returns the stable machine-readable code without any rejected value.
+    /// Stable machine-readable code without any rejected value.
     pub const fn code(self) -> &'static str {
         match self {
             Self::SignatureRejected => "signature_rejected",
@@ -109,7 +105,7 @@ impl fmt::Display for ValidationError {
 
 impl std::error::Error for ValidationError {}
 
-/// A validated identity: the durable account key and its authenticated claims.
+/// Validated identity: the durable account key and its authenticated claims.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VerifiedIdentity {
     account_key: AccountKey,
@@ -118,17 +114,17 @@ pub struct VerifiedIdentity {
 }
 
 impl VerifiedIdentity {
-    /// Returns the durable `(issuer, subject)` account key.
+    /// Durable `(issuer, subject)` account key.
     pub const fn account_key(&self) -> &AccountKey {
         &self.account_key
     }
 
-    /// Returns the issued-at time used as the authentication time.
+    /// Issued-at time used as the authentication time.
     pub const fn authentication_time(&self) -> i64 {
         self.authentication_time
     }
 
-    /// Returns the authenticated claims retained for local role mapping.
+    /// Authenticated claims retained for local role mapping.
     pub const fn claims(&self) -> &VerifiedClaims {
         &self.claims
     }
@@ -140,7 +136,6 @@ pub struct TokenValidator<'a> {
 }
 
 impl<'a> TokenValidator<'a> {
-    /// Binds a validator to one immutable deployment configuration.
     pub const fn new(config: &'a OidcDeploymentConfig) -> Self {
         Self { config }
     }
@@ -188,8 +183,7 @@ impl<'a> TokenValidator<'a> {
             return Err(ValidationError::AudienceMismatch);
         }
         let client = self.config.client_id().as_str();
-        // OIDC Core 3.1.3.7: a present azp must equal the client id regardless of
-        // audience count, and multiple audiences require azp to be present.
+        // OIDC Core 3.1.3.7: a present azp must equal the client id regardless of audience count; multiple audiences require azp.
         match claims.authorized_party() {
             Some(party) if party != client => {
                 return Err(ValidationError::AuthorizedPartyMismatch);

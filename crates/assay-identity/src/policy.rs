@@ -3,7 +3,6 @@ use crate::{
 };
 
 /// One trusted upstream claim that a deployment maps to Assay Administrator.
-///
 /// The trusted value is deployment configuration, not an imported provider role
 /// enum. Assay compares claim values as opaque strings and never queries the
 /// upstream user database.
@@ -14,7 +13,6 @@ pub struct TrustedAdminClaim {
 }
 
 impl TrustedAdminClaim {
-    /// Declares a trusted `(claim_name, value)` administrator mapping.
     pub fn new(claim_name: ClaimName, value: &str) -> Self {
         Self {
             claim_name,
@@ -22,7 +20,6 @@ impl TrustedAdminClaim {
         }
     }
 
-    /// Returns the claim name inspected for the trusted value.
     pub const fn claim_name(&self) -> &ClaimName {
         &self.claim_name
     }
@@ -35,7 +32,7 @@ pub enum RoleSource {
     MappedAdministrator { matched_claim: ClaimName },
 }
 
-/// The result of evaluating identity against the administrator mapping policy.
+/// Result of evaluating identity against the administrator mapping policy.
 #[derive(Clone, Debug)]
 pub struct RoleAssignment {
     role: LocalRole,
@@ -44,24 +41,21 @@ pub struct RoleAssignment {
 }
 
 impl RoleAssignment {
-    /// Returns the assigned local role.
     pub const fn role(&self) -> LocalRole {
         self.role
     }
 
-    /// Returns the provenance of the assignment.
     pub const fn source(&self) -> &RoleSource {
         &self.source
     }
 
-    /// Returns the audit event emitted for a privileged mapping.
+    /// Audit event emitted for a privileged mapping.
     pub const fn audit(&self) -> Option<&AuditEvent> {
         self.audit.as_ref()
     }
 }
 
 /// Explicit deployment policy mapping trusted upstream claims to Administrator.
-///
 /// An empty policy grants no administrator; an external role alone never elevates.
 #[derive(Clone, Debug)]
 pub struct AdministratorMappingPolicy {
@@ -70,7 +64,6 @@ pub struct AdministratorMappingPolicy {
 }
 
 impl AdministratorMappingPolicy {
-    /// Builds a versioned policy from explicit trusted claims.
     pub fn new(version: &str, trusted_claims: Vec<TrustedAdminClaim>) -> Self {
         Self {
             version: version.to_owned(),
@@ -78,12 +71,12 @@ impl AdministratorMappingPolicy {
         }
     }
 
-    /// Builds a policy that never maps any claim to Administrator.
+    /// Policy that never maps any claim to Administrator.
     pub fn none(version: &str) -> Self {
         Self::new(version, Vec::new())
     }
 
-    /// Returns the policy version stamped onto audit records.
+    /// Policy version stamped onto audit records.
     pub fn version(&self) -> &str {
         &self.version
     }

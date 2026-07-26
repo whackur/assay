@@ -31,12 +31,12 @@ impl<P: ApiProviderProfile, S: SecretStore, T: HttpTransport> ApiKeyEvaluator<P,
         }
     }
 
-    /// Returns the injected transport, primarily for deployment introspection.
+    /// Injected transport, primarily for deployment introspection.
     pub const fn transport(&self) -> &T {
         &self.transport
     }
 
-    /// Returns the provider profile bound to this adapter.
+    /// Provider profile bound to this adapter.
     pub const fn profile(&self) -> &P {
         &self.profile
     }

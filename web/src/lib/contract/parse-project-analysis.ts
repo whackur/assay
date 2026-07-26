@@ -1,6 +1,4 @@
-// Parser for schemas/project-analysis/v1.json. Validates the bundle shape and
-// delegates to the manifest parser for the nested manifest instance. Evidence
-// instances are validated inline to avoid a circular import with ./parse.
+// Parser for schemas/project-analysis/v1.json. Validates the bundle shape and delegates to the manifest parser for the nested manifest instance. Evidence instances are validated inline to avoid a circular import with ./parse.
 
 import type { ProjectAnalysis } from "@/lib/contract/types";
 import {

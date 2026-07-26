@@ -5,9 +5,9 @@ use crate::identifiers::RuleId;
 /// Kind of provenance retained by a classification result.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ClassificationEvidenceKind {
-    /// A named versioned policy rule matched input facts.
+    /// Named versioned policy rule matched input facts.
     PolicyRule,
-    /// A resolved `.gitattributes` Linguist value was applied.
+    /// Resolved `.gitattributes` Linguist value was applied.
     LinguistAttribute,
     /// Attribute resolution was explicitly unavailable.
     AttributeFactsUnavailable,
@@ -23,7 +23,6 @@ pub struct ClassificationEvidence {
 }
 
 impl ClassificationEvidence {
-    /// Creates non-sensitive evidence for an external versioned policy rule.
     pub fn policy_rule(rule_id: RuleId) -> Self {
         Self {
             kind: ClassificationEvidenceKind::PolicyRule,
@@ -51,27 +50,25 @@ impl ClassificationEvidence {
         }
     }
 
-    /// Returns the provenance kind.
     pub const fn kind(&self) -> ClassificationEvidenceKind {
         self.kind
     }
 
-    /// Returns the rule that supplied this evidence.
     pub const fn rule_id(&self) -> &RuleId {
         &self.rule_id
     }
 
-    /// Returns a Linguist attribute name for attribute evidence.
+    /// Linguist attribute name for attribute evidence.
     pub const fn attribute_name(&self) -> Option<&'static str> {
         self.attribute_name
     }
 
-    /// Returns a Linguist attribute value for attribute evidence.
+    /// Linguist attribute value for attribute evidence.
     pub const fn attribute_value(&self) -> Option<bool> {
         self.attribute_value
     }
 
-    /// Returns true when this evidence preserves unavailable attribute facts.
+    /// Whether this evidence preserves unavailable attribute facts.
     pub const fn is_unavailable(&self) -> bool {
         matches!(
             self.kind,

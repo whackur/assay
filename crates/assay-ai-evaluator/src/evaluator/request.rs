@@ -62,47 +62,45 @@ impl<'a> ProviderRequest<'a> {
         })
     }
 
-    /// Returns fixed provider-independent system instructions.
     pub const fn system_instructions(&self) -> &'static str {
         SYSTEM_INSTRUCTIONS
     }
 
-    /// Returns the versioned canonical data payload with explicit delimiters.
+    /// Versioned canonical data payload with explicit delimiters.
     pub fn canonical_payload(&self) -> &str {
         &self.canonical_payload
     }
 
-    /// Returns the exact rubric version expected in the response.
+    /// Exact rubric version expected in the response.
     pub const fn rubric_version(&self) -> &'static str {
         self.rubric.version()
     }
 
-    /// Returns the expected evaluation version.
+    /// Expected evaluation version.
     pub const fn evaluation_version(&self) -> &'static str {
         self.rubric.evaluation_version()
     }
 
-    /// Returns bounded project criteria, never person-level criteria.
+    /// Bounded project criteria, never person-level criteria.
     pub const fn criteria(&self) -> &[QualitativeCriterion] {
         self.rubric.criteria()
     }
 
-    /// Returns bounded evidence descriptors in canonical order.
+    /// Bounded evidence descriptors in canonical order.
     pub fn evidence(&self) -> &[EvidenceDescriptor] {
         self.bundle.items()
     }
 
-    /// Returns the expected evidence bundle hash.
+    /// Expected evidence bundle hash.
     pub fn evidence_bundle_hash(&self) -> &str {
         self.bundle.content_hash()
     }
 
-    /// Returns the input evidence scope.
     pub const fn evidence_scope(&self) -> EvidenceScope {
         self.bundle.scope()
     }
 
-    /// Returns the enforced external-transmission policy.
+    /// Enforced external-transmission policy.
     pub const fn external_transmission(&self) -> ExternalTransmission {
         self.bundle.transmission()
     }

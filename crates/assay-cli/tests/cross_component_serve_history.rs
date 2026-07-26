@@ -62,11 +62,7 @@ fn record_history_round_trips_the_local_report_contract_over_serve() {
 
 #[test]
 fn private_repository_ai_processing_requires_explicit_consent() {
-    // ADR 0012: the local slice exposes no consent-granting surface, so the
-    // recorded report keeps its `ai_evaluation` section `disabled` with
-    // `user_consent_required`. The deterministic evaluator still runs because
-    // it performs no external transmission, but no external provider is ever
-    // constructed for a private repository without an explicit grant.
+    // ADR 0012: no consent-granting surface, so AI evaluation stays `disabled`; the deterministic evaluator still runs (no external transmission).
     let fixture = RepositoryFixture::build(RepositoryScenario::TypeScriptProject)
         .expect("fixture must build");
     let history = tempfile::TempDir::new().unwrap();

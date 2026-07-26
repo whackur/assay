@@ -43,11 +43,7 @@ impl AdminAction {
     }
 }
 
-/// A capability held only by an administrator.
-///
-/// Presenting this token is the gate for every recovery operation. The identity
-/// layer decides who may assume it (its `analysis.admin.*` entitlements); this
-/// crate stays free of any provider or role source.
+/// A capability held only by an administrator. Presenting this token gates every recovery operation. The identity layer decides who may assume it; this crate stays free of any provider or role source.
 #[derive(Clone, Copy, Debug)]
 pub struct Administrator(());
 

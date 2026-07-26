@@ -2,12 +2,8 @@
 //!
 //! Each analysis appends a new immutable record; a rescan never overwrites a
 //! prior snapshot. Soft deletion, restoration, and purge are append-only
-//! journal operations reserved for the local administrator. There is no
-//! database: records are JSON files under a history root directory.
-//!
-//! The module is split by responsibility: [`admin`] owns the operator
-//! capability token, [`types`] owns the public domain types, [`journal`] owns
-//! the append-only journal, and [`store`] owns the file-based record store.
+//! journal operations reserved for the local administrator. No database:
+//! records are JSON files under a history root directory.
 
 mod admin;
 mod journal;

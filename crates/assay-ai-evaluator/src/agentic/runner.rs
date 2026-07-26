@@ -1,6 +1,6 @@
 use super::workspace::PreparedWorkspace;
 
-/// The probed identity of one trusted agent CLI installation.
+/// Probed identity of one trusted agent CLI installation.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentIdentity {
     cli: String,
@@ -8,17 +8,14 @@ pub struct AgentIdentity {
 }
 
 impl AgentIdentity {
-    /// Records the agent CLI name and probed version.
     pub const fn new(cli: String, version: String) -> Self {
         Self { cli, version }
     }
 
-    /// Returns the agent CLI identity, for example `codex`.
     pub fn cli(&self) -> &str {
         &self.cli
     }
 
-    /// Returns the probed agent CLI version.
     pub fn version(&self) -> &str {
         &self.version
     }
@@ -31,17 +28,16 @@ pub struct AgentRun {
 }
 
 impl AgentRun {
-    /// Records the collected output of one bounded agent subprocess.
     pub const fn new(judgment: Vec<u8>, run_id: String) -> Self {
         Self { judgment, run_id }
     }
 
-    /// Returns the untrusted judgment bytes for the shared validator.
+    /// Untrusted judgment bytes for the shared validator.
     pub fn judgment(&self) -> &[u8] {
         &self.judgment
     }
 
-    /// Returns the non-deterministic identifier of this single run.
+    /// Non-deterministic identifier of this single run.
     pub fn run_id(&self) -> &str {
         &self.run_id
     }
@@ -58,23 +54,23 @@ impl std::fmt::Debug for AgentRun {
 }
 
 /// Redacted agent-run failure. A limit always produces an explicit failure
-/// rather than a fabricated result, and no variant retains process output.
+/// rather than a fabricated result; no variant retains process output.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AgentRunError {
     /// No compatible, authenticated agent CLI installation was found.
     ProbeFailed,
-    /// The bounded wall-clock runtime elapsed before a judgment was written.
+    /// Bounded wall-clock runtime elapsed before a judgment was written.
     Timeout,
-    /// The agent wrote more output than the configured bound allows.
+    /// Agent wrote more output than the configured bound allows.
     OutputTooLarge,
-    /// The agent attempted to escape its read-only or write constraints.
+    /// Agent attempted to escape its read-only or write constraints.
     SandboxViolation,
-    /// The subprocess failed or produced no judgment document.
+    /// Subprocess failed or produced no judgment document.
     Failure,
 }
 
-/// Agent process seam. The concrete runner spawns one bounded subprocess
-/// with the snapshot as its constrained working directory; it lives in the
+/// Agent process seam. The concrete runner spawns one bounded subprocess with
+/// the snapshot as its constrained working directory; it lives in the
 /// deployment layer and resolves its executable per the ADR 0002 pattern.
 pub trait AgentRunner {
     /// Probes the trusted agent CLI identity and version before any run.

@@ -6,12 +6,11 @@ pub struct QualitativeCriterion {
 }
 
 impl QualitativeCriterion {
-    /// Returns the stable project-level criterion identifier.
     pub const fn id(&self) -> &'static str {
         self.id
     }
 
-    /// Returns the inclusive upper rating bound; zero is the lower bound.
+    /// Inclusive upper rating bound; zero is the lower bound.
     pub const fn rating_scale(&self) -> u8 {
         self.rating_scale
     }
@@ -45,7 +44,7 @@ pub struct QualitativeRubric {
 }
 
 impl QualitativeRubric {
-    /// Returns the initial project rubric from the Project Intelligence spec.
+    /// Initial project rubric from the Project Intelligence spec.
     pub const fn project_v1() -> Self {
         Self {
             version: "project-rubric-1",
@@ -54,17 +53,17 @@ impl QualitativeRubric {
         }
     }
 
-    /// Returns the version recorded in provider output and snapshots.
+    /// Version recorded in provider output and snapshots.
     pub const fn version(&self) -> &'static str {
         self.version
     }
 
-    /// Returns the Project Intelligence evaluation-version boundary.
+    /// Project Intelligence evaluation-version boundary.
     pub const fn evaluation_version(&self) -> &'static str {
         self.evaluation_version
     }
 
-    /// Returns criteria in canonical identifier order.
+    /// Criteria in canonical identifier order.
     pub const fn criteria(&self) -> &'static [QualitativeCriterion] {
         self.criteria
     }

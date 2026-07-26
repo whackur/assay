@@ -224,9 +224,7 @@ impl ProjectRun {
         Ok(self.record_admin(AdminAction::Restore, None, recorded_at))
     }
 
-    /// Purges the run, irrecoverably dropping stage result content.
-    ///
-    /// The audit trail is retained; only produced content is removed.
+    /// Purges the run, irrecoverably dropping stage result content. The audit trail is retained.
     pub fn purge(
         &mut self,
         _administrator: &Administrator,

@@ -5,10 +5,7 @@ import { requestSessionId } from "@/lib/admin/guard";
 import { resolvePanel } from "@/lib/admin/panel";
 import { RECORDS } from "@/lib/api/fixtures";
 
-// Authenticated catalog visibility toggle. Hiding an entry removes it from the
-// public catalog lists; the underlying evaluation record is untouched. Accepts
-// a plain form post so the dashboard works without client JavaScript. The
-// secret /panel-<slug> path gates the route; the session gates the action.
+// Authenticated catalog visibility toggle. Hiding an entry removes it from the public catalog lists; the underlying evaluation record is untouched. Accepts a plain form post so the dashboard works without client JavaScript. The secret /panel-<slug> path gates the route; the session gates the action.
 
 interface RouteContext {
   params: Promise<{ panel: string }>;

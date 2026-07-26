@@ -2,11 +2,7 @@ import { RECORDS } from "@/lib/api/fixtures";
 import type { CatalogEntry } from "@/lib/catalog/catalog";
 import { isPublicCatalogEntry, toCatalogEntry } from "@/lib/catalog/catalog";
 
-// Catalog listing metadata. `assayed_at` orders Recently Assayed; `featured`
-// labels an editorially featured home card, which specification 13 requires to
-// be independent of the score and visibly labeled. Listings reference complete
-// evaluation records; a private-preview record is filtered out of the public
-// catalog rather than hidden by omission.
+// Catalog listing metadata. `assayed_at` orders Recently Assayed; `featured` labels an editorially featured home card, which spec 13 requires to be independent of the score and visibly labeled. Listings reference complete evaluation records; a private-preview record is filtered out of the public catalog rather than hidden by omission.
 
 export interface CatalogListing {
   id: string;

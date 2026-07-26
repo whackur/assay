@@ -1,7 +1,4 @@
-// Parser for schemas/ai-judgment/v1.json. Validates the rubric judgment
-// invariants: not_applicable judgments carry a null rating, every other
-// applicability requires an integer rating and at least one evidence id, and
-// complete/partial bundles carry at least one judgment.
+// Parser for schemas/ai-judgment/v1.json. Validates rubric judgment invariants: not_applicable judgments carry a null rating, every other applicability requires an integer rating and at least one evidence id, and complete/partial bundles carry at least one judgment.
 
 import type { AiJudgment } from "@/lib/contract/types";
 import {

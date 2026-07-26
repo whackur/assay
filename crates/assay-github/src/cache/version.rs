@@ -9,7 +9,7 @@ const MAX_VERSION_BYTES: usize = 100;
 pub struct ProviderRepositoryId(u64);
 
 impl ProviderRepositoryId {
-    /// Creates a non-zero provider repository identifier.
+    /// Non-zero provider repository identifier.
     pub fn new(value: u64) -> Result<Self, CacheValueError> {
         if value == 0 {
             return Err(CacheValueError::new(
@@ -20,7 +20,7 @@ impl ProviderRepositoryId {
         Ok(Self(value))
     }
 
-    /// Returns the numeric provider repository identifier.
+    /// Numeric provider repository identifier.
     pub const fn get(self) -> u64 {
         self.0
     }
@@ -31,7 +31,7 @@ impl ProviderRepositoryId {
 pub struct CacheVersion(String);
 
 impl CacheVersion {
-    /// Parses a lowercase portable cache-key component.
+    /// Canonical lowercase portable cache-key component.
     pub fn parse(value: &str) -> Result<Self, CacheValueError> {
         if value.is_empty()
             || value.len() > MAX_VERSION_BYTES
@@ -69,7 +69,7 @@ impl CacheVersion {
 pub struct GitHubObjectId(String);
 
 impl GitHubObjectId {
-    /// Returns the lowercase full object identifier.
+    /// Lowercase full object identifier.
     pub fn as_str(&self) -> &str {
         &self.0
     }

@@ -3,9 +3,7 @@
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 
-// basePath is the deployment's secret admin base ("/panel-<slug>"); token is
-// the one-time setup token that already gated the page render and must be
-// presented again to the setup endpoint, where it is consumed.
+// basePath is the deployment's secret admin base ("/panel-<slug>"); token is the one-time setup token that already gated the page render and must be presented again to the setup endpoint, where it is consumed.
 export function SetupForm({
   basePath,
   token,

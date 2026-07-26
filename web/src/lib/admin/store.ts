@@ -1,7 +1,4 @@
-// Public re-export barrel for the admin store. Splits live in ./store/* by
-// responsibility (state shape, persistence, actions, catalog selectors);
-// this file preserves the "@/lib/admin/store" import path every consumer
-// already uses.
+// Public re-export barrel for the admin store. Splits live in ./store/* by responsibility; this file preserves the "@/lib/admin/store" import path consumers use.
 
 export {
   defaultDataDir,

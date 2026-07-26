@@ -1,11 +1,7 @@
 import type { ProjectEvaluation } from "@/lib/contract/types";
 import { resultState } from "@/lib/state/result-state";
 
-// README SVG badge (WEB-003). The badge is a pure function of a compiled
-// evaluation: it never derives a score, only presents the released value and
-// the provisional/stale/insufficient_evidence state. Rendering is
-// self-contained (no external font or resource) and escapes every input so a
-// hostile field cannot inject markup into the SVG.
+// README SVG badge (WEB-003). Pure function of a compiled evaluation: never derives a score, only presents the released value and provisional/stale/insufficient_evidence state. Self-contained rendering (no external font/resource) that escapes every input so a hostile field cannot inject markup into the SVG.
 
 export type BadgeTone = "ok" | "warn" | "neutral";
 
@@ -15,8 +11,7 @@ export interface BadgeInput {
   tone: BadgeTone;
 }
 
-// Fixed geometry keeps the golden output byte-stable regardless of the runtime
-// font: an approximate per-character advance rather than measured metrics.
+// Fixed geometry keeps the golden output byte-stable regardless of runtime font: approximate per-character advance rather than measured metrics.
 const CHAR_WIDTH = 7;
 const CELL_PADDING = 6;
 const HEIGHT = 20;

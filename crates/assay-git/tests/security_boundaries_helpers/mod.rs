@@ -79,11 +79,9 @@ pub fn wrapper(body: &str) -> (TempDir, PathBuf) {
 }
 
 pub fn write_wrapper(executable: &Path, body: &str) {
-    // Write to a sibling temp file and atomically rename into place. Under
-    // heavy thread pressure, executing a file that was just written via
-    // O_TRUNC can hit ETXTBSY because the kernel still treats the inode as
-    // open for writing. The rename-into-place pattern sidesteps that race:
-    // the final executable path is never opened for writing.
+    // Atomic rename-into-place avoids ETXTBSY: under heavy thread pressure,
+    // executing a file just written via O_TRUNC can hit ETXTBSY because the
+    // kernel still treats the inode as open for writing.
     let staging = executable.with_extension("stage");
     let mut file = fs::File::create(&staging).expect("the staging wrapper must be creatable");
     file.write_all(format!("#!/bin/sh\nset -eu\n{body}\n").as_bytes())

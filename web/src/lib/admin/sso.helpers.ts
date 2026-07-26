@@ -1,7 +1,4 @@
-// Shared helpers for the SSO unit-test suites under src/lib/admin/sso*.test.ts.
-// JWT verification runs against a locally generated RSA keypair with jose's
-// createLocalJWKSet injected in place of the remote JWKS fetch, so no network
-// is involved and the exact same jwtVerify path is exercised.
+// Shared helpers for the SSO unit-test suites. JWT verification runs against a locally generated RSA keypair with jose's createLocalJWKSet injected in place of the remote JWKS fetch, so no network is involved and the same jwtVerify path is exercised.
 
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from "jose";
 import type { JWTVerifyGetKey } from "jose";
@@ -18,8 +15,7 @@ export const SSO_ENV_KEYS = [
   "ASSAY_SSO_LOGIN_URL",
 ] as const;
 
-// Every test mutates process.env; run it inside this wrapper so one test's
-// mode never leaks into another (or into the standalone-mode suites).
+// Every test mutates process.env; run inside this wrapper so one test's mode never leaks into another (or into the standalone-mode suites).
 export async function withEnv(
   env: Partial<Record<(typeof SSO_ENV_KEYS)[number], string>>,
   fn: () => Promise<void> | void,

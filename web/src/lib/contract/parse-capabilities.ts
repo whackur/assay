@@ -1,6 +1,4 @@
-// Parser for schemas/capabilities/v1.json. Validates the fixed arrays the
-// contract pins (formats, languages) and the enumerated command/schema/feature
-// identifiers the web app renders.
+// Parser for schemas/capabilities/v1.json. Validates the fixed arrays the contract pins (formats, languages) and the enumerated command/schema/feature identifiers the web app renders.
 
 import type { Capabilities } from "@/lib/contract/types";
 import {

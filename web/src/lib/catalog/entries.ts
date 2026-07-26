@@ -1,9 +1,4 @@
-// Catalog entry shape and the pure projection from a compiled ProjectEvaluation
-// into a display entry. Catalog presentation (specification 13, interview 9):
-// these are pure, serializable projections that select, filter, and order
-// entries for cards and lists. They never derive a score, and a public catalog
-// excludes non-public results (OPI-013). Missing scores stay unavailable and
-// are never coerced to a zero for sorting or filtering.
+// Catalog entry shape and the pure projection from a compiled ProjectEvaluation into a display entry (spec 13, interview 9). Pure, serializable projections that select/filter/order entries for cards and lists. Never derive a score; a public catalog excludes non-public results (OPI-013); missing scores stay unavailable and are never coerced to zero for sorting or filtering.
 
 import type {
   EvaluatorProvider,

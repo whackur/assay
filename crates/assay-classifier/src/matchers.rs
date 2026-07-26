@@ -1,8 +1,6 @@
 //! Built-in v1 path matchers.
-//!
-//! Split from `rules.rs` so the individual category matchers stay separate
-//! from the precedence-ordered dispatcher. Each matcher is a pure function
-//! over lowercased path components and the filename; none perform I/O.
+//! Each matcher is a pure function over lowercased path components and the
+//! filename; none perform I/O.
 
 pub(crate) fn contains_component(components: &[String], candidates: &[&str]) -> bool {
     components

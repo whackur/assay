@@ -49,18 +49,17 @@ impl CollectionError {
         Self { stage, kind }
     }
 
-    /// Returns the failed collection stage.
+    /// Failed collection stage.
     pub const fn stage(&self) -> CollectionStage {
         self.stage
     }
 
-    /// Returns the stable failure category.
+    /// Stable failure category.
     pub const fn kind(&self) -> CollectionErrorKind {
         self.kind
     }
 
-    /// Collection failures represent unavailable evidence, never an empty or
-    /// zero-valued fact.
+    /// Collection failures represent unavailable evidence, never an empty or zero-valued fact.
     pub const fn evidence_status(&self) -> EvidenceStatus {
         EvidenceStatus::Unavailable
     }

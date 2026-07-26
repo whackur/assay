@@ -40,11 +40,9 @@ impl EvidenceBundle {
     /// Validates privacy and canonicalizes items, recording the transmission
     /// surface the governing consent acknowledged. `WorktreeSnapshot` states
     /// that the provider may read and transmit any file of the analyzed
-    /// revision, not merely the bundle facts.
-    ///
-    /// The surface gates transmission before any provider is called; it is not
-    /// part of the evidence content identity a judgment binds to, so it does
-    /// not enter the bundle content hash.
+    /// revision, not merely the bundle facts. The surface gates transmission
+    /// before any provider is called; it is not part of the evidence content
+    /// identity a judgment binds to, so it does not enter the bundle content hash.
     pub fn with_acknowledged_surface(
         scope: EvidenceScope,
         transmission: ExternalTransmission,
@@ -79,27 +77,25 @@ impl EvidenceBundle {
         })
     }
 
-    /// Returns the evidence privacy scope.
     pub const fn scope(&self) -> EvidenceScope {
         self.scope
     }
 
-    /// Returns the external-transmission policy.
     pub const fn transmission(&self) -> ExternalTransmission {
         self.transmission
     }
 
-    /// Returns the transmission surface the governing consent acknowledged.
+    /// Transmission surface the governing consent acknowledged.
     pub const fn acknowledged_surface(&self) -> TransmissionSurface {
         self.acknowledged_surface
     }
 
-    /// Returns evidence in canonical identifier order.
+    /// Evidence in canonical identifier order.
     pub fn items(&self) -> &[EvidenceDescriptor] {
         &self.items
     }
 
-    /// Returns the domain-separated content hash used to bind provider output.
+    /// Domain-separated content hash used to bind provider output.
     pub fn content_hash(&self) -> &str {
         &self.content_hash
     }

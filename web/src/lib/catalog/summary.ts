@@ -1,5 +1,4 @@
-// Score summary presentation for a catalog entry. Presentation only; values
-// come straight from the compiled contract, never derived or rounded here.
+// Score summary presentation for a catalog entry. Presentation only; values come straight from the compiled contract, never derived or rounded here.
 
 import type { Status } from "@/lib/contract/types";
 import type { ConfidenceBand } from "@/lib/state/score-display";

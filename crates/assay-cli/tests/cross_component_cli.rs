@@ -35,8 +35,7 @@ fn fresh_cli_output_is_schema_valid_bundle_and_byte_deterministic() {
     }
     validate_project_bundle_consistency(&bundle)
         .expect("fresh bundle must satisfy cross-component invariants");
-    // WIRE-001: the CLI now embeds a project-evaluation instance produced by
-    // the deterministic evaluator and score compiler chain.
+    // WIRE-001: the CLI embeds a project-evaluation instance from the deterministic evaluator and score compiler chain.
     assert_valid("project-evaluation", &bundle["evaluation"]);
     assert_eq!(
         bundle["evaluation"]["evaluation_version"],
@@ -90,8 +89,7 @@ fn cli_evidence_flows_through_evaluator_domain_and_score_compiler() {
 
 #[test]
 fn full_chain_evaluation_is_deterministic_and_matches_committed_fixture() {
-    // Machine-independent identifiers keep the committed fixture stable across
-    // machines while still exercising the evaluator -> domain -> compiler chain.
+    // Machine-independent identifiers keep the committed fixture stable across machines while exercising the evaluator -> domain -> compiler chain.
     let ids = [
         EvidenceId::from_str("evidence:readme:claim-1").unwrap(),
         EvidenceId::from_str("evidence:test:integration-1").unwrap(),

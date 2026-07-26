@@ -29,17 +29,17 @@ impl EvidenceDescriptor {
         })
     }
 
-    /// Returns the stable evidence citation identifier.
+    /// Stable evidence citation identifier.
     pub const fn id(&self) -> &EvidenceId {
         &self.id
     }
 
-    /// Returns the bounded fact category.
+    /// Bounded fact category.
     pub const fn kind(&self) -> EvidenceKind {
         self.kind
     }
 
-    /// Returns the reviewed bounded statement, not source or raw diff text.
+    /// Reviewed bounded statement, not source or raw diff text.
     pub fn statement(&self) -> &str {
         &self.statement
     }

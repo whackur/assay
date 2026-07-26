@@ -1,5 +1,4 @@
-// Catalog visibility selectors and the hidden-entry toggle. A broken store
-// never takes the public catalog down with it.
+// Catalog visibility selectors and the hidden-entry toggle. A broken store never takes the public catalog down with it.
 
 import { mutate, readState } from "./persistence";
 
@@ -13,7 +12,7 @@ export async function hiddenEntryIds(dir: string): Promise<string[]> {
     const state = await readState(dir);
     return state?.hiddenEntryIds ?? [];
   } catch {
-    // A broken store must never take the public catalog down with it.
+    // Broken store must never take the public catalog down with it.
     return [];
   }
 }

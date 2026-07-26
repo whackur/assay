@@ -6,15 +6,8 @@ use std::{
 
 use assay_ai_evaluator::{ControlInputs, PreparedWorkspace, SnapshotWorkspace, WorkspaceError};
 
-/// Git-backed [`SnapshotWorkspace`]: materializes the analyzed commit into a
-/// temporary tree with the same trusted-executable discipline as ADR 0002.
-///
-/// The snapshot is a fresh clone checked out at the exact analyzed commit
-/// with its `.git` directory removed, so the agent sees the exact tree of the
-/// analyzed revision — never the operator's live working copy and never
-/// repository history. The control directory receives the host-authored
-/// instructions, the canonical request payload, and the mandatory evidence
-/// list; the designated judgment output path lives inside it.
+/// Git-backed [`SnapshotWorkspace`]: materializes the analyzed commit into a temporary tree with the same trusted-executable discipline as ADR 0002.
+/// The snapshot is a fresh clone checked out at the exact analyzed commit with `.git` removed, so the agent sees the analyzed tree — never the operator's working copy or history. The control directory receives host-authored instructions, the canonical payload, and the mandatory evidence list; the judgment output path lives inside it.
 #[derive(Debug)]
 pub struct GitSnapshotWorkspace {
     git: PathBuf,
@@ -45,8 +38,7 @@ impl GitSnapshotWorkspace {
 
 impl SnapshotWorkspace for GitSnapshotWorkspace {
     fn materialize(&self, inputs: &ControlInputs<'_>) -> Result<PreparedWorkspace, WorkspaceError> {
-        // The analyzed commit is host-resolved provenance, never repository
-        // content, but it is still shape-checked before reaching a command.
+        // The analyzed commit is host-resolved provenance, never repository content, but is shape-checked before reaching a command.
         if !is_commit_hash(inputs.analyzed_commit()) {
             return Err(WorkspaceError::SnapshotUnavailable);
         }

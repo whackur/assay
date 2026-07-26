@@ -12,12 +12,12 @@ impl DomainValueError {
         Self { value_kind, reason }
     }
 
-    /// Returns the stable name of the rejected value type.
+    /// Stable name of the rejected value type.
     pub const fn value_kind(&self) -> &'static str {
         self.value_kind
     }
 
-    /// Returns a non-sensitive validation reason.
+    /// Non-sensitive validation reason.
     pub const fn reason(&self) -> &'static str {
         self.reason
     }
@@ -38,7 +38,7 @@ macro_rules! validated_string_value {
         pub struct $name(String);
 
         impl $name {
-            /// Returns the canonical serialized value.
+            /// Canonical serialized value.
             pub fn as_str(&self) -> &str {
                 &self.0
             }

@@ -1,23 +1,18 @@
 //! Repository-relative portable path validation.
-//!
-//! Split from `lib.rs` so path validation rules stay separate from the
-//! classification policy and identifier contracts that consume them.
 
 use std::fmt;
 
 use crate::error::ClassificationError;
 
-/// A repository-relative UTF-8 path using `/` separators.
-///
+/// Repository-relative UTF-8 path using `/` separators.
 /// Absolute paths, traversal components, repeated separators, NUL bytes, and
 /// platform-specific separators are rejected. Spaces, Unicode, and ASCII case
-/// variants are preserved. Consumers should avoid logging this value because a
-/// repository path can itself contain private information.
+/// variants are preserved. Avoid logging this value — a repository path can
+/// itself contain private information.
 #[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct PortablePath(String);
 
 impl PortablePath {
-    /// Returns the validated repository-relative path.
     pub fn as_str(&self) -> &str {
         &self.0
     }

@@ -19,12 +19,11 @@ pub struct Usage {
     pub total_tokens: u32,
 }
 
-/// The judgment text and telemetry a profile extracted from a response body.
+/// Judgment text and telemetry a profile extracted from a response body.
 #[derive(Debug)]
 pub struct ProviderReply {
-    /// The untrusted judgment document text for the one shared validator.
+    /// Untrusted judgment document text for the one shared validator.
     pub judgment: String,
-    /// Provider-reported token usage, when present.
     pub usage: Option<Usage>,
 }
 
@@ -38,7 +37,6 @@ pub struct ProviderTelemetry {
 }
 
 impl ProviderTelemetry {
-    /// Builds telemetry from response-derived fields and optional usage.
     pub(crate) const fn from_response(
         http_status: u16,
         latency: Duration,
@@ -53,22 +51,18 @@ impl ProviderTelemetry {
         }
     }
 
-    /// Returns the observed HTTP status.
     pub const fn http_status(&self) -> u16 {
         self.http_status
     }
 
-    /// Returns the measured request latency.
     pub const fn latency(&self) -> Duration {
         self.latency
     }
 
-    /// Returns provider-reported token usage when present.
     pub const fn usage(&self) -> Option<Usage> {
         self.usage
     }
 
-    /// Returns the provider-requested retry delay, when supplied.
     pub const fn retry_after(&self) -> Option<Duration> {
         self.retry_after
     }
@@ -87,37 +81,31 @@ pub struct SnapshotProvenance {
 }
 
 impl SnapshotProvenance {
-    /// Returns the stable provider adapter identifier.
     pub const fn provider_id(&self) -> &'static str {
         self.provider_id
     }
 
-    /// Returns the recorded provider model identifier.
     pub fn model(&self) -> &str {
         &self.model
     }
 
-    /// Returns the shared prompt-envelope version.
     pub const fn prompt_version(&self) -> &'static str {
         self.prompt_version
     }
 
-    /// Returns the rubric version bound to the request.
     pub const fn rubric_version(&self) -> &'static str {
         self.rubric_version
     }
 
-    /// Returns the evaluation version bound to the request.
     pub const fn evaluation_version(&self) -> &'static str {
         self.evaluation_version
     }
 
-    /// Returns the recorded sampling configuration.
     pub const fn sampling(&self) -> SamplingConfig {
         self.sampling
     }
 
-    /// Returns the exact evidence-bundle hash presented to the provider.
+    /// Exact evidence-bundle hash presented to the provider.
     pub fn evidence_bundle_hash(&self) -> &str {
         &self.evidence_bundle_hash
     }
@@ -131,7 +119,7 @@ pub enum SnapshotOutcome {
 }
 
 impl SnapshotOutcome {
-    /// Returns a stable status code that never disguises a failure as success.
+    /// Stable status code that never disguises a failure as success.
     pub const fn status_code(&self) -> &'static str {
         match self {
             Self::Validated(_) => "validated",
@@ -140,7 +128,7 @@ impl SnapshotOutcome {
     }
 }
 
-/// An honest, self-describing record of one provider evaluation attempt.
+/// Honest, self-describing record of one provider evaluation attempt.
 #[derive(Clone, Debug)]
 pub struct EvaluationSnapshot {
     pub(crate) provenance: SnapshotProvenance,
@@ -149,22 +137,20 @@ pub struct EvaluationSnapshot {
 }
 
 impl EvaluationSnapshot {
-    /// Returns deterministic provenance recorded regardless of outcome.
     pub const fn provenance(&self) -> &SnapshotProvenance {
         &self.provenance
     }
 
-    /// Returns the explicit validation outcome.
     pub const fn outcome(&self) -> &SnapshotOutcome {
         &self.outcome
     }
 
-    /// Returns isolated non-deterministic telemetry, absent when no call completed.
+    /// Absent when no call completed.
     pub const fn telemetry(&self) -> Option<&ProviderTelemetry> {
         self.telemetry.as_ref()
     }
 
-    /// Returns the validated judgment set only on the success path.
+    /// Validated judgment set only on the success path.
     pub const fn validated(&self) -> Option<&ValidatedJudgmentSet> {
         match &self.outcome {
             SnapshotOutcome::Validated(set) => Some(set),

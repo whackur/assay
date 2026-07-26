@@ -1,6 +1,4 @@
-// Catalog filtering and ordering. Pure, serializable projections of already-
-// compiled evaluations. Missing scores stay unavailable and are never coerced
-// to a zero for sorting or filtering.
+// Catalog filtering and ordering. Pure, serializable projections of already-compiled evaluations. Missing scores stay unavailable and are never coerced to zero for sorting or filtering.
 
 import type {
   EvaluatorProvider,
@@ -30,8 +28,7 @@ export function matchesFilter(entry: CatalogEntry, filter: CatalogFilter): boole
   const min = filter.minScore ?? null;
   const max = filter.maxScore ?? null;
   if (min !== null || max !== null) {
-    // A score-range filter is a query over released scores. Entries without a
-    // released value are excluded from the range rather than treated as zero.
+    // Score-range filter queries released scores; entries without a released value are excluded rather than treated as zero.
     if (entry.score.value === null) return false;
     if (min !== null && entry.score.value < min) return false;
     if (max !== null && entry.score.value > max) return false;
@@ -50,9 +47,7 @@ export function recentlyAssayed(entries: CatalogEntry[]): CatalogEntry[] {
   });
 }
 
-// Top Assays ranks only released scores. Provisional and low-confidence entries
-// remain, labeled by their badges and confidence, but unavailable scores are
-// omitted rather than ranked as a zero.
+// Top Assays ranks only released scores; unavailable scores are omitted rather than ranked as zero.
 export function topAssays(entries: CatalogEntry[]): CatalogEntry[] {
   return entries
     .filter((entry) => entry.score.value !== null)
