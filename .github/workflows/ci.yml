@@ -49,9 +49,6 @@ jobs:
       - name: Run workspace tests
         run: cargo test --workspace
 
-      - name: Validate public schemas and goldens
-        run: cargo test -p assay-cli --test schema_contracts
-
   windows:
     name: Rust and schema contracts (Windows)
     runs-on: windows-latest
@@ -102,9 +99,6 @@ jobs:
         # stabilization, not a product-code fix.
         if: always()
         run: cargo test -p assay-git -- --test-threads=1
-
-      - name: Validate public schemas and goldens
-        run: cargo test -p assay-cli --test schema_contracts
 
   web:
     name: Web dashboard checks
