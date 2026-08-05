@@ -1,8 +1,4 @@
-// Route-level contract tests for SSO mode: with ASSAY_SSO_JWKS_URL set, the
-// local credential surface disappears (setup, login, logout are plain 404s
-// even under the correct panel slug) and local session cookies stop
-// authenticating API routes. The end-to-end JWT path exercises the production
-// createRemoteJWKSet wiring against a real local HTTP JWKS endpoint.
+// Route-level contract tests for SSO mode: with ASSAY_SSO_JWKS_URL set, the local credential surface disappears (setup, login, logout are plain 404s even under the correct panel slug) and local session cookies stop authenticating API routes. The end-to-end JWT path exercises the production createRemoteJWKSet wiring against a real local HTTP JWKS endpoint.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -98,9 +94,7 @@ test("SSO mode grants admin access end-to-end with a valid JWT cookie", async ()
   const dir = await freshDataDir();
   const panel = await panelSegment(dir);
 
-  // A real IdP stand-in: a local RS256 keypair whose public JWK is served by
-  // an actual HTTP endpoint, so the production createRemoteJWKSet path in
-  // sso.ts (not an injected test resolver) fetches and verifies against it.
+  // Real IdP stand-in: a local RS256 keypair whose public JWK is served by an actual HTTP endpoint, so the production createRemoteJWKSet path in sso.ts (not an injected test resolver) fetches and verifies against it.
   const { privateKey, publicKey } = await generateKeyPair("RS256");
   const jwk = await exportJWK(publicKey);
   const server = createServer((_request, response) => {
@@ -122,8 +116,7 @@ test("SSO mode grants admin access end-to-end with a valid JWT cookie", async ()
       .setExpirationTime("10m")
       .sign(privateKey);
 
-    // The default SSO cookie authenticates the catalog toggle through the
-    // real wiring: guard -> verifySsoAdmin -> remote JWKS fetch.
+    // The default SSO cookie authenticates the catalog toggle through the real wiring: guard -> verifySsoAdmin -> remote JWKS fetch.
     const granted = await catalogPost(
       formRequest(
         `/${panel}/api/catalog`,

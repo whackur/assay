@@ -11,7 +11,6 @@ const SECRET_BYTES: usize = 32;
 
 /// Injected entropy port. A deterministic source keeps flow tests reproducible.
 pub trait EntropySource {
-    /// Fills the buffer with cryptographically strong bytes in production.
     fn fill(&self, buffer: &mut [u8]);
 }
 
@@ -21,7 +20,7 @@ fn generate_secret(entropy: &dyn EntropySource) -> String {
     base64url_no_pad(&bytes)
 }
 
-/// The opaque CSRF `state`. Secret material; never derives Debug, Display, or serde.
+/// Opaque CSRF `state`. Secret material; never derives Debug, Display, or serde.
 #[derive(Clone)]
 pub struct State(String);
 
@@ -37,7 +36,7 @@ impl fmt::Debug for State {
     }
 }
 
-/// The opaque replay-binding `nonce`. Secret material; carried into token validation.
+/// Opaque replay-binding `nonce`. Secret material; carried into token validation.
 #[derive(Clone)]
 pub struct Nonce(String);
 
@@ -54,7 +53,7 @@ impl fmt::Debug for Nonce {
     }
 }
 
-/// The PKCE code verifier. Secret material sent only during server-side code exchange.
+/// PKCE code verifier. Secret material sent only during server-side code exchange.
 #[derive(Clone)]
 pub struct PkceVerifier(String);
 
@@ -76,18 +75,17 @@ impl fmt::Debug for PkceVerifier {
     }
 }
 
-/// The public PKCE `S256` code challenge derived from the secret verifier.
+/// Public PKCE `S256` code challenge derived from the secret verifier.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PkceChallenge(String);
 
 impl PkceChallenge {
-    /// Returns the code-challenge value placed in the authorization request.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 }
 
-/// The outgoing authorization-request parameters. No upstream browser token exists yet.
+/// Outgoing authorization-request parameters. No upstream browser token exists yet.
 #[derive(Clone, Debug)]
 pub struct AuthorizationRedirect {
     state: String,
@@ -97,27 +95,23 @@ pub struct AuthorizationRedirect {
 }
 
 impl AuthorizationRedirect {
-    /// Returns the opaque state to place in the authorization request.
     pub fn state(&self) -> &str {
         &self.state
     }
 
-    /// Returns the nonce to place in the authorization request.
     pub fn nonce(&self) -> &str {
         &self.nonce
     }
 
-    /// Returns the exact redirect URI drawn from the deployment allowlist.
+    /// Exact redirect URI drawn from the deployment allowlist.
     pub const fn redirect_uri(&self) -> &RedirectUri {
         &self.redirect_uri
     }
 
-    /// Returns the `S256` code challenge.
     pub const fn code_challenge(&self) -> &PkceChallenge {
         &self.code_challenge
     }
 
-    /// Returns the fixed code-challenge method.
     pub const fn code_challenge_method(&self) -> &'static str {
         "S256"
     }
@@ -132,7 +126,6 @@ pub struct CallbackParams {
 }
 
 impl CallbackParams {
-    /// Wraps the raw browser-supplied callback parameters.
     pub fn new(state: &str, code: &str, redirect_uri: &str) -> Self {
         Self {
             state: state.to_owned(),
@@ -142,7 +135,7 @@ impl CallbackParams {
     }
 }
 
-/// A validated callback ready for server-side code exchange and token validation.
+/// Validated callback ready for server-side code exchange and token validation.
 pub struct VerifiedCallback {
     code: String,
     pkce_verifier: PkceVerifier,
@@ -150,17 +143,15 @@ pub struct VerifiedCallback {
 }
 
 impl VerifiedCallback {
-    /// Returns the opaque authorization code to exchange server-side.
     pub fn code(&self) -> &str {
         &self.code
     }
 
-    /// Returns the PKCE verifier to include in the token exchange.
     pub const fn pkce_verifier(&self) -> &PkceVerifier {
         &self.pkce_verifier
     }
 
-    /// Returns the nonce to bind against the returned id token.
+    /// Nonce to bind against the returned id token.
     pub const fn nonce(&self) -> &Nonce {
         &self.nonce
     }
@@ -200,7 +191,6 @@ pub struct AuthorizationStore {
 }
 
 impl AuthorizationStore {
-    /// Creates an empty store.
     pub fn new() -> Self {
         Self::default()
     }
@@ -257,7 +247,6 @@ impl AuthorizationStore {
         })
     }
 
-    /// Returns the number of outstanding transactions, for store introspection.
     pub fn pending_count(&self) -> usize {
         self.pending.len()
     }

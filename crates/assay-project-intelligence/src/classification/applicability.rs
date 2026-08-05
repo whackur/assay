@@ -6,12 +6,7 @@ use crate::ProjectMaturity;
 use crate::ProjectType;
 use crate::ScoreDimension;
 
-/// Resolves type- and maturity-specific criteria applicability.
-///
-/// The base applicability reflects each type's evaluable surface; maturity only
-/// relaxes an `Applicable` dimension to `PartiallyApplicable` for young or
-/// end-of-life projects, never tightening it, so a young project is never
-/// penalized for absent long-term evidence.
+/// Resolves type- and maturity-specific criteria applicability. Base applicability reflects each type's evaluable surface; maturity only relaxes `Applicable` to `PartiallyApplicable` for young or end-of-life projects, never tightening, so a young project is never penalized for absent long-term evidence.
 pub fn criteria_applicability(
     primary_type: ProjectType,
     maturity: ProjectMaturity,

@@ -1,6 +1,4 @@
-// Parser for schemas/analysis-manifest/v1.json. Validates load-bearing fields
-// and the conditional rules the web app renders (e.g. complete status requires
-// complete data sources and at least one complete artifact).
+// Parser for schemas/analysis-manifest/v1.json. Validates load-bearing fields and the conditional rules the web app renders (e.g. complete status requires complete data sources and at least one complete artifact).
 
 import type { AnalysisManifest } from "@/lib/contract/types";
 import {

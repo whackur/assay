@@ -33,22 +33,21 @@ impl HistoryAvailability {
         }
     }
 
-    /// Returns history evidence availability.
     pub const fn status(&self) -> EvidenceStatus {
         self.status
     }
 
-    /// Returns the number of commits observed within the configured bound.
+    /// Commits observed within the configured bound.
     pub const fn reachable_commits(&self) -> usize {
         self.reachable_commits
     }
 
-    /// Returns whether more history exists beyond the reported count.
+    /// Whether more history exists beyond the reported count.
     pub const fn truncated(&self) -> bool {
         self.truncated
     }
 
-    /// Returns a stable reason when history is not complete.
+    /// Stable reason when history is not complete.
     pub const fn issue(&self) -> Option<HistoryIssue> {
         self.issue
     }
@@ -87,22 +86,22 @@ impl ParentDelta {
         }
     }
 
-    /// Returns first-parent delta availability.
+    /// First-parent delta availability.
     pub const fn status(&self) -> EvidenceStatus {
         self.status
     }
 
-    /// Returns the number of observed raw changed entries.
+    /// Observed raw changed entries.
     pub const fn changed_entries(&self) -> usize {
         self.changed_entries
     }
 
-    /// Returns exact renames detected within the configured bound.
+    /// Exact renames detected within the configured bound.
     pub const fn renames(&self) -> usize {
         self.renames
     }
 
-    /// Returns a stable reason when delta evidence is not complete.
+    /// Stable reason when delta evidence is not complete.
     pub const fn issue(&self) -> Option<ParentDeltaIssue> {
         self.issue
     }

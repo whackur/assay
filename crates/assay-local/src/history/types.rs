@@ -7,7 +7,7 @@
 use serde::Serialize;
 use serde_json::Value;
 
-/// The lifecycle status of a stored record derived from the journal.
+/// Lifecycle status of a stored record derived from the journal.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RecordStatus {
@@ -16,7 +16,7 @@ pub enum RecordStatus {
     Purged,
 }
 
-/// A stored, immutable analysis record.
+/// Stored, immutable analysis record.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StoredRecord {
     pub(super) id: String,
@@ -28,45 +28,40 @@ pub struct StoredRecord {
 }
 
 impl StoredRecord {
-    /// Returns the stable record identifier.
     pub fn id(&self) -> &str {
         &self.id
     }
 
-    /// Returns the monotonic append sequence.
+    /// Monotonic append sequence.
     pub const fn sequence(&self) -> u64 {
         self.sequence
     }
 
-    /// Returns the recorded timestamp.
     pub fn recorded_at(&self) -> &str {
         &self.recorded_at
     }
 
-    /// Returns the local repository identifier, if the report carried one.
+    /// Local repository identifier, if the report carried one.
     pub fn repository_id(&self) -> Option<&str> {
         self.repository_id.as_deref()
     }
 
-    /// Returns the current lifecycle status.
     pub const fn status(&self) -> RecordStatus {
         self.status
     }
 
-    /// Returns the stored report payload.
     pub const fn report(&self) -> &Value {
         &self.report
     }
 }
 
-/// A non-sensitive history-store failure.
+/// Non-sensitive history-store failure.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct HistoryError {
     pub(super) reason: &'static str,
 }
 
 impl HistoryError {
-    /// Returns a machine-stable reason code.
     pub const fn reason(self) -> &'static str {
         self.reason
     }

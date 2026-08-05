@@ -1,7 +1,4 @@
-// Admin store state shape, defaults, validation, and legacy migration. The
-// storage adapter is a single JSON document under a data directory
-// (ASSAY_DATA_DIR, defaulting to ./data) so a real backend can replace the
-// persistence layer without touching routes or UI.
+// Admin store state shape, defaults, validation, legacy migration. Single JSON document under ASSAY_DATA_DIR (default ./data) so a real backend can swap persistence without touching routes/UI.
 
 import path from "node:path";
 import {
@@ -26,11 +23,9 @@ export interface AdminState {
   version: 1;
   admin: AdminAccount | null;
   sessionSecret: string;
-  // Secret per-deployment URL slug: the admin area lives under /panel-<slug>.
-  // Operator recovery: read this file (admin.json in the data dir) server-side.
+  // Secret per-deployment slug: admin area lives under /panel-<slug>. Recover by reading admin.json server-side.
   adminSlug: string;
-  // One-time first-run setup token; non-null only while no admin exists.
-  // Consumed (set to null) the moment setup succeeds.
+  // One-time first-run setup token; non-null only while no admin exists, consumed (set null) on setup success.
   setupToken: string | null;
   sessions: SessionRecord[];
   hiddenEntryIds: string[];
@@ -78,8 +73,7 @@ export function isValidState(value: unknown): value is AdminState {
   );
 }
 
-// Stores written before the slug/token hardening lack the two new fields;
-// fill them in place so an existing deployment keeps its admin and sessions.
+// Stores written before slug/token hardening lack the new fields; fill them in place so existing deployments keep their admin and sessions.
 export function migrateLegacyState(value: unknown): boolean {
   if (typeof value !== "object" || value === null) return false;
   const state = value as Partial<AdminState>;

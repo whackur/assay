@@ -26,7 +26,7 @@ pub struct EvidenceSource {
 }
 
 impl EvidenceSource {
-    /// Creates evidence pinned to an immutable source revision.
+    /// Evidence pinned to an immutable source revision.
     pub const fn at_revision(
         id: EvidenceId,
         kind: EvidenceSourceKind,
@@ -42,7 +42,7 @@ impl EvidenceSource {
         }
     }
 
-    /// Creates content evidence pinned to both a revision and SHA-256 digest.
+    /// Content evidence pinned to both a revision and SHA-256 digest.
     pub const fn at_content(
         id: EvidenceId,
         kind: EvidenceSourceKind,
@@ -59,7 +59,7 @@ impl EvidenceSource {
         }
     }
 
-    /// Creates an explicit unresolved source for a non-usable evidence state.
+    /// Explicit unresolved source for a non-usable evidence state.
     pub fn unresolved(
         id: EvidenceId,
         kind: EvidenceSourceKind,
@@ -75,27 +75,26 @@ impl EvidenceSource {
         })
     }
 
-    /// Returns the stable evidence identifier.
     pub const fn id(&self) -> &EvidenceId {
         &self.id
     }
 
-    /// Returns the stable provenance category.
+    /// Stable provenance category.
     pub const fn kind(&self) -> EvidenceSourceKind {
         self.kind
     }
 
-    /// Returns availability without inferring the overall analysis state.
+    /// Availability without inferring the overall analysis state.
     pub const fn status(&self) -> EvidenceStatus {
         self.status
     }
 
-    /// Returns the immutable source revision when known.
+    /// Immutable source revision when known.
     pub const fn revision(&self) -> Option<&RevisionId> {
         self.revision.as_ref()
     }
 
-    /// Returns the content digest when evidence was content-addressed.
+    /// Content digest when evidence was content-addressed.
     pub const fn content_hash(&self) -> Option<&ContentHash> {
         self.content_hash.as_ref()
     }

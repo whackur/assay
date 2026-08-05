@@ -48,8 +48,8 @@ impl<W: SnapshotWorkspace, R: AgentRunner> AgenticEvaluator<W, R> {
     /// Evaluates a bundle through one bounded agent run and always returns an
     /// explicit, recorded snapshot. Boundary enforcement gates the run before
     /// any port is touched: an external agentic provider transmits the
-    /// `worktree_snapshot` surface, so the bundle's consent must have
-    /// acknowledged that surface even for a public-only repository.
+    /// `worktree_snapshot` surface, so the bundle's consent must acknowledge
+    /// that surface even for a public-only repository.
     pub fn evaluate(&self, bundle: &EvidenceBundle) -> AgenticSnapshot {
         let mut provenance = self.provenance(bundle);
         if let Err(error) = enforce_transmission_boundary(

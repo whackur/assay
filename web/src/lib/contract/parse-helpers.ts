@@ -1,5 +1,4 @@
-// Shared parser helpers used by every contract parser. Keeps the per-schema
-// parse modules small and consistent.
+// Shared parser helpers used by every contract parser. Keeps the per-schema parse modules small and consistent.
 
 export class ContractError extends Error {}
 

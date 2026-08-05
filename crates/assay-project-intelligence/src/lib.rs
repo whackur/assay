@@ -1,17 +1,6 @@
 //! Deterministic project-level evidence assembly for Assay.
-//!
-//! This crate combines immutable Git snapshot facts with versioned file
-//! classification facts. It performs no filesystem, process, database, HTTP,
-//! GitHub, or model-provider I/O. The resulting typed manifest is intentionally
-//! not a serialized public machine contract; CLI mapping to the authoritative
-//! schemas under `schemas/` is a later boundary.
-//!
-//! The manifest measures which repository facts were collected and how tracked
-//! files were classified. It cannot establish that a project builds, works, is
-//! safe, is original, or is valuable. It must not be interpreted as a project
-//! score, a person-level observation, or evidence about contributor intent or
-//! productivity. Missing, partial, and unsupported evidence remain explicit
-//! availability states rather than numeric zeroes.
+//! Combines immutable Git snapshot facts with versioned file classification facts. No I/O. The typed manifest is not a serialized public contract; CLI mapping to `schemas/` is a later boundary.
+//! The manifest measures which facts were collected and how files were classified — not whether a project builds, works, is safe, original, or valuable. Never a project score, person-level observation, or contributor-intent signal. Missing/partial/unsupported evidence stays explicit, never numeric zero.
 
 #![forbid(unsafe_code)]
 

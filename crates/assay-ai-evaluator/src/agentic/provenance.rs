@@ -3,7 +3,6 @@ use crate::api::SnapshotOutcome;
 use super::runner::AgentIdentity;
 
 /// Deterministic and per-run provenance recorded for every agentic snapshot.
-///
 /// Each `evaluate()` call is one run; results are never aggregated here.
 /// Multi-run aggregation is deterministic post-processing on the
 /// score-compiler side, outside the provider and outside this crate.
@@ -21,53 +20,52 @@ pub struct AgenticProvenance {
 }
 
 impl AgenticProvenance {
-    /// Returns the stable provider adapter identifier.
     pub const fn provider_id(&self) -> &'static str {
         self.provider_id
     }
 
-    /// Returns the resolved commit of the analyzed revision.
+    /// Resolved commit of the analyzed revision.
     pub fn analyzed_commit(&self) -> &str {
         &self.analyzed_commit
     }
 
-    /// Returns the configured model identifier.
+    /// Configured model identifier.
     pub fn model(&self) -> &str {
         &self.model
     }
 
-    /// Returns the shared prompt-envelope version.
+    /// Shared prompt-envelope version.
     pub const fn prompt_version(&self) -> &'static str {
         self.prompt_version
     }
 
-    /// Returns the rubric version bound to the request.
+    /// Rubric version bound to the request.
     pub const fn rubric_version(&self) -> &'static str {
         self.rubric_version
     }
 
-    /// Returns the evaluation version bound to the request.
+    /// Evaluation version bound to the request.
     pub const fn evaluation_version(&self) -> &'static str {
         self.evaluation_version
     }
 
-    /// Returns the exact evidence-bundle hash the judgment must bind to.
+    /// Exact evidence-bundle hash the judgment must bind to.
     pub fn evidence_bundle_hash(&self) -> &str {
         &self.evidence_bundle_hash
     }
 
-    /// Returns the probed agent CLI identity, absent before a probe succeeds.
+    /// Probed agent CLI identity, absent before a probe succeeds.
     pub const fn agent(&self) -> Option<&AgentIdentity> {
         self.agent.as_ref()
     }
 
-    /// Returns the run identifier, present only once a subprocess completed.
+    /// Run identifier, present only once a subprocess completed.
     pub fn run_id(&self) -> Option<&str> {
         self.run_id.as_deref()
     }
 }
 
-/// An honest, self-describing record of one agentic evaluation attempt.
+/// Honest, self-describing record of one agentic evaluation attempt.
 #[derive(Debug)]
 pub struct AgenticSnapshot {
     pub(crate) provenance: AgenticProvenance,
@@ -75,12 +73,12 @@ pub struct AgenticSnapshot {
 }
 
 impl AgenticSnapshot {
-    /// Returns provenance recorded regardless of outcome.
+    /// Provenance recorded regardless of outcome.
     pub const fn provenance(&self) -> &AgenticProvenance {
         &self.provenance
     }
 
-    /// Returns the explicit validation outcome.
+    /// Explicit validation outcome.
     pub const fn outcome(&self) -> &SnapshotOutcome {
         &self.outcome
     }

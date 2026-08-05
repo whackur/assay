@@ -1,22 +1,14 @@
 //! Versioned, path-based file policy classification for Assay.
 //!
 //! The built-in policy measures reviewable path and resolved Git attribute
-//! evidence. It does not inspect source contents, execute repository code, or
-//! measure correctness, importance, human effort, productivity, or semantic
-//! impact. A category describes the apparent role of a file; it is not a
-//! quality judgment. In particular, [`ClassificationCategory::Unknown`] and
-//! unavailable attribute facts must not be interpreted as zero value or
-//! silently converted to production code.
+//! evidence only — never source contents, executed code, correctness,
+//! importance, effort, productivity, or semantic impact. A category describes
+//! the apparent role of a file, not a quality judgment. In particular,
+//! [`ClassificationCategory::Unknown`] and unavailable attribute facts must not
+//! be interpreted as zero value or silently converted to production code.
 //!
-//! Repository-specific and organization-specific policy belongs behind the
-//! [`ClassificationPolicy`] boundary. It is not embedded in the built-in Rust
-//! rules.
-//!
-//! Module layout: types and behavior are split by responsibility (error,
-//! path, attributes, input, categories, identifiers, confidence, evidence,
-//! decision, policy boundary, built-in policy, path matchers, path dispatcher).
-//! Public items are re-exported here so downstream crates and the public schema
-//! contract remain stable.
+//! Repository- and organization-specific policy belongs behind the
+//! [`ClassificationPolicy`] boundary, not in the built-in Rust rules.
 
 #![forbid(unsafe_code)]
 

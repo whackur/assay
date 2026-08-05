@@ -1,8 +1,4 @@
-// Pure geometry for the score-profile radar (pentagon) view. Axis order is the
-// canonical dimension order from the report contract, so two renders of the
-// same evaluation always produce the same shape. Values are 0–100; a radar is
-// only drawn when every plotted dimension has a released value — a missing
-// score is never coerced to a zero-length spoke.
+// Pure geometry for the score-profile radar. Axis order is the canonical dimension order from the report contract so two renders of the same evaluation produce the same shape. Values are 0–100; a radar is only drawn when every plotted dimension has a released value — a missing score is never coerced to a zero-length spoke.
 
 export interface RadarPoint {
   x: number;
@@ -13,7 +9,7 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-// Vertex i of `count` axes, starting at the top (12 o'clock), clockwise.
+// Vertex i of `count` axes, starting at top (12 o'clock), clockwise.
 export function radarVertex(
   index: number,
   count: number,
@@ -59,8 +55,7 @@ export function ringPoints(
 
 export type LabelAnchor = "start" | "middle" | "end";
 
-// Text anchor for a perimeter label: top/bottom labels center, right-side
-// labels start, left-side labels end.
+// Text anchor for a perimeter label: top/bottom center, right-side start, left-side end.
 export function labelAnchor(index: number, count: number): LabelAnchor {
   const angle = -Math.PI / 2 + (index * 2 * Math.PI) / count;
   const cos = Math.cos(angle);

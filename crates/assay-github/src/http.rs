@@ -11,12 +11,11 @@ impl GitHubRequest {
         Self { path }
     }
 
-    /// Returns the path and query relative to the fixed GitHub API origin.
     pub fn path(&self) -> &str {
         &self.path
     }
 
-    /// Confirms that this contract can only express a GET request.
+    /// Contract can only express a GET request.
     pub const fn is_read_only(&self) -> bool {
         true
     }
@@ -27,7 +26,7 @@ impl GitHubRequest {
     }
 }
 
-/// A streaming response returned by an outer GitHub HTTP adapter.
+/// Streaming response returned by an outer GitHub HTTP adapter.
 pub struct GitHubResponse {
     status: u16,
     headers: Vec<(String, String)>,
@@ -60,14 +59,13 @@ impl GitHubResponse {
     }
 }
 
-/// A transport failure that contains only a stable non-sensitive code.
+/// Transport failure containing only a stable non-sensitive code.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TransportError {
     code: &'static str,
 }
 
 impl TransportError {
-    /// Creates a transport error from a stable snake-case code.
     pub fn new(code: &'static str) -> Result<Self, &'static str> {
         if code.is_empty()
             || code.len() > 64
@@ -80,7 +78,6 @@ impl TransportError {
         Ok(Self { code })
     }
 
-    /// Returns the stable transport error code.
     pub const fn code(&self) -> &'static str {
         self.code
     }
@@ -96,38 +93,28 @@ impl Error for TransportError {}
 
 /// Injectable fixed-origin HTTP boundary used by deterministic fake clients.
 pub trait GitHubHttp {
-    /// Executes a read-only request. Implementations must pin the origin to
-    /// `https://api.github.com` and must not log response bodies or credentials.
+    /// Implementations must pin the origin to `https://api.github.com` and must
+    /// not log response bodies or credentials.
     fn execute(&mut self, request: GitHubRequest) -> Result<GitHubResponse, TransportError>;
 }
 
 /// Explicit GitHub API budget state captured from response headers.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RateLimitState {
-    /// Primary API quota is known and not exhausted.
     Available {
-        /// Maximum requests in the current window.
         limit: u64,
-        /// Remaining requests in the current window.
         remaining: u64,
         /// GitHub's Unix reset timestamp.
         reset_at_unix_seconds: u64,
     },
-    /// Primary quota is exhausted.
     Exhausted {
-        /// Reported window limit, when valid.
         limit: Option<u64>,
-        /// Reported reset timestamp, when valid.
         reset_at_unix_seconds: Option<u64>,
-        /// Retry delay, when GitHub supplied one.
         retry_after_seconds: Option<u64>,
     },
     /// GitHub applied a secondary or abuse limit.
-    SecondaryLimited {
-        /// Retry delay, when GitHub supplied one.
-        retry_after_seconds: Option<u64>,
-    },
-    /// Rate headers were missing or invalid; this is not unlimited capacity.
+    SecondaryLimited { retry_after_seconds: Option<u64> },
+    /// Rate headers missing or invalid; this is not unlimited capacity.
     Unknown,
 }
 

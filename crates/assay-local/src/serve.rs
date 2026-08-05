@@ -1,9 +1,8 @@
 //! Minimal loopback HTTP dashboard for local analysis history.
 //!
-//! The server binds only through [`LoopbackListener`] and speaks a tiny subset
-//! of HTTP/1.1 sufficient to serve the versioned local report contract. It has
-//! no third-party HTTP dependency: request routing works on a `BufRead` line
-//! and responses are plain bytes.
+//! Binds only through [`LoopbackListener`] and speaks a tiny HTTP/1.1 subset
+//! sufficient to serve the versioned local report contract. No third-party HTTP
+//! dependency: routing works on a `BufRead` line and responses are plain bytes.
 
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
@@ -15,11 +14,10 @@ use crate::history::LocalHistoryStore;
 use crate::loopback::LoopbackListener;
 use crate::report::LOCAL_REPORT_SCHEMA_VERSION;
 
-/// Upper bound on the request line the server will read before rejecting it.
+/// Upper bound on the request line before the server rejects it.
 const MAX_REQUEST_LINE_BYTES: usize = 8 * 1024;
 
-/// Read timeout applied to accepted connections so a stalled peer cannot pin
-/// the single-threaded serial loop.
+/// Read timeout so a stalled peer cannot pin the single-threaded serial loop.
 const READ_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// A rendered HTTP response with a JSON body.
@@ -41,12 +39,10 @@ impl HttpResponse {
         }
     }
 
-    /// Returns the HTTP status code.
     pub const fn status(&self) -> u16 {
         self.status
     }
 
-    /// Returns the response body bytes.
     pub fn body(&self) -> &[u8] {
         &self.body
     }
@@ -138,9 +134,8 @@ fn store_error() -> HttpResponse {
     )
 }
 
-/// Reads one bounded request line from a connection and writes the routed
-/// response. A line exceeding [`MAX_REQUEST_LINE_BYTES`] is rejected instead of
-/// being buffered without limit.
+/// Reads one bounded request line and writes the routed response. A line
+/// exceeding [`MAX_REQUEST_LINE_BYTES`] is rejected instead of buffered without limit.
 pub fn serve_connection(
     reader: &mut dyn Read,
     writer: &mut dyn Write,
@@ -259,8 +254,7 @@ mod tests {
     #[test]
     fn overlong_request_line_is_rejected_without_unbounded_read() {
         let (_dir, store) = store_with_record();
-        // A stream that never sends a newline must not grow memory unbounded or
-        // stall; the bounded read rejects it instead of reading everything.
+        // A stream that never sends a newline must not grow memory unbounded or stall.
         let request = vec![b'A'; MAX_REQUEST_LINE_BYTES * 4];
         let mut reader = &request[..];
         let mut output = Vec::new();

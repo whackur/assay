@@ -10,10 +10,7 @@ import { cooldownStatus } from "@/lib/state/cooldown";
 import { parseGithubTarget } from "@/lib/state/github-url";
 import { COMPARISONS, RECORDS, SUBMISSION_COOLDOWNS, findRecordId } from "@/lib/api/fixtures";
 
-// Thin client over the versioned Assay report contract. The repository has no
-// hosted API yet, so this default implementation is fixture-backed. Swap the
-// implementation for an HTTP transport without touching the UI once the Rust
-// API exists. No business logic lives here.
+// Thin client over the versioned Assay report contract. The repo has no hosted API yet, so this default implementation is fixture-backed; swap for an HTTP transport without touching the UI once the Rust API exists. No business logic here.
 
 export interface JobState {
   stage: AnalysisStage;
@@ -45,9 +42,7 @@ export interface AssayApi {
   getComparison(id: string): Promise<ProjectComparison | null>;
 }
 
-// A known cache hit navigates to the existing result. A recent run still inside
-// its refresh cooldown reports the cooldown and next eligible time (spec 12.3
-// and 12.5). Anything else is admitted as a new asynchronous job (spec 12.1).
+// Known cache hit navigates to the existing result; a recent run still in its refresh cooldown reports the cooldown and next eligible time (spec 12.3, 12.5); anything else is admitted as a new async job (spec 12.1).
 export const fixtureApi: AssayApi = {
   async submit(input, nowIso = new Date().toISOString()) {
     const parsed = parseGithubTarget(input);

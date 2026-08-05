@@ -1,23 +1,6 @@
 //! Deterministic one-depth functional-cohort discovery and comparison.
-//!
-//! Assay extracts a comparison profile from the analyzed project, asks a narrow
-//! candidate-search port for public GitHub candidates exactly once, and compares
-//! each candidate against the seed. Discovery stops at one search depth: a
-//! discovered candidate carries no profile and cannot construct a
-//! [`CohortQuery`], so it can never seed another discovery pass. The real GitHub
-//! search wiring lives behind [`CandidateSearch`] and is deferred; this module
-//! is exercised with deterministic fakes.
-//!
-//! Similarity is computed only from declared facet tokens with deterministic
-//! integer arithmetic; identical input yields byte-identical output. Each mode
-//! has a closed canonical facet set that every comparison enumerates — a facet
-//! without data on either side is explicitly unavailable, never a zero — and a
-//! detailed candidate always carries at least one cited selection reason.
-//! Similarity is never a quality signal and never implies misconduct. Popularity such as
-//! star counts is retained as context and used only as an ordering tie-break;
-//! it never raises a similarity value. An awesome list is compared as a curated
-//! artifact against other curated lists, never by analyzing its linked projects.
-//! Unavailable and insufficient comparisons remain explicit states, never zero.
+//! Extracts a comparison profile, asks the candidate-search port for public GitHub candidates once, and compares each against the seed. A discovered candidate carries no profile, so it can never seed another pass.
+//! Similarity uses declared facet tokens with deterministic integer arithmetic. Each mode has a closed canonical facet set enumerated on every comparison — a missing facet is explicit `unavailable`, never zero. A detailed candidate always carries at least one cited selection reason. Similarity is never a quality signal and never implies misconduct; star counts are ordering tie-breaks only. Curated lists are compared as artifacts, not by analyzing linked projects.
 
 mod candidate;
 mod cohort;

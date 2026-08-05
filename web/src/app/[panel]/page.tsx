@@ -13,9 +13,7 @@ import { publicCatalogEntries } from "@/lib/catalog/fixtures";
 import { scoreSummary } from "@/lib/catalog/catalog";
 import { ReviewQueue } from "@/components/admin/ReviewQueue";
 
-// Admin dashboard, reachable only under the secret /panel-<slug> path. A
-// wrong slug renders the app's ordinary 404 before anything admin-flavored
-// (including metadata) is produced.
+// Admin dashboard, reachable only under the secret /panel-<slug> path. A wrong slug renders the app's ordinary 404 before anything admin-flavored (including metadata) is produced.
 
 export const dynamic = "force-dynamic";
 
@@ -44,9 +42,7 @@ export default async function AdminPage({ params }: PageProps) {
   const sessionId = await getAdminSessionId();
   if (!sessionId) {
     if (sso) {
-      // SSO mode has no local sign-in page. Hand off to the IdP when a login
-      // URL is configured; otherwise the page is indistinguishable from a
-      // wrong slug.
+      // SSO mode has no local sign-in page. Hand off to the IdP when a login URL is configured; otherwise the page is indistinguishable from a wrong slug.
       const target = ssoLoginRedirect(context.basePath);
       if (target) redirect(target);
       notFound();

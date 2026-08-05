@@ -188,14 +188,12 @@ impl ApiProviderProfile for OllamaProfile {
 
 /// Removes a single surrounding Markdown code fence so provider output that
 /// wraps JSON in ```json ... ``` (e.g. glm-5.2:cloud) still parses as JSON.
-/// Returns the input unchanged when no fence is present or the fence is
-/// unbalanced.
+/// Returns the input unchanged when no fence is present or unbalanced.
 fn strip_code_fence(content: &str) -> &str {
     let trimmed = content.trim();
     let Some(rest) = trimmed.strip_prefix("```") else {
         return content;
     };
-    // Skip an optional language tag on the opening fence line.
     let after_open = rest
         .match_indices('\n')
         .next()

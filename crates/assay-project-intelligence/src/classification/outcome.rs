@@ -34,11 +34,7 @@ impl ClassificationOutcome {
         self.maturity
     }
 
-    /// Returns type- and maturity-resolved applicability for one dimension.
-    ///
-    /// An unknown classification resolves every dimension to
-    /// `PartiallyApplicable`, never `NotApplicable`, so absent classification
-    /// never silently excludes a dimension.
+    /// Returns type- and maturity-resolved applicability for one dimension. An unknown classification resolves every dimension to `PartiallyApplicable`, never `NotApplicable`, so absent classification never silently excludes a dimension.
     pub fn applicability(&self, dimension: ScoreDimension) -> RubricApplicability {
         self.applicability
             .get(&dimension)

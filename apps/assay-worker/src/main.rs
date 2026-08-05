@@ -43,8 +43,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let config = WorkerConfig::from_env()?;
     let concurrency = bounded_env("ASSAY_WORKER_CONCURRENCY", 3, 1, 3)? as usize;
 
-    // Deps are shared read-only across loops; each loop claims jobs under its own
-    // fenced worker id so concurrent claims are safe (see storage SKIP LOCKED).
+    // Deps are shared read-only across loops; each loop claims jobs under its own fenced worker id so concurrent claims are safe (see storage SKIP LOCKED).
     let storage = Arc::new(storage);
     let collector = Arc::new(HostedGitHubWorkflowCollector::new(config.github_token));
     let evaluator = Arc::new(HostedOllamaWorkflowEvaluator::new(
@@ -185,7 +184,10 @@ mod tests {
 
     #[test]
     fn worker_concurrency_default_is_three() {
-        assert_eq!(bounded_env("ASSAY_TEST_UNSET_CONCURRENCY", 3, 1, 3).unwrap(), 3);
+        assert_eq!(
+            bounded_env("ASSAY_TEST_UNSET_CONCURRENCY", 3, 1, 3).unwrap(),
+            3
+        );
     }
 
     #[test]

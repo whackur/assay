@@ -6,9 +6,7 @@ use crate::scoring::error::{ScoreCompileError, ScoreCompileErrorKind};
 use crate::scoring::mapping::{evidence_values, status_code};
 use crate::scoring::validation::{is_machine_code, sorted_unique};
 
-/// A classification supplied to the compiler by an upstream classifier stage.
-///
-/// The compiler consumes resolved applicability; it does not itself classify.
+/// A classification supplied to the compiler by an upstream classifier stage. The compiler consumes resolved applicability; it does not itself classify.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProjectClassification {
     pub(crate) status: EvidenceStatus,

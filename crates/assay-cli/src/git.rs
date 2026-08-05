@@ -4,23 +4,15 @@ use assay_git::CollectionLimits;
 
 use crate::errors::{RunError, invalid_test_limit};
 
-/// Environment variable that names one trusted, absolute Git executable.
-///
-/// This is a trusted deployment or startup configuration input per ADR 0002
-/// rule 1. It is never derived from repository content and lets operators use
-/// a non-default install location on any platform.
+/// Environment variable naming one trusted, absolute Git executable. Trusted deployment/startup config (ADR 0002 rule 1); never derived from repository content.
 pub const GIT_EXECUTABLE_ENV: &str = "ASSAY_GIT_EXECUTABLE";
 
-/// Resolves the Git executable from trusted deployment configuration or a
-/// trusted startup environment, never from repository content (ADR 0002).
+/// Resolves the Git executable from trusted deployment configuration or startup environment, never from repository content (ADR 0002).
 pub(crate) fn trusted_git() -> Option<PathBuf> {
     resolve_trusted_git(std::env::var_os(GIT_EXECUTABLE_ENV))
 }
 
-/// Pure resolution used by [`trusted_git`], split out so the precedence and
-/// absolute-path contract can be tested without mutating the process
-/// environment. An explicit override is authoritative; the adapter still
-/// probes it and reports an explicit error if it is not a compatible Git.
+/// Pure resolution split out so the precedence and absolute-path contract can be tested without mutating process env. An explicit override is authoritative; the adapter still probes it and reports an explicit error if it is not a compatible Git.
 pub(crate) fn resolve_trusted_git(override_value: Option<OsString>) -> Option<PathBuf> {
     if let Some(value) = override_value
         && !value.is_empty()
@@ -41,9 +33,7 @@ pub(crate) fn default_git_candidates() -> Vec<PathBuf> {
         .collect()
 }
 
-/// Well-known absolute install locations for Git for Windows, derived from the
-/// trusted `Program Files` startup environment with fixed fallbacks. Custom
-/// installs are supported through [`GIT_EXECUTABLE_ENV`].
+/// Well-known absolute Git install locations on Windows, derived from the trusted `Program Files` startup env with fixed fallbacks. Custom installs use [`GIT_EXECUTABLE_ENV`].
 #[cfg(windows)]
 pub(crate) fn default_git_candidates() -> Vec<PathBuf> {
     let mut candidates = Vec::new();

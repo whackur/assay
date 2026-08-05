@@ -11,14 +11,7 @@ import { setSessionCookie } from "@/lib/admin/guard";
 import { resolvePanel } from "@/lib/admin/panel";
 import { ssoEnabled } from "@/lib/admin/sso";
 
-// In SSO mode there is no local admin account to create; the endpoint is a
-// plain 404 before any token handling happens.
-// First-run admin creation, gated twice: the secret /panel-<slug> path AND the
-// one-time setup token from the server console banner. A wrong slug or a
-// missing/invalid token is a plain 404 (notFound() is supported in Next 16
-// route handlers and yields the same bodyless 404), so probing this endpoint
-// reveals nothing. The token is consumed atomically inside claimAdmin the
-// moment setup succeeds.
+// First-run admin creation, gated twice: the secret /panel-<slug> path AND the one-time setup token from the server console banner. SSO mode = 404 (no local admin to create). A wrong slug or missing/invalid token is a plain 404 (notFound() in Next 16 route handlers yields the same bodyless 404), so probing reveals nothing. The token is consumed atomically inside claimAdmin on setup success.
 
 interface RouteContext {
   params: Promise<{ panel: string }>;
@@ -45,8 +38,7 @@ export async function POST(
     password?: unknown;
   };
 
-  // Token gate before anything else: requests without the valid one-time
-  // token get the same 404 as a wrong slug — no existence oracle.
+  // Token gate before anything else: requests without the valid one-time token get the same 404 as a wrong slug — no existence oracle.
   if (
     typeof token !== "string" ||
     context.setupToken === null ||
@@ -70,8 +62,7 @@ export async function POST(
     return NextResponse.json({ error: passwordError }, { status: 400 });
   }
 
-  // claimAdmin re-checks the token inside a serialized mutation, so a
-  // concurrent claim (or an already-consumed token) still fails closed here.
+  // claimAdmin re-checks the token inside a serialized mutation, so a concurrent claim (or an already-consumed token) still fails closed here.
   const claimed = await claimAdmin(
     defaultDataDir(),
     token,

@@ -6,8 +6,7 @@ use crate::git::{default_git_candidates, resolve_trusted_git};
 
 #[test]
 fn explicit_override_is_authoritative_over_defaults() {
-    // Use the running test binary as a stand-in absolute executable so the
-    // assertion holds on every platform without a real Git install.
+    // Use the test binary as a stand-in absolute executable so this holds without a real Git install.
     let executable = std::env::current_exe().expect("test binary path");
     let resolved = resolve_trusted_git(Some(executable.clone().into_os_string()));
     assert_eq!(resolved, Some(executable));
@@ -51,8 +50,7 @@ fn ai_evaluation_capability_never_claims_an_unrunnable_evaluator() {
     assert_eq!(feature["id"], "ai_evaluation");
     let evaluators = feature["evaluators"].as_array().unwrap();
     assert!(!evaluators.is_empty());
-    // The feature may claim implemented only when some evaluator can
-    // actually run end to end through this binary.
+    // Feature claims implemented only when some evaluator can actually run end to end.
     let any_implemented = evaluators
         .iter()
         .any(|evaluator| evaluator["status"] == "implemented");
@@ -61,8 +59,7 @@ fn ai_evaluation_capability_never_claims_an_unrunnable_evaluator() {
         any_implemented,
         "feature status must derive from the per-evaluator statuses"
     );
-    // The deterministic evaluator is now wired end to end, so it appears and
-    // claims implemented alongside the consent-gated external providers.
+    // The deterministic evaluator is wired end to end, so it appears as implemented.
     assert!(
         evaluators
             .iter()
@@ -72,8 +69,7 @@ fn ai_evaluation_capability_never_claims_an_unrunnable_evaluator() {
 
 #[test]
 fn default_candidates_are_absolute_paths() {
-    // The adapter rejects any non-absolute executable as untrusted, so every
-    // default candidate must be absolute (ADR 0002 rule 1).
+    // Default candidates must be absolute; the adapter rejects non-absolute paths (ADR 0002 rule 1).
     let candidates = default_git_candidates();
     assert!(!candidates.is_empty());
     assert!(candidates.iter().all(|path| path.is_absolute()));

@@ -67,7 +67,7 @@ impl<H: GitHubHttp> HostedGitHubAdapter<H> {
         Self { http }
     }
 
-    /// Returns the transport after collection for deterministic inspection.
+    /// Transport after collection for deterministic inspection.
     pub fn into_transport(self) -> H {
         self.http
     }

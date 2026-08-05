@@ -2,14 +2,11 @@ use std::{error::Error, fmt};
 
 use crate::http::RateLimitState;
 
-/// The failing collection stage, without repository data.
+/// Failing collection stage, without repository data.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CollectionStage {
-    /// Repository metadata lookup.
     Metadata,
-    /// Immutable revision resolution.
     Revision,
-    /// Recursive Git tree collection.
     Tree,
     /// Downstream streaming analysis sink.
     Sink,
@@ -27,24 +24,22 @@ impl fmt::Display for CollectionStage {
     }
 }
 
-/// A stable collection error category.
+/// Stable collection error category.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CollectionErrorKind {
     /// Outer transport failed before a response was available.
     Transport,
     /// GitHub returned an unexpected HTTP status.
     HttpStatus,
-    /// The repository or revision was not found.
     NotFound,
     /// Public collection was requested for a private repository.
     NotPublic,
-    /// GitHub rate limiting prevented collection.
     RateLimited,
     /// Structured response data violated the provider contract.
     InvalidProviderResponse,
-    /// A configured response byte bound was reached.
+    /// Configured response byte bound was reached.
     ResponseLimit,
-    /// The streaming consumer could not accept another item.
+    /// Streaming consumer could not accept another item.
     Sink,
 }
 
@@ -64,7 +59,7 @@ impl fmt::Display for CollectionErrorKind {
     }
 }
 
-/// A non-sensitive GitHub collection failure.
+/// Non-sensitive GitHub collection failure.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CollectionError {
     kind: CollectionErrorKind,
@@ -89,17 +84,15 @@ impl CollectionError {
         }
     }
 
-    /// Returns the stable error category.
     pub const fn kind(&self) -> CollectionErrorKind {
         self.kind
     }
 
-    /// Returns the failed stage.
     pub const fn stage(&self) -> CollectionStage {
         self.stage
     }
 
-    /// Returns explicit rate-limit state for rate-limit failures.
+    /// Explicit rate-limit state for rate-limit failures.
     pub const fn rate_limit(&self) -> Option<&RateLimitState> {
         self.rate_limit.as_ref()
     }

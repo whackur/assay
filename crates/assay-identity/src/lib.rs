@@ -3,13 +3,13 @@
 //! Assay normalizes a successful upstream OIDC assertion into its own account,
 //! opaque session, local role, and entitlement records. The durable account key
 //! is the validated `(issuer, subject)` pair, never email. This crate keys on a
-//! configured issuer only: no provider domain, claim convention, or role enum is
-//! hard-coded, and it queries no upstream user database.
+//! configured issuer only — no provider domain, claim convention, or role enum
+//! is hard-coded, and it queries no upstream user database.
 //!
-//! Signature and JWKS crypto sit behind the [`SignatureVerifier`] port, and the
-//! clock and entropy behind the [`Clock`] and [`EntropySource`] ports, so all
-//! validation, session, and policy logic here stays pure and deterministic. No
-//! network, filesystem, or process I/O happens in this crate.
+//! Signature and JWKS crypto sit behind the [`SignatureVerifier`] port; the
+//! clock and entropy behind [`Clock`] and [`EntropySource`], so all validation,
+//! session, and policy logic here stays pure and deterministic. No network,
+//! filesystem, or process I/O happens in this crate.
 
 #![forbid(unsafe_code)]
 

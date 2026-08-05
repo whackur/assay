@@ -4,10 +4,7 @@ use crate::scoring::dimensions::{DIMENSION_WEIGHTS, ESSENTIAL_DIMENSIONS, ScoreD
 
 pub(crate) const RULE_SET_DOMAIN: &[u8] = b"assay.project-intelligence.score-compiler.rule-set.v1";
 
-/// Versioned weight, sufficiency, applicability, and forecast policy.
-///
-/// Every field is versioned data folded into the published rule-set hash, so a
-/// weight or rule change is visible rather than a silent constant edit.
+/// Versioned weight, sufficiency, applicability, and forecast policy. Every field is versioned data folded into the published rule-set hash, so a weight or rule change is visible, not a silent constant edit.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CompilerPolicy {
     pub(crate) compiler_version: &'static str,

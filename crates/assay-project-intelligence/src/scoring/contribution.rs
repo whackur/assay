@@ -4,11 +4,7 @@ use crate::scoring::dimensions::ScoreDimension;
 use crate::scoring::error::{ScoreCompileError, ScoreCompileErrorKind};
 use crate::scoring::validation::{is_machine_code, sorted_unique, validate_normalized};
 
-/// One deterministic rule contribution to a single dimension.
-///
-/// The optional value is a normalized `0.0..=1.0` sub-score and is present for
-/// every applicability except `not_applicable`, which is an explicit exclusion
-/// rather than a zero contribution.
+/// One deterministic rule contribution to a single dimension. The optional value is a normalized `0.0..=1.0` sub-score, present for every applicability except `not_applicable` (an explicit exclusion, not a zero).
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeterministicContribution {
     rule_id: String,

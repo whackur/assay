@@ -10,19 +10,18 @@ use crate::units::{extract_units, match_units};
 
 /// Replaceable interface for structural comparison engines.
 pub trait SemanticDiffEngine {
-    /// Returns version metadata for provenance and cache keys.
+    /// Version metadata for provenance and cache keys.
     fn metadata(&self) -> EngineMetadata;
 
     /// Compares source bytes without executing them.
     fn analyze(&self, input: SemanticDiffInput<'_>) -> SemanticDiffResult;
 }
 
-/// Selected first adapter: native Rust bindings over pinned tree-sitter grammars.
+/// Native Rust bindings over pinned tree-sitter grammars.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NativeTreeSitterEngine;
 
 impl NativeTreeSitterEngine {
-    /// Creates the stateless engine.
     pub const fn new() -> Self {
         Self
     }

@@ -1,7 +1,4 @@
-/// Versioned classification confidence and applicability policy.
-///
-/// Every field is versioned data recorded on the outcome so a rule change is
-/// visible rather than a silent constant edit.
+/// Versioned classification confidence and applicability policy. Every field is versioned data recorded on the outcome so a rule change is visible, not a silent constant edit.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ClassificationPolicy {
     pub(crate) policy_version: &'static str,

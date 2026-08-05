@@ -8,12 +8,7 @@ use std::{
 
 use assay_ai_evaluator::{AgentIdentity, AgentRun, AgentRunError, AgentRunner, PreparedWorkspace};
 
-/// Bounded Codex CLI [`AgentRunner`]: spawns one `codex exec` subprocess with
-/// the snapshot as its constrained working directory, a read-only sandbox
-/// request, a bounded wall-clock runtime, and a bounded judgment size. A
-/// limit produces an explicit failure, never a fabricated result. The runner
-/// holds no Assay-managed secret: the agent authenticates through its own
-/// official login, and Assay never reads, copies, or transmits that store.
+/// Bounded Codex CLI [`AgentRunner`]: spawns one `codex exec` subprocess with the snapshot as its constrained working directory, a read-only sandbox request, bounded wall-clock runtime, and bounded judgment size. A limit produces an explicit failure, never a fabricated result. The runner holds no Assay-managed secret; the agent authenticates through its own login, which Assay never reads, copies, or transmits.
 #[derive(Debug)]
 pub struct CodexCliRunner {
     executable: PathBuf,
@@ -22,8 +17,7 @@ pub struct CodexCliRunner {
 }
 
 impl CodexCliRunner {
-    /// Binds a trusted absolute agent executable with explicit bounds.
-    /// A non-absolute executable is untrusted and rejected.
+    /// Binds a trusted absolute agent executable with explicit bounds. A non-absolute executable is untrusted and rejected.
     pub fn from_trusted_executable(
         executable: PathBuf,
         timeout: Duration,

@@ -5,10 +5,6 @@
 //! its shape: every section reports a status, a reason, and an allowed next
 //! action. Only explicit informed consent that acknowledges the provider and
 //! the transmitted-evidence scope may enable an external provider.
-//!
-//! The module is split by responsibility: [`types`] owns the public enums,
-//! the rendered [`SectionReport`], and the [`ExternalProvider`] identifier;
-//! [`state`] owns [`ConsentGrant`] and the aggregate [`ConsentState`].
 
 mod state;
 mod types;

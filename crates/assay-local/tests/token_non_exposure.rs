@@ -1,6 +1,5 @@
 //! Proves a resolved GitHub PAT never reaches an argument, log, result, error,
-//! stored record, or transport request. The token value is planted and then
-//! searched for across every observable surface.
+//! stored record, or transport request.
 
 use std::fs;
 
@@ -13,8 +12,7 @@ use tempfile::TempDir;
 
 const PLANTED_TOKEN: &str = "ghp_LEAKME_0123456789_secret";
 
-// A transport that records the request it was asked to perform. A correct
-// implementation records the credential-free request and never the token.
+// Records the request it was asked to perform, never the token.
 struct RecordingTransport {
     recorded: std::cell::RefCell<Vec<String>>,
 }
@@ -25,7 +23,7 @@ impl PrivateGitTransport for RecordingTransport {
         request: &PrivateFetchRequest,
         authorization: Option<&SecretToken>,
     ) -> Result<FetchOutcome, TransportError> {
-        // The header is built from the token but is not retained anywhere.
+        // Header is built from the token but not retained anywhere.
         let _header =
             authorization.map(|token| format!("Bearer {}", token.expose_for_authorization()));
         self.recorded
@@ -48,14 +46,13 @@ fn token_never_appears_on_any_observable_surface() {
     let var = GithubTokenEnvVar::parse("GITHUB_TOKEN").unwrap();
     let token = resolve_token(&environment, &var).unwrap();
 
-    // Positive control: the exposed value really is the planted token, so the
-    // absence assertions below have teeth.
+    // Positive control: the exposed value is the planted token, so absence assertions have teeth.
     assert_eq!(token.expose_for_authorization(), PLANTED_TOKEN);
 
     // Debug of the secret is redacted.
     assert_absent("secret debug", &format!("{token:?}"));
 
-    // The transport receives the token but records only the request.
+    // Transport receives the token but records only the request.
     let transport = RecordingTransport {
         recorded: std::cell::RefCell::new(Vec::new()),
     };
@@ -74,7 +71,7 @@ fn token_never_appears_on_any_observable_surface() {
     let error = resolve_token(&empty, &var).unwrap_err();
     assert_absent("resolution error", &error.to_string());
 
-    // The persisted local report and its on-disk record hold no token.
+    // Persisted local report and on-disk record hold no token.
     let analysis = json!({
         "schema_version": "1.0.0",
         "manifest": { "source_snapshot": { "source": {

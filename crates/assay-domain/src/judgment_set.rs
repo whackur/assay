@@ -6,9 +6,8 @@ use crate::error::DomainValueError;
 use crate::judgment::RubricJudgment;
 use crate::status::EvidenceStatus;
 
-/// A validated set of rubric judgments bound to one evidence bundle.
-///
-/// The compiler consumes this contract from any provider adapter. The bundle
+/// Validated set of rubric judgments bound to one evidence bundle.
+/// The compiler consumes this contract from any provider adapter; the bundle
 /// hash records which exact bounded evidence produced the judgments.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct RubricJudgmentSet {
@@ -21,7 +20,6 @@ pub struct RubricJudgmentSet {
 
 impl RubricJudgmentSet {
     /// Validates and canonicalizes one rubric judgment set.
-    ///
     /// A usable status carries judgments; a non-usable status carries none.
     /// Criteria are unique and ordered so compilation is deterministic.
     pub fn new(
@@ -57,27 +55,26 @@ impl RubricJudgmentSet {
         })
     }
 
-    /// Returns the Project Intelligence evaluation version boundary.
     pub const fn evaluation_version(&self) -> &AnalysisVersion {
         &self.evaluation_version
     }
 
-    /// Returns the rubric version that produced the judgments.
+    /// Rubric version that produced the judgments.
     pub const fn rubric_version(&self) -> &AnalysisVersion {
         &self.rubric_version
     }
 
-    /// Returns the availability of the judgment set as a whole.
+    /// Availability of the judgment set as a whole.
     pub const fn status(&self) -> EvidenceStatus {
         self.status
     }
 
-    /// Returns the content hash of the evidence bundle bound to every citation.
+    /// Content hash of the evidence bundle bound to every citation.
     pub const fn evidence_bundle_hash(&self) -> &ContentHash {
         &self.evidence_bundle_hash
     }
 
-    /// Returns judgments in canonical criterion order.
+    /// Judgments in canonical criterion order.
     pub fn judgments(&self) -> &[RubricJudgment] {
         &self.judgments
     }

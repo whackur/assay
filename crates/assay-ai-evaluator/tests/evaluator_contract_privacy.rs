@@ -164,8 +164,8 @@ fn snapshot_surface_provider_requires_snapshot_consent_even_for_public_repos() {
         ]
     };
 
-    // Public-only consent that acknowledged only the bundle facts is not
-    // sufficient for a provider that can transmit the whole snapshot.
+    // Public-only consent acknowledging only bundle facts is not sufficient
+    // for a provider that can transmit the whole snapshot.
     let bundle_only = EvidenceBundle::new(
         EvidenceScope::PublicOnly,
         ExternalTransmission::PublicOnly,
@@ -177,7 +177,7 @@ fn snapshot_surface_provider_requires_snapshot_consent_even_for_public_repos() {
         .unwrap_err();
     assert_eq!(error.kind(), EvaluationErrorKind::PrivacyMismatch);
 
-    // Consent that acknowledged the worktree-snapshot surface by name passes.
+    // Consent acknowledging the worktree-snapshot surface by name passes.
     let snapshot_acknowledged = EvidenceBundle::with_acknowledged_surface(
         EvidenceScope::PublicOnly,
         ExternalTransmission::PublicOnly,

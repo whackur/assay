@@ -1,9 +1,9 @@
-//! The append-only, file-based store of immutable local analysis records.
+//! Append-only, file-based store of immutable local analysis records.
 //!
 //! Each analysis appends a new immutable record; a rescan never overwrites a
 //! prior snapshot. Soft deletion, restoration, and purge are append-only
-//! journal operations reserved for the local administrator. There is no
-//! database: records are JSON files under a history root directory.
+//! journal operations reserved for the local administrator. No database:
+//! records are JSON files under a history root directory.
 
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -25,7 +25,7 @@ struct RecordFile {
     report: Value,
 }
 
-/// An append-only, file-based store of immutable local analysis records.
+/// Append-only, file-based store of immutable local analysis records.
 #[derive(Clone, Debug)]
 pub struct LocalHistoryStore {
     root: PathBuf,
@@ -41,8 +41,7 @@ impl LocalHistoryStore {
         Ok(Self { root })
     }
 
-    /// Appends a new immutable record and returns it. Never overwrites a prior
-    /// snapshot.
+    /// Appends a new immutable record and returns it. Never overwrites a prior snapshot.
     pub fn append(
         &self,
         report: Value,
@@ -86,8 +85,8 @@ impl LocalHistoryStore {
             .collect())
     }
 
-    /// Lists all present records with their lifecycle status ordered by
-    /// sequence. Purged records are absent because their content is removed.
+    /// Lists all present records with lifecycle status ordered by sequence.
+    /// Purged records are absent because their content is removed.
     pub fn list_all(&self) -> Result<Vec<StoredRecord>, HistoryError> {
         let statuses = journal_statuses(&self.root)?;
         let mut records = Vec::new();

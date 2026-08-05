@@ -104,37 +104,36 @@ impl AnalysisManifest {
         })
     }
 
-    /// Returns the overall analysis state without changing evidence states.
+    /// Overall analysis state without changing evidence states.
     pub const fn status(&self) -> AnalysisStatus {
         self.status
     }
 
-    /// Returns the immutable source snapshot.
     pub const fn source_snapshot(&self) -> &SourceSnapshot {
         &self.source_snapshot
     }
 
-    /// Returns the analysis contract version.
+    /// Analysis contract version.
     pub const fn analysis_version(&self) -> &AnalysisVersion {
         &self.analysis_version
     }
 
-    /// Returns the hash of the complete effective rule set.
+    /// Hash of the complete effective rule set.
     pub const fn rule_set_hash(&self) -> &RuleSetHash {
         &self.rule_set_hash
     }
 
-    /// Returns evidence sources in canonical evidence-ID order.
+    /// Evidence sources in canonical evidence-ID order.
     pub fn evidence_sources(&self) -> &[EvidenceSource] {
         &self.evidence_sources
     }
 
-    /// Returns warnings in canonical code order.
+    /// Warnings in canonical code order.
     pub fn warnings(&self) -> &[Warning] {
         &self.warnings
     }
 
-    /// Returns limitations in canonical code order.
+    /// Limitations in canonical code order.
     pub fn limitations(&self) -> &[Limitation] {
         &self.limitations
     }

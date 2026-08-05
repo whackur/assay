@@ -37,37 +37,35 @@ impl RepositorySnapshot {
         }
     }
 
-    /// Returns the portable domain snapshot pinned to full object IDs.
     pub const fn source_snapshot(&self) -> &SourceSnapshot {
         &self.source_snapshot
     }
 
-    /// Returns complete or explicit partial collection status.
+    /// Complete or explicit partial collection status.
     pub const fn status(&self) -> EvidenceStatus {
         self.status
     }
 
-    /// Returns tracked entries in Git tree byte order.
+    /// Tracked entries in Git tree byte order.
     pub fn entries(&self) -> &[TrackedEntry] {
         &self.entries
     }
 
-    /// Returns bounded history facts.
     pub const fn history(&self) -> &HistoryAvailability {
         &self.history
     }
 
-    /// Returns bounded first-parent change and rename facts.
+    /// Bounded first-parent change and rename facts.
     pub const fn parent_delta(&self) -> &ParentDelta {
         &self.parent_delta
     }
 
-    /// Returns adapter and installed Git provenance.
+    /// Adapter and installed Git provenance.
     pub const fn provenance(&self) -> &GitProvenance {
         &self.provenance
     }
 
-    /// Returns the immutable commit timestamp normalized to RFC 3339 UTC.
+    /// Immutable commit timestamp normalized to RFC 3339 UTC.
     pub fn commit_time(&self) -> &str {
         &self.commit_time
     }
@@ -87,12 +85,12 @@ impl ResolvedLocalRepository {
         Self { source, revision }
     }
 
-    /// Returns the content-derived path-independent source identity.
+    /// Content-derived path-independent source identity.
     pub const fn source(&self) -> &RepositorySource {
         &self.source
     }
 
-    /// Returns the exact commit used for reachable-root identity derivation.
+    /// Exact commit used for reachable-root identity derivation.
     pub const fn revision(&self) -> &RevisionId {
         &self.revision
     }
@@ -106,8 +104,7 @@ pub struct SnapshotRequest<'a> {
 }
 
 impl<'a> SnapshotRequest<'a> {
-    /// Creates a request. The source is portable; the local path is never
-    /// included in returned facts or diagnostics.
+    /// The source is portable; the local path is never included in returned facts or diagnostics.
     pub const fn new(repository: &'a Path, source: RepositorySource, revision: &'a OsStr) -> Self {
         Self {
             repository,

@@ -6,11 +6,7 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 
-// Pure credential and session-token primitives for the first-run admin flow.
-// Passwords are hashed with Node's built-in scrypt (no external dependency);
-// session tokens are an opaque random id signed with a server-side HMAC secret
-// so a cookie value cannot be forged or guessed. No Next.js imports here so
-// the module stays unit-testable under node:test.
+// Pure credential/session-token primitives for the first-run admin flow. scrypt for passwords, HMAC-signed opaque session ids. No Next.js imports so it stays unit-testable under node:test.
 
 const SCRYPT_N = 16384;
 const SCRYPT_R = 8;
@@ -76,21 +72,17 @@ export function newSessionId(): string {
   return randomBytes(18).toString("base64url");
 }
 
-// Per-deployment secret URL slug for the admin panel. 12 random bytes encode
-// to exactly 16 URL-safe base64url characters (~96 bits) — a capability
-// secret layered on top of, never instead of, session authentication.
+// Per-deployment secret panel slug: 12 random bytes -> 16 base64url chars (~96 bits). Capability secret layered on top of session auth.
 export function newAdminSlug(): string {
   return randomBytes(12).toString("base64url");
 }
 
-// One-time first-run setup token (Jenkins initialAdminPassword pattern).
-// Printed to the server console on boot and consumed when setup succeeds.
+// One-time first-run setup token (Jenkins initialAdminPassword pattern); printed to console on boot, consumed on setup success.
 export function newSetupToken(): string {
   return randomBytes(24).toString("base64url");
 }
 
-// Constant-time string equality for URL-carried secrets (slug, setup token).
-// Hashing both sides first hides length differences from the comparison.
+// Constant-time string equality for URL-carried secrets; hashing both sides hides length differences.
 export function constantTimeEquals(a: string, b: string): boolean {
   const digestA = createHash("sha256").update(a).digest();
   const digestB = createHash("sha256").update(b).digest();

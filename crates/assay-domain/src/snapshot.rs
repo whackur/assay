@@ -13,7 +13,7 @@ pub struct SourceSnapshot {
 }
 
 impl SourceSnapshot {
-    /// Creates a snapshot pinned to a full revision and optional root tree ID.
+    /// Snapshot pinned to a full revision and optional root tree ID.
     pub const fn new(
         source: RepositorySource,
         revision: RevisionId,
@@ -26,17 +26,17 @@ impl SourceSnapshot {
         }
     }
 
-    /// Returns the portable repository source.
+    /// Portable repository source.
     pub const fn source(&self) -> &RepositorySource {
         &self.source
     }
 
-    /// Returns the immutable analyzed revision.
+    /// Immutable analyzed revision.
     pub const fn revision(&self) -> &RevisionId {
         &self.revision
     }
 
-    /// Returns the immutable root tree ID when it was available.
+    /// Immutable root tree ID when it was available.
     pub const fn root_tree(&self) -> Option<&RevisionId> {
         self.root_tree.as_ref()
     }

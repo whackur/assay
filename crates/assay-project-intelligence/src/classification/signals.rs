@@ -48,11 +48,7 @@ impl TypeSignal {
     }
 }
 
-/// Priority order that resolves the primary type when several types are implied.
-///
-/// Specific artifact kinds win over general delivery forms; among delivery
-/// forms the most operationally specific declaration wins. This order is
-/// versioned policy data, not an incidental match order.
+/// Priority order resolving the primary type when several are implied. Specific artifact kinds win over general delivery forms; among delivery forms the most operationally specific declaration wins. Versioned policy data, not an incidental match order.
 pub(crate) const TYPE_PRIORITY: [ProjectType; 9] = [
     ProjectType::CuratedResource,
     ProjectType::ProtocolSpecificationStandard,
@@ -101,8 +97,7 @@ impl MaturitySignal {
     }
 }
 
-/// Maturity resolution priority. A stronger lifecycle or release signal wins
-/// over inactivity so a stable-but-quiet project is not misread as dormant.
+/// Maturity resolution priority. A stronger lifecycle or release signal wins over inactivity so a stable-but-quiet project is not misread as dormant.
 pub(crate) const MATURITY_PRIORITY: [MaturitySignal; 9] = [
     MaturitySignal::ArchivedRepository,
     MaturitySignal::MaintenanceModeDeclared,

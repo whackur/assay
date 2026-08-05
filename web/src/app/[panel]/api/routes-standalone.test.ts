@@ -1,7 +1,4 @@
-// Route-level contract tests for setup and login in standalone mode.
-// SSO-mode scenarios live in routes-sso.test.ts; shared helpers live in
-// routes.helpers.ts. Catalog and logout tests live in
-// routes-standalone-session.test.ts.
+// Route-level contract tests for setup and login in standalone mode. SSO-mode scenarios live in routes-sso.test.ts; shared helpers live in routes.helpers.ts. Catalog and logout tests live in routes-standalone-session.test.ts.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";

@@ -1,8 +1,6 @@
 import type { HostedSource } from "@/lib/contract/types";
 
-// Submission-side validation for specification 12.1. The initial release accepts
-// GitHub hosts only, preventing general URL fetching and SSRF via the field.
-// This canonicalizes and validates input; it does not fetch anything.
+// Submission-side validation for spec 12.1. The initial release accepts GitHub hosts only, preventing general URL fetching and SSRF via the field. Canonicalizes and validates input; does not fetch anything.
 
 const ALLOWED_HOSTS = new Set(["github.com", "www.github.com"]);
 const SEGMENT = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;

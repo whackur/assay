@@ -1,24 +1,23 @@
 //! Named-environment-variable resolution for a least-privilege GitHub PAT.
 //!
-//! The token value is never held in a command argument, log, result, error, or
-//! stored record. Only the variable *name* is retained; the value reaches the
+//! The token value never reaches a command argument, log, result, error, or
+//! stored record. Only the variable name is retained; the value reaches the
 //! transport boundary and nothing else.
 
 use std::collections::BTreeMap;
 use std::fmt;
 
-/// The name of an environment variable that may hold a GitHub PAT.
+/// Name of an environment variable that may hold a GitHub PAT.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GithubTokenEnvVar(String);
 
-/// A non-sensitive validation failure that never echoes a token value.
+/// Non-sensitive validation failure that never echoes a token value.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TokenEnvVarError {
     reason: &'static str,
 }
 
 impl TokenEnvVarError {
-    /// Returns a machine-stable, value-free reason code.
     pub const fn reason(self) -> &'static str {
         self.reason
     }
@@ -33,8 +32,7 @@ impl fmt::Display for TokenEnvVarError {
 impl std::error::Error for TokenEnvVarError {}
 
 impl GithubTokenEnvVar {
-    /// Parses a POSIX-style environment variable name. The argument is the
-    /// variable name, never the token value.
+    /// Parses a POSIX-style environment variable name. Argument is the name, never the token value.
     pub fn parse(name: &str) -> Result<Self, TokenEnvVarError> {
         let mut bytes = name.bytes();
         let first = bytes.next().ok_or(TokenEnvVarError {
@@ -56,19 +54,18 @@ impl GithubTokenEnvVar {
         Ok(Self(name.to_owned()))
     }
 
-    /// Returns the variable name. This is never the token value.
+    /// Never the token value.
     pub fn name(&self) -> &str {
         &self.0
     }
 }
 
-/// A GitHub token value that never appears in `Debug`, `Display`,
-/// serialization, logs, results, or error text. Its bytes leave only through
+/// GitHub token value that never appears in `Debug`, `Display`, serialization,
+/// logs, results, or error text. Bytes leave only through
 /// [`SecretToken::expose_for_authorization`] at the transport boundary.
 pub struct SecretToken(String);
 
 impl SecretToken {
-    /// Wraps a raw token value read from the environment.
     pub fn from_value(value: String) -> Self {
         Self(value)
     }
@@ -85,9 +82,8 @@ impl fmt::Debug for SecretToken {
     }
 }
 
-/// A source of environment variable values, injected for determinism.
+/// Source of environment variable values, injected for determinism.
 pub trait TokenEnvironment {
-    /// Reads the value bound to `var`, if any.
     fn read(&self, var: &GithubTokenEnvVar) -> Option<SecretToken>;
 }
 
@@ -101,14 +97,13 @@ impl TokenEnvironment for ProcessEnvironment {
     }
 }
 
-/// A deterministic in-memory environment for tests and fixtures.
+/// Deterministic in-memory environment for tests and fixtures.
 #[derive(Clone, Debug, Default)]
 pub struct MapEnvironment {
     values: BTreeMap<String, String>,
 }
 
 impl MapEnvironment {
-    /// Binds a variable name to a token value.
     pub fn with(mut self, name: &str, value: &str) -> Self {
         self.values.insert(name.to_owned(), value.to_owned());
         self
@@ -124,15 +119,13 @@ impl TokenEnvironment for MapEnvironment {
     }
 }
 
-/// Failure to resolve a configured token variable. Reports the variable name,
-/// never the token value.
+/// Failure to resolve a configured token variable. Reports the variable name, never the value.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TokenResolutionError {
     var: String,
 }
 
 impl TokenResolutionError {
-    /// Returns the variable name that was not set.
     pub fn variable(&self) -> &str {
         &self.var
     }
@@ -150,8 +143,7 @@ impl fmt::Display for TokenResolutionError {
 
 impl std::error::Error for TokenResolutionError {}
 
-/// Resolves a token value from the injected environment. The returned
-/// [`SecretToken`] is opaque; failure carries only the variable name.
+/// Resolves a token value from the injected environment. Failure carries only the variable name.
 pub fn resolve_token(
     environment: &dyn TokenEnvironment,
     var: &GithubTokenEnvVar,

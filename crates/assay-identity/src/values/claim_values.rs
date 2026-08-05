@@ -2,12 +2,11 @@ use std::str::FromStr;
 
 use super::error::{IdentityError, MAX_CLAIM_NAME_LENGTH, serde_via_try_from, validate_claim_text};
 
-/// A validated subject identifier. The durable account key never uses email.
+/// Validated subject identifier. The durable account key never uses email.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Subject(String);
 
 impl Subject {
-    /// Returns the subject claim value.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -32,12 +31,11 @@ impl TryFrom<String> for Subject {
 
 serde_via_try_from!(Subject);
 
-/// The audience Assay validates; a token issued only for another audience is rejected.
+/// Audience Assay validates; a token issued only for another audience is rejected.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Audience(String);
 
 impl Audience {
-    /// Returns the expected audience value.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -62,12 +60,11 @@ impl TryFrom<String> for Audience {
 
 serde_via_try_from!(Audience);
 
-/// The Assay client identifier registered with the issuer.
+/// Assay client identifier registered with the issuer.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct ClientId(String);
 
 impl ClientId {
-    /// Returns the client identifier value.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -92,12 +89,11 @@ impl TryFrom<String> for ClientId {
 
 serde_via_try_from!(ClientId);
 
-/// A safe claim name (for example a configured role-bearing claim). Never a value.
+/// Safe claim name (for example a configured role-bearing claim). Never a value.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct ClaimName(String);
 
 impl ClaimName {
-    /// Returns the claim name.
     pub fn as_str(&self) -> &str {
         &self.0
     }

@@ -1,16 +1,7 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import type { JWTVerifyGetKey } from "jose";
 
-// Optional SSO mode for deployments that trust an external identity provider
-// (an RS256-signing OIDC-style issuer such as hakhub.net). The mode is
-// selected purely by environment: setting ASSAY_SSO_JWKS_URL switches every
-// admin auth check from local sessions to JWT verification against that JWKS.
-// Without it, the standalone first-run flow (setup token, username/password,
-// admin.json sessions) is completely unchanged.
-//
-// The secret /panel-<slug> path stays in force in both modes — it is defense
-// in depth on top of, never instead of, real authentication. Verification is
-// strictly server-side; nothing here may run in the browser.
+// SSO mode: ASSAY_SSO_JWKS_URL switches admin auth to JWT verification; without it the first-run flow is unchanged. /panel-<slug> stays as defense in depth. Server-side only.
 
 export interface SsoConfig {
   /** JWKS endpoint of the identity provider. Presence enables SSO mode. */
@@ -35,8 +26,7 @@ export interface SsoIdentity {
   roles: string[];
 }
 
-// Config is re-read from the environment on every call (cheap string reads),
-// so tests can flip modes per test; only the JWKS fetcher below is cached.
+// Re-read env per call so tests can flip modes; only the JWKS fetcher is cached.
 export function getSsoConfig(): SsoConfig | null {
   const jwksUrl = process.env.ASSAY_SSO_JWKS_URL;
   if (!jwksUrl) return null;
@@ -54,9 +44,7 @@ export function ssoEnabled(): boolean {
   return getSsoConfig() !== null;
 }
 
-// The remote JWKS handle caches fetched keys internally, so it must survive
-// across requests: a module-level lazy singleton keyed by the URL (which only
-// changes in tests).
+// Remote JWKS caches fetched keys internally, so it must survive across requests: module-level lazy singleton keyed by URL.
 let cachedJwks: { url: string; getKey: JWTVerifyGetKey } | null = null;
 
 function remoteJwks(url: string): JWTVerifyGetKey {
@@ -68,10 +56,7 @@ function remoteJwks(url: string): JWTVerifyGetKey {
 
 let warnedMissingIssuer = false;
 
-// Builds the IdP hand-off URL for an unauthenticated admin page in SSO mode,
-// or null when no login URL is configured — the page then renders the same
-// 404 as a wrong slug. Pure so the redirect contract is unit-testable without
-// Next's request scope.
+// IdP hand-off URL for unauthenticated admin pages, or null when no login URL is configured (page then renders the same 404 as a wrong slug). Pure for unit testing.
 export function ssoLoginRedirect(returnUrl: string): string | null {
   const loginUrl = getSsoConfig()?.loginUrl;
   if (!loginUrl) return null;
@@ -80,16 +65,11 @@ export function ssoLoginRedirect(returnUrl: string): string | null {
   return target.toString();
 }
 
-// A bad token is business as usual and stays silent, but an unreachable JWKS
-// endpoint means NO admin can sign in — surface that to the operator, at most
-// once per interval so a broken IdP does not flood the logs.
+// Unreachable JWKS = no admin can sign in; throttle to avoid log flood from a broken IdP.
 const JWKS_WARNING_INTERVAL_MS = 5 * 60 * 1000;
 let lastJwksWarningAt = 0;
 
-// Token-shaped failures (bad signature, expired, wrong claims, malformed JWT,
-// no matching key) carry jose's ERR_JWT*/ERR_JWS*/no-matching-key codes.
-// Anything else out of jwtVerify — JWKS timeout, invalid JWKS document, plain
-// fetch/network failure — is a resolution problem with the endpoint itself.
+// jose ERR_JWT*/ERR_JWS*/no-matching-key codes are token-shaped failures; anything else is a JWKS endpoint resolution problem.
 function isTokenError(error: unknown): boolean {
   const code =
     typeof error === "object" && error !== null && "code" in error
@@ -113,13 +93,7 @@ function warnJwksUnreachable(url: string, error: unknown): void {
   );
 }
 
-// Verifies the SSO cookie and authorizes the admin role. Returns the identity
-// on success and null on ANY failure — missing cookie, bad signature, expired
-// token, wrong issuer/audience, missing role, unreachable JWKS. Callers treat
-// null as "not signed in"; this function never throws.
-//
-// `getKey` is injectable so tests can substitute jose's createLocalJWKSet for
-// the remote fetch; production callers omit it.
+// Verifies the SSO cookie and authorizes the admin role. Returns identity on success, null on ANY failure (callers treat null as "not signed in"; never throws). `getKey` is injectable for tests.
 export async function verifySsoAdmin(
   cookieValue: string | undefined,
   getKey?: JWTVerifyGetKey,
@@ -127,9 +101,7 @@ export async function verifySsoAdmin(
   const config = getSsoConfig();
   if (!config || !cookieValue) return null;
   if (!config.issuer) {
-    // Issuer pinning is mandatory in SSO mode; without it any token from any
-    // tenant of the JWKS host would pass. Fail closed (nobody authenticates)
-    // rather than falling back to local sessions.
+    // Issuer pinning is mandatory; without it any tenant of the JWKS host would pass. Fail closed.
     if (!warnedMissingIssuer) {
       warnedMissingIssuer = true;
       console.error(
@@ -163,10 +135,7 @@ export async function verifySsoAdmin(
           : subject;
     return { subject, username, roles };
   } catch (error) {
-    // Every failure is "not signed in" to the caller — verification errors
-    // never escape into a page render or route handler. But an unreachable
-    // JWKS endpoint (unlike a merely bad token) locks every admin out, so
-    // that one case gets a throttled operator warning.
+    // Unreachable JWKS locks every admin out, so that one case gets a throttled warning; other failures stay silent.
     if (!isTokenError(error)) {
       warnJwksUnreachable(config.jwksUrl, error);
     }

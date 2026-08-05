@@ -5,11 +5,7 @@ import { resolvePanel, type PanelContext } from "@/lib/admin/panel";
 import { ssoEnabled } from "@/lib/admin/sso";
 import { SetupForm } from "@/components/admin/SetupForm";
 
-// First-run setup, gated twice: the secret /panel-<slug> path AND the
-// one-time setup token printed to the server console at boot. Without both,
-// the page is the app's ordinary 404. Once an admin exists the token is
-// consumed and this page permanently redirects to sign-in. In SSO mode there
-// is no local admin account to create, so setup is a plain 404 outright.
+// First-run setup, gated twice: the secret /panel-<slug> path AND the one-time setup token printed to the server console at boot. Without both, the page is the app's ordinary 404. Once an admin exists the token is consumed and this page permanently redirects to sign-in. In SSO mode there is no local admin account to create, so setup is a plain 404 outright.
 
 export const dynamic = "force-dynamic";
 
@@ -54,8 +50,7 @@ export default async function SetupPage({ params, searchParams }: PageProps) {
   if (!context) notFound();
 
   if (context.configured) {
-    // Only reachable by someone who already holds the secret path; send the
-    // operator's stale bookmark to sign-in instead of a dead end.
+    // Only reachable by someone who already holds the secret path; send the operator's stale bookmark to sign-in instead of a dead end.
     redirect(`${context.basePath}/login`);
   }
 

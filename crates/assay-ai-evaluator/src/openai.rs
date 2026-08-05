@@ -1,14 +1,12 @@
 //! Server-managed OpenAI API adapter over the shared API-key family machinery.
 //!
-//! Only the OpenAI-specific parts live here: the chat request envelope, the
-//! `Authorization: Bearer` header form, HTTP status classification, and the
-//! `choices[0].message.content` response extraction, all expressed as an
-//! [`ApiProviderProfile`]. Everything shared across API-key providers — the
-//! injected [`SecretStore`](crate::SecretStore) and
-//! [`HttpTransport`](crate::HttpTransport) ports, envelope assembly around the
-//! canonical [`ProviderRequest`], the [`EvaluationSnapshot`] record, and the
-//! failure taxonomy — comes from [`crate::api`], and the untrusted response is
-//! validated by the one existing `Evaluator` path.
+//! Only OpenAI-specific parts live here: chat request envelope, `Authorization:
+//! Bearer` header form, HTTP status classification, and `choices[0].message.content`
+//! extraction, expressed as an [`ApiProviderProfile`]. Shared machinery —
+//! [`SecretStore`](crate::SecretStore), [`HttpTransport`](crate::HttpTransport),
+//! envelope assembly, [`EvaluationSnapshot`], failure taxonomy — comes from
+//! [`crate::api`]; the untrusted response is validated by the one existing
+//! `Evaluator` path.
 
 use std::time::Duration;
 
@@ -34,7 +32,7 @@ pub struct OpenAiConfig {
     pub timeout: Duration,
 }
 
-/// The OpenAI-specific request envelope, authentication form, and response
+/// OpenAI-specific request envelope, authentication form, and response
 /// extraction over the shared API-key family machinery.
 #[derive(Clone, Debug)]
 pub struct OpenAiProfile {

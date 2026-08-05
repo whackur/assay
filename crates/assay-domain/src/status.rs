@@ -4,13 +4,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EvidenceStatus {
-    /// The requested evidence was collected completely.
     Complete,
-    /// Some usable evidence was collected, with explicit gaps.
+    /// Some usable evidence collected, with explicit gaps.
     Partial,
-    /// The evidence could not be obtained from the requested source.
+    /// Evidence could not be obtained from the requested source.
     Unavailable,
-    /// The analyzer does not support this evidence source or content.
+    /// Analyzer does not support this evidence source or content.
     Unsupported,
     /// Evidence exists but is not sufficient for the requested interpretation.
     Insufficient,
@@ -22,13 +21,12 @@ pub enum EvidenceStatus {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AnalysisStatus {
-    /// All requested analysis completed.
     Complete,
-    /// A usable result completed with explicit gaps.
+    /// Usable result completed with explicit gaps.
     Partial,
     /// Analysis could not produce a usable result because required input was unavailable.
     Unavailable,
-    /// The requested analysis is not supported.
+    /// Requested analysis is not supported.
     Unsupported,
     /// Collected inputs are insufficient for the requested analysis.
     Insufficient,
@@ -36,7 +34,7 @@ pub enum AnalysisStatus {
     Pending,
 }
 
-/// A stable category for evidence provenance.
+/// Stable category for evidence provenance.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EvidenceSourceKind {

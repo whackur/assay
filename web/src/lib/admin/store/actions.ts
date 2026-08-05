@@ -1,6 +1,4 @@
-// Admin setup and session actions: claiming the first-run admin, issuing and
-// revoking sessions, and the bootstrap info used by the console banner and
-// slug validation.
+// Admin setup and session actions: claim first-run admin, issue/revoke sessions, bootstrap info for console banner and slug validation.
 
 import {
   constantTimeEquals,
@@ -19,10 +17,7 @@ export type ClaimAdminResult =
   | { ok: true; admin: AdminAccount }
   | { ok: false; error: "already_configured" | "invalid_token" };
 
-// The only way to create the admin account: present the one-time setup token.
-// Token check, account creation, and token consumption happen inside a single
-// serialized mutation, so concurrent claims cannot both succeed and the token
-// is dead the moment setup completes.
+// Only way to create the admin account: present the one-time setup token. Token check, account creation, and token consumption happen inside one serialized mutation so concurrent claims cannot both succeed and the token dies on setup completion.
 export async function claimAdmin(
   dir: string,
   setupToken: string,
@@ -50,8 +45,7 @@ export interface BootstrapInfo {
   setupToken: string | null;
 }
 
-// Slug + token for the first-boot console banner and slug validation.
-// Initializes the store on first boot so the banner can print real values.
+// Slug + token for the first-boot console banner and slug validation. Initializes the store on first boot so the banner prints real values.
 export async function getBootstrap(dir: string): Promise<BootstrapInfo> {
   const state = await loadOrInitState(dir);
   return {

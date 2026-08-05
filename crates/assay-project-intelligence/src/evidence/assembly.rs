@@ -21,12 +21,7 @@ use crate::evidence::raw_fact::RawEvidenceFact;
 use crate::evidence::source::EvidenceSourceRecord;
 use crate::evidence::types::{ClassificationAvailabilityReason, RawEvidenceKind};
 
-/// Combines one immutable snapshot with zero or more bound classification facts.
-///
-/// A missing classification becomes an explicit unavailable, citable record.
-/// Duplicate and foreign bindings fail closed. All supplied classifications,
-/// including unsupported attempts,
-/// must use one policy version.
+/// Combines one immutable snapshot with zero or more bound classification facts. A missing classification becomes an explicit unavailable, citable record. Duplicate and foreign bindings fail closed. All supplied classifications, including unsupported attempts, must use one policy version.
 pub fn assemble_project_evidence(
     snapshot: &RepositorySnapshot,
     classifications: impl IntoIterator<Item = ClassifiedSnapshotFile>,

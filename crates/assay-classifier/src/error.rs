@@ -1,12 +1,8 @@
 //! Validation error type shared across classifier inputs.
-//!
-//! Split from `lib.rs` so path, identifier, confidence, and policy-version
-//! validation can reuse one non-sensitive error without pulling in unrelated
-//! domain types.
 
 use std::{error::Error, fmt};
 
-/// A validation error that does not retain or echo rejected path input.
+/// Validation error that does not retain or echo rejected path input.
 #[derive(Clone, Eq, PartialEq)]
 pub struct ClassificationError {
     value_kind: &'static str,
@@ -42,12 +38,12 @@ impl ClassificationError {
         }
     }
 
-    /// Returns the stable input kind that failed validation.
+    /// Stable input kind that failed validation.
     pub const fn value_kind(&self) -> &'static str {
         self.value_kind
     }
 
-    /// Returns a non-sensitive reason that never includes the rejected value.
+    /// Non-sensitive reason that never includes the rejected value.
     pub const fn reason(&self) -> &'static str {
         self.reason
     }

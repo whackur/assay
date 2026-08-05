@@ -42,12 +42,7 @@ pub(crate) enum OutputFormat {
     Json,
 }
 
-/// Selectable evaluator IDs from the static registry (ADR 0012). The
-/// deterministic default performs rubric evaluation locally without network;
-/// the AI evaluator IDs are selectable so the interface is stable, but
-/// without an explicit [`assay_local::ConsentGrant`] no external provider is
-/// ever constructed and the evaluation section stays `disabled` with
-/// `user_consent_required`.
+/// Selectable evaluator IDs from the static registry (ADR 0012). The deterministic default runs locally without network; AI IDs stay selectable but without an explicit [`assay_local::ConsentGrant`] no external provider is constructed and the evaluation section stays `disabled`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub(crate) enum Evaluator {
     Deterministic,
@@ -84,8 +79,7 @@ pub(crate) struct AnalyzeArgs {
     pub(crate) no_color: bool,
     #[arg(long)]
     pub(crate) non_interactive: bool,
-    /// Name of an environment variable holding a least-privilege GitHub PAT.
-    /// The token value is never read into an argument, log, result, or record.
+    /// Name of an environment variable holding a least-privilege GitHub PAT. The value is never read into an argument, log, result, or record.
     #[arg(long, value_name = "VAR")]
     pub(crate) github_token_env: Option<String>,
     /// Append the analysis to an immutable local history directory.
