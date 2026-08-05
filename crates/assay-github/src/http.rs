@@ -113,9 +113,7 @@ pub enum RateLimitState {
         retry_after_seconds: Option<u64>,
     },
     /// GitHub applied a secondary or abuse limit.
-    SecondaryLimited {
-        retry_after_seconds: Option<u64>,
-    },
+    SecondaryLimited { retry_after_seconds: Option<u64> },
     /// Rate headers missing or invalid; this is not unlimited capacity.
     Unknown,
 }

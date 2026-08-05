@@ -184,7 +184,10 @@ mod tests {
 
     #[test]
     fn worker_concurrency_default_is_three() {
-        assert_eq!(bounded_env("ASSAY_TEST_UNSET_CONCURRENCY", 3, 1, 3).unwrap(), 3);
+        assert_eq!(
+            bounded_env("ASSAY_TEST_UNSET_CONCURRENCY", 3, 1, 3).unwrap(),
+            3
+        );
     }
 
     #[test]
